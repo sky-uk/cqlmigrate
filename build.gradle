@@ -1,0 +1,41 @@
+plugins {
+    id 'java'
+    id 'idea'
+    id 'maven'
+}
+
+sourceCompatibility = '1.7'
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.7'
+}
+
+dependencies {
+    compile 'com.datastax.cassandra:cassandra-driver-core:2.0.3'
+    compile 'com.google.guava:guava:18.0'
+    compile 'org.slf4j:slf4j-api:1.7.12'
+    compile 'com.google.code.findbugs:jsr305:3.0.0'
+
+    testCompile 'org.apache.logging.log4j:log4j-slf4j-impl:2.2'
+    testCompile 'org.apache.logging.log4j:log4j-core:2.2'
+    testCompile 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.5.2'
+    testCompile 'junit:junit:4.12'
+    testCompile 'org.assertj:assertj-core:2.0.0'
+    testCompile 'org.mockito:mockito-core:1.10.19'
+}
+
+task sourcesJar(type: Jar) {
+    classifier = 'sources'
+    from sourceSets.main.allJava
+}
+
+idea {
+    module {
+        downloadSources = true
+    }
+}
+
+artifacts {
+    archives sourcesJar
+    archives jar
+}

@@ -1,0 +1,7 @@
+build/
+cqlmigrate.iws
+out/
+.gradle
+*.iml
+*.ipr
+.idea
