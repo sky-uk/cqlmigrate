@@ -26,7 +26,7 @@ class Paths {
     static Paths create(Collection<Path> directories) {
         Map<String, Path> paths = new HashMap<>();
         for (Path directory : directories) {
-            try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(directory, "*.{cql,graphml}")) {
+            try (DirectoryStream<Path> directoryStream = Files.newDirectoryStream(directory, "*.cql")) {
                 for (Path path : directoryStream) {
                     Path previous = paths.put(path.getFileName().toString(), path.toAbsolutePath());
                     if (previous != null) {

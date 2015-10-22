@@ -43,7 +43,7 @@ class SchemaUpdates {
     }
 
     @Nullable
-    private com.datastax.driver.core.Row getSchemaUpdate(Session session, String filename) {
+    private Row getSchemaUpdate(Session session, String filename) {
         return session.execute("SELECT * FROM " + SCHEMA_UPDATES_TABLE + " where filename = ?", filename)
                       .one();
     }
@@ -65,8 +65,7 @@ class SchemaUpdates {
         String query = "INSERT INTO " + SCHEMA_UPDATES_TABLE + " (filename, " + CHECKSUM_COLUMN + ", applied_on)" +
                 " VALUES (?, ?, dateof(now()));";
         LOGGER.debug("Applying schema cql: {} path: {}", query, path);
-        session.execute(query,
-                        filename, calculateChecksum(path));
+        session.execute(query, filename, calculateChecksum(path));
     }
 
     private String calculateChecksum(Path path) {
