@@ -7,6 +7,7 @@ import com.datastax.driver.core.Session;
 import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import uk.sky.cirrus.locking.Lock;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -36,6 +37,8 @@ public final class CqlMigrator {
         try (Cluster cluster = createCluster(hosts);
              Session session = cluster.connect()) {
 
+            Lock lock = Lock.acquire(keyspace, session);
+
             LOGGER.info("Loading cql files from {}", directories);
             Paths paths = Paths.create(directories);
 
@@ -46,11 +49,12 @@ public final class CqlMigrator {
             keyspaceBootstrapper.bootstrap();
             schemaUpdates.initialise();
             schemaLoader.load();
+
+            lock.release();
         }
     }
 
     public void clean(Collection<String> hosts, String keyspace) {
-
         try (Cluster cluster = createCluster(hosts);
              Session session = cluster.connect()) {
 
@@ -64,14 +68,15 @@ public final class CqlMigrator {
         queryOptions.setConsistencyLevel(ConsistencyLevel.ALL);
 
         return Cluster.builder()
-                      .addContactPoints(hosts.toArray(new String[]{}))
-                      .withQueryOptions(queryOptions)
-                      .build();
+                .addContactPoints(hosts.toArray(new String[]{}))
+                .withQueryOptions(queryOptions)
+                .build();
     }
 
     private static String getProperty(String propertyName) {
         String property = System.getProperty(propertyName);
-        if (property == null || property.isEmpty()) throw new IllegalArgumentException("Expected " + propertyName + " property to be set.");
+        if (property == null || property.isEmpty())
+            throw new IllegalArgumentException("Expected " + propertyName + " property to be set.");
         return property;
     }
 }

@@ -1,40 +1,53 @@
 package uk.sky.cirrus;
 
 import com.datastax.driver.core.*;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.*;
+import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
 
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 
 import static java.util.Arrays.asList;
+import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.junit.Assert.fail;
 
 public class CqlMigratorTest {
 
-    private final Collection<String> CASSANDRA_HOSTS = asList("localhost");
-    private final String TEST_KEYSPACE = "cqlmigrate_test";
-    private final CqlMigrator migrator = new CqlMigrator();
-    private final Cluster cluster = Cluster.builder().addContactPoints(CASSANDRA_HOSTS.toArray(new String[]{})).build();
+    private static final Collection<String> CASSANDRA_HOSTS = singletonList("localhost");
+    private static final Cluster cluster = Cluster.builder().addContactPoints(CASSANDRA_HOSTS.toArray(new String[CASSANDRA_HOSTS.size()])).build();
+    private static final Session session = cluster.connect();
+    private static final String TEST_KEYSPACE = "cqlmigrate_test";
+    private static final String LOCK_NAME = TEST_KEYSPACE + ".schema_migration";
+    private static final CqlMigrator migrator = new CqlMigrator();
+
+    @BeforeClass
+    public static void setUpClass() throws Exception {
+        session.execute("CREATE KEYSPACE locks WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1}");
+        session.execute("CREATE TABLE locks.locks (name text PRIMARY KEY, client uuid)");
+    }
 
     @Before
     public void setUp() throws Exception {
-        cluster.connect().execute("drop keyspace if exists cqlmigrate_test");
+        session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test");
     }
 
     @After
     public void tearDown() {
-        cluster.closeAsync();
+        session.execute("TRUNCATE locks.locks");
+
         System.clearProperty("hosts");
         System.clearProperty("keyspace");
         System.clearProperty("directories");
+    }
+
+    @AfterClass
+    public static void tearDownClass() throws Exception {
+        session.execute("DROP KEYSPACE locks");
+        cluster.closeAsync();
     }
 
     private Path getResourcePath(String resourcePath) throws URISyntaxException {
@@ -45,7 +58,7 @@ public class CqlMigratorTest {
     public void shouldRunTheBootstrapCqlIfKeyspaceDoesNotExist() throws Exception {
         //given
         Path cqlPath = getResourcePath("cql_bootstrap");
-        Collection<Path> cqlPaths = asList(cqlPath);
+        Collection<Path> cqlPaths = singletonList(cqlPath);
 
         //when
         migrator.migrate(CASSANDRA_HOSTS, TEST_KEYSPACE, cqlPaths);
@@ -58,11 +71,56 @@ public class CqlMigratorTest {
         }
     }
 
+    @Test
+    public void shouldThrowCannotAcquireLockExceptionIfLockCannotBeAcquired() throws Exception {
+        //given
+        UUID client = UUID.randomUUID();
+        session.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, client);
+
+        Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
+
+        //when
+        Throwable throwable = catchThrowable(() -> migrator.migrate(CASSANDRA_HOSTS, TEST_KEYSPACE, cqlPaths));
+
+        //then
+        assertThat(throwable).isInstanceOf(CannotAcquireLockException.class);
+        assertThat(throwable.getMessage()).isEqualTo("Lock currently in use by client: " + client);
+    }
+
+    @Test
+    public void shouldMigrateSchemaIfLockCanBeAcquired() throws Exception {
+        //given
+        Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
+
+        //when
+        migrator.migrate(CASSANDRA_HOSTS, TEST_KEYSPACE, cqlPaths);
+
+        //then
+        try {
+            cluster.connect(TEST_KEYSPACE);
+        } catch (Throwable t) {
+            fail("Should have successfully connected, but got " + t);
+        }
+    }
+
+    @Test
+    public void shouldRemoveLockAfterMigration() throws Exception {
+        //given
+        Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
+
+        //when
+        migrator.migrate(CASSANDRA_HOSTS, TEST_KEYSPACE, cqlPaths);
+
+        //then
+        ResultSet resultSet = session.execute("SELECT * FROM locks.locks WHERE name = ?", LOCK_NAME);
+        assertThat(resultSet.isExhausted()).as("Is lock released").isTrue();
+    }
+
     @Test(expected = RuntimeException.class)
     public void shouldThrowExceptionForInvalidBootstrap() throws Exception {
         //given
         Path cqlPath = getResourcePath("cql_invalid_bootstrap");
-        Collection<Path> cqlPaths = asList(cqlPath);
+        Collection<Path> cqlPaths = singletonList(cqlPath);
 
         //when
         migrator.migrate(CASSANDRA_HOSTS, TEST_KEYSPACE, cqlPaths);
@@ -75,7 +133,7 @@ public class CqlMigratorTest {
     public void shouldThrowExceptionForBootstrapWithMissingSemiColon() throws Exception {
         //given
         Path cqlPath = getResourcePath("cql_bootstrap_missing_semicolon");
-        Collection<Path> cqlPaths = asList(cqlPath);
+        Collection<Path> cqlPaths = singletonList(cqlPath);
 
         //when
         migrator.migrate(CASSANDRA_HOSTS, TEST_KEYSPACE, cqlPaths);
@@ -186,7 +244,7 @@ public class CqlMigratorTest {
 
         //when
         try {
-            Collection<Path> differentContentsPaths = asList(getResourcePath("cql_create_status_different_contents"));
+            Collection<Path> differentContentsPaths = singletonList(getResourcePath("cql_create_status_different_contents"));
             migrator.migrate(CASSANDRA_HOSTS, TEST_KEYSPACE, differentContentsPaths);
             fail("Should have died");
         } catch (RuntimeException e) {
@@ -201,7 +259,7 @@ public class CqlMigratorTest {
     @Test
     public void shouldNotLoadAnyCqlFilesInSubDirectories() throws Exception {
         //given
-        Collection<Path> cqlPaths = asList(getResourcePath("cql_sub_directories"));
+        Collection<Path> cqlPaths = singletonList(getResourcePath("cql_sub_directories"));
 
         //when
         try {
