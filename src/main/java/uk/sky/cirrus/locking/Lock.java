@@ -1,9 +1,11 @@
 package uk.sky.cirrus.locking;
 
 import com.datastax.driver.core.*;
+import com.google.common.util.concurrent.Uninterruptibles;
 import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
 
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static com.datastax.driver.core.ConsistencyLevel.ALL;
 
@@ -35,6 +37,7 @@ public class Lock {
             if (lockAcquired) {
                 return new Lock(name, session);
             } else {
+                Uninterruptibles.sleepUninterruptibly(500, TimeUnit.MILLISECONDS);
                 long currentDuration = System.currentTimeMillis() - startTime;
                 if (currentDuration >= TIMEOUT) {
                     throw new CannotAcquireLockException("Lock currently in use by client: " + lock.getUUID("client"));

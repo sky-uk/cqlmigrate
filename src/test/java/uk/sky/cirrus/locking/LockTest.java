@@ -16,6 +16,7 @@ import uk.sky.cirrus.util.PortScavenger;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.scassandra.http.client.PrimingRequest.then;
 
 public class LockTest {
@@ -45,6 +46,8 @@ public class LockTest {
                 .withPort(BINARY_PORT)
                 .build();
         session = cluster.connect();
+
+        activityClient.clearAllRecordedActivity();
     }
 
     @After
@@ -102,6 +105,38 @@ public class LockTest {
                 .build();
 
         assertThat(activityClient.retrieveQueries()).contains(expectedQuery);
+    }
+
+    @Test
+    public void shouldOnlyRetryAttemptToAcquireLockEvery500Milliseconds() throws Exception {
+        //given
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                .withThen(then()
+                        .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
+                        .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", false)))
+                .build()
+        );
+
+        //when
+        Throwable throwable = catchThrowable(() -> Lock.acquire(LOCK_KEYSPACE, session));
+
+        //then
+        assertThat(throwable).isNotNull();
+
+        Query expectedQuery = Query.builder()
+                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                .withConsistency("ALL")
+                .build();
+
+        assertThat(activityClient.retrieveQueries()).containsExactly(
+                expectedQuery,
+                expectedQuery,
+                expectedQuery,
+                expectedQuery,
+                expectedQuery,
+                expectedQuery
+        );
     }
 
 }
