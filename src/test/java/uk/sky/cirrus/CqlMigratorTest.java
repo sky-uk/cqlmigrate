@@ -8,6 +8,10 @@ import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
@@ -23,6 +27,7 @@ public class CqlMigratorTest {
     private static final String TEST_KEYSPACE = "cqlmigrate_test";
     private static final String LOCK_NAME = TEST_KEYSPACE + ".schema_migration";
     private static final CqlMigrator migrator = new CqlMigrator();
+    private ExecutorService executorService;
 
     @BeforeClass
     public static void setUpClass() throws Exception {
@@ -33,12 +38,13 @@ public class CqlMigratorTest {
     @Before
     public void setUp() throws Exception {
         session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test");
+        executorService = Executors.newFixedThreadPool(1);
     }
 
     @After
     public void tearDown() {
         session.execute("TRUNCATE locks.locks");
-
+        executorService.shutdownNow();
         System.clearProperty("hosts");
         System.clearProperty("keyspace");
         System.clearProperty("directories");
@@ -71,8 +77,8 @@ public class CqlMigratorTest {
         }
     }
 
-    @Test
-    public void shouldThrowCannotAcquireLockExceptionIfLockCannotBeAcquired() throws Exception {
+    @Test(timeout = 4000)
+    public void shouldThrowCannotAcquireLockExceptionIfLockCannotBeAcquiredAfterTimeout() throws Exception {
         //given
         UUID client = UUID.randomUUID();
         session.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, client);
@@ -80,11 +86,14 @@ public class CqlMigratorTest {
         Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
 
         //when
-        Throwable throwable = catchThrowable(() -> migrator.migrate(CASSANDRA_HOSTS, TEST_KEYSPACE, cqlPaths));
+        Future<?> future = executorService.submit(() -> migrator.migrate(CASSANDRA_HOSTS, TEST_KEYSPACE, cqlPaths));
+        Thread.sleep(3100);
+        Throwable throwable = catchThrowable(future::get);
 
         //then
-        assertThat(throwable).isInstanceOf(CannotAcquireLockException.class);
-        assertThat(throwable.getMessage()).isEqualTo("Lock currently in use by client: " + client);
+        assertThat(throwable).isInstanceOf(ExecutionException.class);
+        assertThat(throwable.getCause()).isInstanceOf(CannotAcquireLockException.class);
+        assertThat(throwable.getCause().getMessage()).isEqualTo("Lock currently in use by client: " + client);
     }
 
     @Test
@@ -114,6 +123,26 @@ public class CqlMigratorTest {
         //then
         ResultSet resultSet = session.execute("SELECT * FROM locks.locks WHERE name = ?", LOCK_NAME);
         assertThat(resultSet.isExhausted()).as("Is lock released").isTrue();
+    }
+
+    @Test
+    public void shouldRetryWhenAcquiringLockIfNotInitiallyAvailable() throws Exception {
+        //given
+        session.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, UUID.randomUUID());
+        Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
+
+        //when
+        Future<?> future = executorService.submit(() -> migrator.migrate(CASSANDRA_HOSTS, TEST_KEYSPACE, cqlPaths));
+        session.execute("TRUNCATE locks.locks");
+        Thread.sleep(1000);
+        future.get();
+
+        //then
+        try {
+            cluster.connect(TEST_KEYSPACE);
+        } catch (Throwable t) {
+            fail("Should have successfully connected, but got " + t);
+        }
     }
 
     @Test(expected = RuntimeException.class)

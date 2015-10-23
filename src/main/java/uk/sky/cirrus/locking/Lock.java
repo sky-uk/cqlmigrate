@@ -5,11 +5,12 @@ import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
 
 import java.util.UUID;
 
-import static com.datastax.driver.core.ConsistencyLevel.*;
+import static com.datastax.driver.core.ConsistencyLevel.ALL;
 
 public class Lock {
 
     private static final UUID CLIENT = UUID.randomUUID();
+    private static final long TIMEOUT = 3000;
 
     private final String name;
     private final Session session;
@@ -21,19 +22,26 @@ public class Lock {
 
     public static Lock acquire(String keyspace, Session session) {
         String name = keyspace + ".schema_migration";
-
         Statement query = new SimpleStatement("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS", name, CLIENT)
                 .setConsistencyLevel(ALL);
 
-        ResultSet resultSet = session.execute(query);
-        Row lock = resultSet.one();
-        boolean lockAcquired = lock.getBool("[applied]");
+        long startTime = System.currentTimeMillis();
 
-        if (lockAcquired) {
-            return new Lock(name, session);
-        } else {
-            throw new CannotAcquireLockException("Lock currently in use by client: " + lock.getUUID("client"));
+        while(true) {
+            ResultSet resultSet = session.execute(query);
+            Row lock = resultSet.one();
+            boolean lockAcquired = lock.getBool("[applied]");
+
+            if (lockAcquired) {
+                return new Lock(name, session);
+            } else {
+                long currentDuration = System.currentTimeMillis() - startTime;
+                if (currentDuration >= TIMEOUT) {
+                    throw new CannotAcquireLockException("Lock currently in use by client: " + lock.getUUID("client"));
+                }
+            }
         }
+
     }
 
     public void release() {
