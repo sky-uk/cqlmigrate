@@ -5,6 +5,8 @@ import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
 
 import java.util.UUID;
 
+import static com.datastax.driver.core.ConsistencyLevel.*;
+
 public class Lock {
 
     private static final UUID CLIENT = UUID.randomUUID();
@@ -20,7 +22,10 @@ public class Lock {
     public static Lock acquire(String keyspace, Session session) {
         String name = keyspace + ".schema_migration";
 
-        ResultSet resultSet = session.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS", name, CLIENT);
+        Statement query = new SimpleStatement("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS", name, CLIENT)
+                .setConsistencyLevel(ALL);
+
+        ResultSet resultSet = session.execute(query);
         Row lock = resultSet.one();
         boolean lockAcquired = lock.getBool("[applied]");
 
@@ -32,6 +37,8 @@ public class Lock {
     }
 
     public void release() {
-        session.execute("DELETE FROM locks.locks WHERE name = ? IF EXISTS", name);
+        Statement query = new SimpleStatement("DELETE FROM locks.locks WHERE name = ?", name)
+                .setConsistencyLevel(ALL);
+        session.execute(query);
     }
 }
