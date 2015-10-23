@@ -8,6 +8,7 @@ import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.sky.cirrus.locking.Lock;
+import uk.sky.cirrus.locking.LockConfig;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -16,6 +17,16 @@ import java.util.Collection;
 public final class CqlMigrator {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CqlMigrator.class);
+
+    private final LockConfig lockConfig;
+
+    public CqlMigrator() {
+        this.lockConfig = new LockConfig();
+    }
+
+    public CqlMigrator(LockConfig lockConfig) {
+        this.lockConfig = lockConfig;
+    }
 
     public static void main(String[] args) {
 
@@ -29,7 +40,7 @@ public final class CqlMigrator {
             directories.add(java.nio.file.Paths.get(directoryString));
         }
 
-        new CqlMigrator().migrate(hosts, keyspaceProperty, directories);
+        new CqlMigrator(new LockConfig()).migrate(hosts, keyspaceProperty, directories);
     }
 
     public void migrate(Collection<String> hosts, String keyspace, Collection<Path> directories) {
@@ -37,7 +48,7 @@ public final class CqlMigrator {
         try (Cluster cluster = createCluster(hosts);
              Session session = cluster.connect()) {
 
-            Lock lock = Lock.acquire(keyspace, session);
+            Lock lock = Lock.acquire(lockConfig, keyspace, session);
 
             LOGGER.info("Loading cql files from {}", directories);
             Paths paths = Paths.create(directories);

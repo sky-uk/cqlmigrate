@@ -13,6 +13,7 @@ import org.scassandra.http.client.types.ColumnMetadata;
 import org.scassandra.junit.ScassandraServerRule;
 import uk.sky.cirrus.util.PortScavenger;
 
+import java.time.Duration;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -67,7 +68,7 @@ public class LockTest {
         );
 
         //when
-        Lock.acquire(LOCK_KEYSPACE, session);
+        Lock.acquire(new LockConfig(), LOCK_KEYSPACE, session);
 
         //then
         Query expectedQuery = Query.builder()
@@ -95,7 +96,7 @@ public class LockTest {
         );
 
         //when
-        Lock lock = Lock.acquire(LOCK_KEYSPACE, session);
+        Lock lock = Lock.acquire(new LockConfig(), LOCK_KEYSPACE, session);
         lock.release();
 
         //then
@@ -108,7 +109,7 @@ public class LockTest {
     }
 
     @Test
-    public void shouldOnlyRetryAttemptToAcquireLockEvery500Milliseconds() throws Exception {
+    public void shouldOnlyRetryAttemptToAcquireLockAfterConfiguredInterval() throws Exception {
         //given
         primingClient.prime(PrimingRequest.queryBuilder()
                 .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
@@ -118,8 +119,12 @@ public class LockTest {
                 .build()
         );
 
+        LockConfig lockConfig = new LockConfig(Duration.ofMillis(50), Duration.ofMillis(300));
+
         //when
-        Throwable throwable = catchThrowable(() -> Lock.acquire(LOCK_KEYSPACE, session));
+        Throwable throwable = catchThrowable(() -> {
+            Lock.acquire(lockConfig, LOCK_KEYSPACE, session);
+        });
 
         //then
         assertThat(throwable).isNotNull();

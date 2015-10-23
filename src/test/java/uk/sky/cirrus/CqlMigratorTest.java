@@ -2,11 +2,13 @@ package uk.sky.cirrus;
 
 import com.datastax.driver.core.*;
 import org.junit.*;
+import uk.sky.cirrus.locking.LockConfig;
 import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
 
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -77,9 +79,11 @@ public class CqlMigratorTest {
         }
     }
 
-    @Test(timeout = 4000)
+    @Test(timeout = 500)
     public void shouldThrowCannotAcquireLockExceptionIfLockCannotBeAcquiredAfterTimeout() throws Exception {
         //given
+        CqlMigrator migrator = new CqlMigrator(new LockConfig(Duration.ofMillis(50), Duration.ofMillis(300)));
+
         UUID client = UUID.randomUUID();
         session.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, client);
 
@@ -87,7 +91,7 @@ public class CqlMigratorTest {
 
         //when
         Future<?> future = executorService.submit(() -> migrator.migrate(CASSANDRA_HOSTS, TEST_KEYSPACE, cqlPaths));
-        Thread.sleep(3100);
+        Thread.sleep(310);
         Throwable throwable = catchThrowable(future::get);
 
         //then
