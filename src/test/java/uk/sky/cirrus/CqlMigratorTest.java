@@ -79,7 +79,7 @@ public class CqlMigratorTest {
         }
     }
 
-    @Test(timeout = 500)
+    @Test(timeout = 550)
     public void shouldThrowCannotAcquireLockExceptionIfLockCannotBeAcquiredAfterTimeout() throws Exception {
         //given
         CqlMigrator migrator = new CqlMigrator(new LockConfig(Duration.ofMillis(50), Duration.ofMillis(300)));

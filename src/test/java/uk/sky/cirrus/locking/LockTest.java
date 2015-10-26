@@ -11,6 +11,8 @@ import org.scassandra.http.client.PrimingRequest;
 import org.scassandra.http.client.Query;
 import org.scassandra.http.client.types.ColumnMetadata;
 import org.scassandra.junit.ScassandraServerRule;
+import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
+import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
 import uk.sky.cirrus.util.PortScavenger;
 
 import java.time.Duration;
@@ -143,5 +145,61 @@ public class LockTest {
                 expectedQuery
         );
     }
+
+    @Test
+    public void shouldThrowExceptionIfQueryFailsToExecuteWhenAcquiringLock() throws Exception {
+        //given
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                .withThen(then()
+                        .withResult(PrimingRequest.Result.unavailable))
+                .build()
+        );
+
+        LockConfig lockConfig = new LockConfig(Duration.ofMillis(50), Duration.ofMillis(300));
+
+        //when
+        Throwable throwable = catchThrowable(() -> {
+            Lock.acquire(lockConfig, LOCK_KEYSPACE, session);
+        });
+
+        //then
+        assertThat(throwable).isNotNull();
+        assertThat(throwable).isInstanceOf(CannotAcquireLockException.class);
+        assertThat(throwable.getCause()).isNotNull();
+        assertThat(throwable).hasMessage("Query failed to execute");
+    }
+
+    @Test
+    public void shouldThrowExceptionIfQueryFailsToExecuteWhenReleasingLock() throws Exception {
+        //given
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                .withThen(then()
+                        .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
+                        .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", true)))
+                .build()
+        );
+
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery("DELETE FROM locks.locks WHERE name = ?")
+                .withThen(then()
+                        .withResult(PrimingRequest.Result.unavailable))
+                .build()
+        );
+
+        LockConfig lockConfig = new LockConfig(Duration.ofMillis(50), Duration.ofMillis(300));
+        Lock lock = Lock.acquire(lockConfig, LOCK_KEYSPACE, session);
+
+        //when
+        Throwable throwable = catchThrowable(lock::release);
+
+        //then
+        assertThat(throwable).isNotNull();
+        assertThat(throwable).isInstanceOf(CannotReleaseLockException.class);
+        assertThat(throwable.getCause()).isNotNull();
+        assertThat(throwable).hasMessage("Query failed to execute");
+    }
+
 
 }
