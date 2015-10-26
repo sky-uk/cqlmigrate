@@ -3,6 +3,7 @@ package uk.sky.cirrus.locking;
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.Session;
 import com.google.common.collect.ImmutableMap;
+import org.assertj.core.api.ThrowableAssert;
 import org.junit.*;
 import org.scassandra.cql.PrimitiveType;
 import org.scassandra.http.client.ActivityClient;
@@ -15,11 +16,11 @@ import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
 import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
 import uk.sky.cirrus.util.PortScavenger;
 
-import java.time.Duration;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.joda.time.Duration.*;
 import static org.scassandra.http.client.PrimingRequest.then;
 
 public class LockTest {
@@ -121,11 +122,14 @@ public class LockTest {
                 .build()
         );
 
-        LockConfig lockConfig = new LockConfig(Duration.ofMillis(50), Duration.ofMillis(300));
+        final LockConfig lockConfig = new LockConfig(millis(50), millis(300));
 
         //when
-        Throwable throwable = catchThrowable(() -> {
-            Lock.acquire(lockConfig, LOCK_KEYSPACE, session);
+        Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
+            @Override
+            public void call() throws Throwable {
+                Lock.acquire(lockConfig, LOCK_KEYSPACE, session);
+            }
         });
 
         //then
@@ -156,11 +160,14 @@ public class LockTest {
                 .build()
         );
 
-        LockConfig lockConfig = new LockConfig(Duration.ofMillis(50), Duration.ofMillis(300));
+        final LockConfig lockConfig = new LockConfig(millis(50), millis(300));
 
         //when
-        Throwable throwable = catchThrowable(() -> {
-            Lock.acquire(lockConfig, LOCK_KEYSPACE, session);
+        Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
+            @Override
+            public void call() throws Throwable {
+                Lock.acquire(lockConfig, LOCK_KEYSPACE, session);
+            }
         });
 
         //then
@@ -188,11 +195,16 @@ public class LockTest {
                 .build()
         );
 
-        LockConfig lockConfig = new LockConfig(Duration.ofMillis(50), Duration.ofMillis(300));
-        Lock lock = Lock.acquire(lockConfig, LOCK_KEYSPACE, session);
+        LockConfig lockConfig = new LockConfig(millis(50), millis(300));
+        final Lock lock = Lock.acquire(lockConfig, LOCK_KEYSPACE, session);
 
         //when
-        Throwable throwable = catchThrowable(lock::release);
+        Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
+            @Override
+            public void call() throws Throwable {
+                lock.release();
+            }
+        });
 
         //then
         assertThat(throwable).isNotNull();
@@ -200,6 +212,4 @@ public class LockTest {
         assertThat(throwable.getCause()).isNotNull();
         assertThat(throwable).hasMessage("Query failed to execute");
     }
-
-
 }

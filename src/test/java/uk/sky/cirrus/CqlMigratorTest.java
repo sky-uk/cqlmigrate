@@ -1,6 +1,7 @@
 package uk.sky.cirrus;
 
 import com.datastax.driver.core.*;
+import org.assertj.core.api.ThrowableAssert;
 import org.junit.*;
 import uk.sky.cirrus.locking.LockConfig;
 import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
@@ -8,7 +9,6 @@ import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -19,6 +19,7 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.joda.time.Duration.millis;
 import static org.junit.Assert.fail;
 
 public class CqlMigratorTest {
@@ -82,17 +83,27 @@ public class CqlMigratorTest {
     @Test(timeout = 550)
     public void shouldThrowCannotAcquireLockExceptionIfLockCannotBeAcquiredAfterTimeout() throws Exception {
         //given
-        CqlMigrator migrator = new CqlMigrator(new LockConfig(Duration.ofMillis(50), Duration.ofMillis(300)));
+        final CqlMigrator migrator = new CqlMigrator(new LockConfig(millis(50), millis(300)));
 
         UUID client = UUID.randomUUID();
         session.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, client);
 
-        Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
+        final Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
 
         //when
-        Future<?> future = executorService.submit(() -> migrator.migrate(CASSANDRA_HOSTS, TEST_KEYSPACE, cqlPaths));
+        final Future<?> future = executorService.submit(new Runnable() {
+            @Override
+            public void run() {
+                migrator.migrate(CASSANDRA_HOSTS, TEST_KEYSPACE, cqlPaths);
+            }
+        });
         Thread.sleep(310);
-        Throwable throwable = catchThrowable(future::get);
+        Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
+            @Override
+            public void call() throws Throwable {
+                future.get();
+            }
+        });
 
         //then
         assertThat(throwable).isInstanceOf(ExecutionException.class);
@@ -133,10 +144,15 @@ public class CqlMigratorTest {
     public void shouldRetryWhenAcquiringLockIfNotInitiallyAvailable() throws Exception {
         //given
         session.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, UUID.randomUUID());
-        Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
+        final Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
 
         //when
-        Future<?> future = executorService.submit(() -> migrator.migrate(CASSANDRA_HOSTS, TEST_KEYSPACE, cqlPaths));
+        Future<?> future = executorService.submit(new Runnable() {
+            @Override
+            public void run() {
+                migrator.migrate(CASSANDRA_HOSTS, TEST_KEYSPACE, cqlPaths);
+            }
+        });
         session.execute("TRUNCATE locks.locks");
         Thread.sleep(1000);
         future.get();

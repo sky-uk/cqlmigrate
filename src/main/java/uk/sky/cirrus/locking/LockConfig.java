@@ -1,14 +1,14 @@
 package uk.sky.cirrus.locking;
 
-import java.time.Duration;
+import org.joda.time.Duration;
 
 public class LockConfig {
 
     private final Duration pollingInterval, timeout;
 
     public LockConfig() {
-        this.pollingInterval = Duration.ofMillis(500);
-        this.timeout = Duration.ofMinutes(1);
+        this.pollingInterval = Duration.millis(500);
+        this.timeout = Duration.standardMinutes(1);
     }
 
     public LockConfig(Duration pollingInterval, Duration timeout) {

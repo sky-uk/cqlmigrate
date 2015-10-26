@@ -4,7 +4,7 @@ plugins {
     id 'maven'
 }
 
-sourceCompatibility = '1.8'
+sourceCompatibility = '1.7'
 
 task wrapper(type: Wrapper) {
     gradleVersion = '2.7'
@@ -15,6 +15,7 @@ dependencies {
     compile 'com.google.guava:guava:18.0'
     compile 'org.slf4j:slf4j-api:1.7.12'
     compile 'com.google.code.findbugs:jsr305:3.0.0'
+    compile 'joda-time:joda-time:2.9'
 
     testCompile 'org.apache.logging.log4j:log4j-slf4j-impl:2.2'
     testCompile 'org.apache.logging.log4j:log4j-core:2.2'
