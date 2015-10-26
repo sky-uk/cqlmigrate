@@ -3,6 +3,8 @@ package uk.sky.cirrus.locking;
 import com.datastax.driver.core.*;
 import com.datastax.driver.core.exceptions.DriverException;
 import com.google.common.util.concurrent.Uninterruptibles;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
 import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
 
@@ -14,6 +16,7 @@ import static com.datastax.driver.core.ConsistencyLevel.ALL;
 
 public class Lock {
 
+    private static final Logger log = LoggerFactory.getLogger(Lock.class);
     private static final UUID CLIENT = UUID.randomUUID();
 
     private final String name;
@@ -41,6 +44,7 @@ public class Lock {
             try {
                 resultSet = session.execute(query);
             } catch (DriverException e) {
+                log.warn("Query to acquire lock failed to execute", e);
                 throw new CannotAcquireLockException("Query failed to execute", e);
             }
 
@@ -48,12 +52,16 @@ public class Lock {
             boolean lockAcquired = lock.getBool("[applied]");
 
             if (lockAcquired) {
+                log.debug("Lock acquired for: {}", name);
                 return new Lock(name, session);
             } else {
+                UUID clientWithLock = lock.getUUID("client");
+                log.debug("Lock currently in use by client: {}", clientWithLock);
                 Uninterruptibles.sleepUninterruptibly(pollingInterval.toMillis(), TimeUnit.MILLISECONDS);
 
                 if (timedOut(timeout, startTime)) {
-                    throw new CannotAcquireLockException("Lock currently in use by client: " + lock.getUUID("client"));
+                    log.warn("Unable to acquire lock, currently in use by client: {}", clientWithLock);
+                    throw new CannotAcquireLockException("Lock currently in use by client: " + clientWithLock);
                 }
             }
         }
@@ -71,7 +79,9 @@ public class Lock {
 
         try {
             session.execute(query);
+            log.debug("Lock released for: {}", name);
         } catch (DriverException e) {
+            log.warn("Query to release lock failed to execute", e);
             throw new CannotReleaseLockException("Query failed to execute", e);
         }
     }
