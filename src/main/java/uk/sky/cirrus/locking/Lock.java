@@ -12,7 +12,7 @@ import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import static com.datastax.driver.core.ConsistencyLevel.ALL;
+import static com.datastax.driver.core.ConsistencyLevel.QUORUM;
 
 public class Lock {
 
@@ -29,12 +29,16 @@ public class Lock {
 
     public static Lock acquire(LockConfig lockConfig, String keyspace, Session session) {
 
+        if (!session.getCluster().getMetadata().checkSchemaAgreement()) {
+            throw new CannotAcquireLockException("Cannot acquire lock, schema not in agreement");
+        }
+
         Duration pollingInterval = lockConfig.getPollingInterval();
         Duration timeout = lockConfig.getTimeout();
 
         String name = keyspace + ".schema_migration";
         Statement query = new SimpleStatement("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS", name, CLIENT)
-                .setConsistencyLevel(ALL);
+                .setConsistencyLevel(QUORUM);
 
         long startTime = System.currentTimeMillis();
 
@@ -75,7 +79,7 @@ public class Lock {
 
     public void release() {
         Statement query = new SimpleStatement("DELETE FROM locks.locks WHERE name = ?", name)
-                .setConsistencyLevel(ALL);
+                .setConsistencyLevel(QUORUM);
 
         try {
             session.execute(query);

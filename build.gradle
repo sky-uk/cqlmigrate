@@ -11,7 +11,7 @@ task wrapper(type: Wrapper) {
 }
 
 dependencies {
-    compile 'com.datastax.cassandra:cassandra-driver-core:2.0.3'
+    compile 'com.datastax.cassandra:cassandra-driver-core:2.1.8'
     compile 'com.google.guava:guava:18.0'
     compile 'org.slf4j:slf4j-api:1.7.12'
     compile 'com.google.code.findbugs:jsr305:3.0.0'

@@ -20,7 +20,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
-import static org.joda.time.Duration.*;
+import static org.assertj.core.data.Index.atIndex;
+import static org.joda.time.Duration.millis;
 import static org.scassandra.http.client.PrimingRequest.then;
 
 public class LockTest {
@@ -60,6 +61,29 @@ public class LockTest {
     }
 
     @Test
+    public void shouldThrowExceptionIfSchemaNotInAgreement() throws Exception {
+        //given
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery("SELECT peer, rpc_address, schema_version FROM system.peers")
+                .withThen(then().withResult(PrimingRequest.Result.unavailable))
+                .build()
+        );
+
+        //when
+        Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
+            @Override
+            public void call() throws Throwable {
+                Lock.acquire(new LockConfig(), LOCK_KEYSPACE, session);
+            }
+        });
+
+        //then
+        assertThat(throwable).isNotNull();
+        assertThat(throwable).isInstanceOf(CannotAcquireLockException.class);
+        assertThat(throwable).hasMessage("Cannot acquire lock, schema not in agreement");
+    }
+
+    @Test
     public void shouldSetToConsistencyLevelAllWhenAcquiringLock() throws Exception {
         //given
         primingClient.prime(PrimingRequest.queryBuilder()
@@ -76,7 +100,7 @@ public class LockTest {
         //then
         Query expectedQuery = Query.builder()
                 .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                .withConsistency("ALL")
+                .withConsistency("QUORUM")
                 .build();
 
         assertThat(activityClient.retrieveQueries()).contains(expectedQuery);
@@ -105,7 +129,7 @@ public class LockTest {
         //then
         Query expectedQuery = Query.builder()
                 .withQuery("DELETE FROM locks.locks WHERE name = ?")
-                .withConsistency("ALL")
+                .withConsistency("QUORUM")
                 .build();
 
         assertThat(activityClient.retrieveQueries()).contains(expectedQuery);
@@ -137,17 +161,16 @@ public class LockTest {
 
         Query expectedQuery = Query.builder()
                 .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                .withConsistency("ALL")
+                .withConsistency("QUORUM")
                 .build();
 
-        assertThat(activityClient.retrieveQueries()).containsExactly(
-                expectedQuery,
-                expectedQuery,
-                expectedQuery,
-                expectedQuery,
-                expectedQuery,
-                expectedQuery
-        );
+        assertThat(activityClient.retrieveQueries())
+                .contains(expectedQuery, atIndex(2))
+                .contains(expectedQuery, atIndex(3))
+                .contains(expectedQuery, atIndex(4))
+                .contains(expectedQuery, atIndex(5))
+                .contains(expectedQuery, atIndex(6))
+                .contains(expectedQuery, atIndex(7));
     }
 
     @Test
