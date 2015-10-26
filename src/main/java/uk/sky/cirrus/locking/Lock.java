@@ -29,10 +29,6 @@ public class Lock {
 
     public static Lock acquire(LockConfig lockConfig, String keyspace, Session session) {
 
-        if (!session.getCluster().getMetadata().checkSchemaAgreement()) {
-            throw new CannotAcquireLockException("Cannot acquire lock, schema not in agreement");
-        }
-
         Duration pollingInterval = lockConfig.getPollingInterval();
         Duration timeout = lockConfig.getTimeout();
 
@@ -42,7 +38,7 @@ public class Lock {
 
         long startTime = System.currentTimeMillis();
 
-        while(true) {
+        while (true) {
 
             ResultSet resultSet;
             try {

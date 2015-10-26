@@ -1,9 +1,6 @@
 package uk.sky.cirrus;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.QueryOptions;
-import com.datastax.driver.core.Session;
+import com.datastax.driver.core.*;
 import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,13 +37,16 @@ public final class CqlMigrator {
             directories.add(java.nio.file.Paths.get(directoryString));
         }
 
-        new CqlMigrator(new LockConfig()).migrate(hosts, keyspaceProperty, directories);
+        new CqlMigrator(new LockConfig()).migrate(hosts, 9042, keyspaceProperty, directories);
     }
 
-    public void migrate(Collection<String> hosts, String keyspace, Collection<Path> directories) {
+    public void migrate(Collection<String> hosts, int port, String keyspace, Collection<Path> directories) {
 
-        try (Cluster cluster = createCluster(hosts);
+        try (Cluster cluster = createCluster(hosts, port);
              Session session = cluster.connect()) {
+
+            ClusterHealth clusterHealth = new ClusterHealth(cluster);
+            clusterHealth.check();
 
             Lock lock = Lock.acquire(lockConfig, keyspace, session);
 
@@ -65,8 +65,8 @@ public final class CqlMigrator {
         }
     }
 
-    public void clean(Collection<String> hosts, String keyspace) {
-        try (Cluster cluster = createCluster(hosts);
+    public void clean(Collection<String> hosts, int port, String keyspace) {
+        try (Cluster cluster = createCluster(hosts, port);
              Session session = cluster.connect()) {
 
             session.execute("DROP KEYSPACE IF EXISTS " + keyspace);
@@ -74,12 +74,13 @@ public final class CqlMigrator {
         }
     }
 
-    private Cluster createCluster(Collection<String> hosts) {
+    private Cluster createCluster(Collection<String> hosts, int port) {
         QueryOptions queryOptions = new QueryOptions();
         queryOptions.setConsistencyLevel(ConsistencyLevel.ALL);
 
         return Cluster.builder()
-                .addContactPoints(hosts.toArray(new String[]{}))
+                .addContactPoints(hosts.toArray(new String[hosts.size()]))
+                .withPort(port)
                 .withQueryOptions(queryOptions)
                 .build();
     }
