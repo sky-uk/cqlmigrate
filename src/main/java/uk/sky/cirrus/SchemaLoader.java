@@ -15,14 +15,14 @@ class SchemaLoader {
     private final SchemaUpdates schemaUpdates;
     private final Paths paths;
 
-    public SchemaLoader(Session session, String keyspace, SchemaUpdates schemaUpdates, Paths paths) {
+    SchemaLoader(Session session, String keyspace, SchemaUpdates schemaUpdates, Paths paths) {
         this.session = session;
         this.keyspace = keyspace;
         this.schemaUpdates = schemaUpdates;
         this.paths = paths;
     }
 
-    public void load() {
+    void load() {
         session.execute("USE " + keyspace + ";");
         paths.applyInSortedOrder(new Loader());
     }

@@ -27,7 +27,7 @@ public class Lock {
         this.session = session;
     }
 
-    public static Lock acquire(LockConfig lockConfig, String keyspace, Session session) {
+    public static Lock acquire(LockConfig lockConfig, String keyspace, Session session) throws CannotAcquireLockException {
 
         Duration pollingInterval = lockConfig.getPollingInterval();
         Duration timeout = lockConfig.getTimeout();
@@ -93,7 +93,7 @@ public class Lock {
         return currentDuration >= timeout.getMillis();
     }
 
-    public void release() {
+    public void release() throws CannotReleaseLockException {
         Statement query = new SimpleStatement("DELETE FROM locks.locks WHERE name = ?", name)
                 .setConsistencyLevel(QUORUM);
 

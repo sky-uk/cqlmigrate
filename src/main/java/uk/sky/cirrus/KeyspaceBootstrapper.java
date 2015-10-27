@@ -15,13 +15,13 @@ class KeyspaceBootstrapper {
     private final String keyspace;
     private final Paths paths;
 
-    public KeyspaceBootstrapper(Session session, String keyspace, Paths paths) {
+    KeyspaceBootstrapper(Session session, String keyspace, Paths paths) {
         this.session = session;
         this.keyspace = keyspace;
         this.paths = paths;
     }
 
-    public void bootstrap() {
+    void bootstrap() {
         KeyspaceMetadata keyspaceMetadata = session.getCluster().getMetadata().getKeyspace(keyspace);
         if (keyspaceMetadata == null) {
             paths.applyBootstrap(new Paths.Function() {

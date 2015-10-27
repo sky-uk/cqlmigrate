@@ -21,15 +21,15 @@ public class LockConfig {
         this.dataCenters = Collections.unmodifiableMap(dataCenters);
     }
 
-    public Duration getPollingInterval() {
+    Duration getPollingInterval() {
         return pollingInterval;
     }
 
-    public Duration getTimeout() {
+    Duration getTimeout() {
         return timeout;
     }
 
-    public String getReplicationString() {
+    String getReplicationString() {
         switch (replicationClass) {
             case SimpleStrategy:
                 return String.format("'class': '%s', 'replication_factor': %s", replicationClass, replicationFactor);
@@ -70,6 +70,13 @@ public class LockConfig {
 
         private LockConfigBuilder() {}
 
+        /**
+         * Duration to wait after each attempt to acquire the lock.
+         *
+         * @param pollingInterval
+         * @return this
+         * @throws IllegalArgumentException if value is less than 0
+         */
         public LockConfigBuilder withPollingInterval(Duration pollingInterval) {
             if (pollingInterval.getMillis() < 0)
                 throw new IllegalArgumentException("Polling interval must be positive: " + pollingInterval.getMillis());
@@ -78,6 +85,13 @@ public class LockConfig {
             return this;
         }
 
+        /**
+         * Duration to attempt to acquire lock for.
+         *
+         * @param timeout
+         * @return this
+         * @throws IllegalArgumentException if value is less than 0
+         */
         public LockConfigBuilder withTimeout(Duration timeout) {
             if (timeout.getMillis() < 0)
                 throw new IllegalArgumentException("Timeout must be positive: " + timeout.getMillis());
@@ -86,6 +100,13 @@ public class LockConfig {
             return this;
         }
 
+        /**
+         * Sets the replication class to SimpleStrategy and replication factor to {@code replicationFactor}.
+         *
+         * @param replicationFactor
+         * @return this
+         * @throws IllegalArgumentException if data centers have been configured using {@link #withNetworkTopologyReplication(String, int)}
+         */
         public LockConfigBuilder withSimpleStrategyReplication(int replicationFactor) {
             if (!dataCenters.isEmpty())
                 throw new IllegalArgumentException("Replication class 'SimpleStrategy' cannot be used with data centers: " + dataCenters);
@@ -95,6 +116,14 @@ public class LockConfig {
             return this;
         }
 
+        /**
+         * Sets the replication class to NetworkTopologyStrategy and replication factor for each {@code dataCenter} to {@code replicationFactor}.
+         * Can be called multiple times to add more data centers.
+         *
+         * @param dataCenter
+         * @param replicationFactor
+         * @return this
+         */
         public LockConfigBuilder withNetworkTopologyReplication(String dataCenter, int replicationFactor) {
             dataCenters.put(dataCenter, replicationFactor);
             this.replicationClass = ReplicationClass.NetworkTopologyStrategy;

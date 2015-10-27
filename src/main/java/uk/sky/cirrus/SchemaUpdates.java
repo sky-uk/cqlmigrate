@@ -24,12 +24,12 @@ class SchemaUpdates {
     private final Session session;
     private final String keyspace;
 
-    public SchemaUpdates(Session session, String keyspace) {
+    SchemaUpdates(Session session, String keyspace) {
         this.session = session;
         this.keyspace = keyspace;
     }
 
-    public void initialise() {
+    void initialise() {
         session.execute("USE " + keyspace + ";");
         KeyspaceMetadata keyspaceMetadata = session.getCluster().getMetadata().getKeyspace(keyspace);
         if (keyspaceMetadata.getTable(SCHEMA_UPDATES_TABLE) == null) {
@@ -37,7 +37,7 @@ class SchemaUpdates {
         }
     }
 
-    public boolean alreadyApplied(String filename) {
+    boolean alreadyApplied(String filename) {
         Row row = getSchemaUpdate(session, filename);
         return row != null;
     }
@@ -48,7 +48,7 @@ class SchemaUpdates {
                       .one();
     }
 
-    public boolean contentsAreDifferent(String filename, Path path) {
+    boolean contentsAreDifferent(String filename, Path path) {
         Row row = checkNotNull(getSchemaUpdate(session, filename));
         String previousSha1 = row.getString(CHECKSUM_COLUMN);
 
@@ -60,7 +60,7 @@ class SchemaUpdates {
         }
     }
 
-    public void add(String filename, Path path) {
+    void add(String filename, Path path) {
 
         String query = "INSERT INTO " + SCHEMA_UPDATES_TABLE + " (filename, " + CHECKSUM_COLUMN + ", applied_on)" +
                 " VALUES (?, ?, dateof(now()));";

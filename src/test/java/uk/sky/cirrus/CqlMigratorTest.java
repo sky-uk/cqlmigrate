@@ -30,10 +30,8 @@ public class CqlMigratorTest {
     private static final String TEST_KEYSPACE = "cqlmigrate_test";
     private static final String LOCK_NAME = TEST_KEYSPACE + ".schema_migration";
     private static final int BINARY_PORT = 9042;
-    private static final String REPLICATION_CLASS = "SimpleStrategy";
-    private static final int REPLICATION_FACTOR = 1;
 
-    private static final CqlMigrator MIGRATOR = new CqlMigrator();
+    private static final CqlMigrator MIGRATOR = new CqlMigrator(LockConfig.builder().build());
 
     private ExecutorService executorService;
 
