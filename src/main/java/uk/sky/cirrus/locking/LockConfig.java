@@ -73,7 +73,7 @@ public class LockConfig {
         /**
          * Duration to wait after each attempt to acquire the lock.
          *
-         * @param pollingInterval
+         * @param pollingInterval defaults to 500 milliseconds.
          * @return this
          * @throws IllegalArgumentException if value is less than 0
          */
@@ -88,7 +88,7 @@ public class LockConfig {
         /**
          * Duration to attempt to acquire lock for.
          *
-         * @param timeout
+         * @param timeout defaults to 1 minute
          * @return this
          * @throws IllegalArgumentException if value is less than 0
          */
@@ -103,7 +103,7 @@ public class LockConfig {
         /**
          * Sets the replication class to SimpleStrategy and replication factor to {@code replicationFactor}.
          *
-         * @param replicationFactor
+         * @param replicationFactor defaults to 1
          * @return this
          * @throws IllegalArgumentException if data centers have been configured using {@link #withNetworkTopologyReplication(String, int)}
          */
@@ -119,6 +119,7 @@ public class LockConfig {
         /**
          * Sets the replication class to NetworkTopologyStrategy and replication factor for each {@code dataCenter} to {@code replicationFactor}.
          * Can be called multiple times to add more data centers.
+         * Default is SimpleStrategy with replication factor of 1.
          *
          * @param dataCenter
          * @param replicationFactor
