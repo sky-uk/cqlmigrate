@@ -33,12 +33,6 @@ public class CqlMigratorTest {
     private static final CqlMigrator migrator = new CqlMigrator();
     private ExecutorService executorService;
 
-    @BeforeClass
-    public static void setUpClass() throws Exception {
-        session.execute("CREATE KEYSPACE locks WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1}");
-        session.execute("CREATE TABLE locks.locks (name text PRIMARY KEY, client uuid)");
-    }
-
     @Before
     public void setUp() throws Exception {
         session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test");

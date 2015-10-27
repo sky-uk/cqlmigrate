@@ -20,6 +20,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.assertj.core.data.Index.atIndex;
 import static org.joda.time.Duration.millis;
 import static org.scassandra.http.client.PrimingRequest.then;
 
@@ -52,11 +53,95 @@ public class LockTest {
         session = cluster.connect();
 
         activityClient.clearAllRecordedActivity();
+
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                .withThen(then()
+                        .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
+                        .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", true)))
+                .build()
+        );
     }
 
     @After
     public void tearDown() throws Exception {
         cluster.closeAsync();
+    }
+
+    @Test
+    public void shouldTryToCreateLocksKeySpace() throws Exception {
+        //when
+        Lock.acquire(new LockConfig(), LOCK_KEYSPACE, session);
+
+        //then
+        Query expectedQuery = Query.builder()
+                .withQuery("CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': 'SimpleStrategy' , 'replication_factor': 1}")
+                .build();
+        assertThat(activityClient.retrieveQueries()).contains(expectedQuery);
+    }
+
+    @Test
+    public void ShouldThrowExceptionIfQueryFailsToCreateKeySpace() throws Exception {
+        //given
+        String query = "CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': 'SimpleStrategy' , 'replication_factor': 1}";
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery(query)
+                .withThen(then()
+                        .withResult(PrimingRequest.Result.unavailable))
+                .build()
+        );
+
+        //when
+        Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
+            @Override
+            public void call() throws Throwable {
+                Lock.acquire(new LockConfig(), LOCK_KEYSPACE, session);
+            }
+        });
+
+        //then
+        assertThat(throwable).isNotNull();
+        assertThat(throwable).isInstanceOf(CannotAcquireLockException.class);
+        assertThat(throwable.getCause()).isNotNull();
+        assertThat(throwable).hasMessage("Query to create locks schema failed to execute");
+    }
+
+    @Test
+    public void shouldTryToCreateLocksTable() throws Exception {
+        //when
+        Lock.acquire(new LockConfig(), LOCK_KEYSPACE, session);
+
+        //then
+        Query expectedQuery = Query.builder()
+                .withQuery("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client uuid)")
+                .build();
+        assertThat(activityClient.retrieveQueries()).contains(expectedQuery);
+    }
+
+    @Test
+    public void ShouldThrowExceptionIfQueryFailsToCreateLocksTable() throws Exception {
+        //given
+        String query = "CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client uuid)";
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery(query)
+                .withThen(then()
+                        .withResult(PrimingRequest.Result.unavailable))
+                .build()
+        );
+
+        //when
+        Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
+            @Override
+            public void call() throws Throwable {
+                Lock.acquire(new LockConfig(), LOCK_KEYSPACE, session);
+            }
+        });
+
+        //then
+        assertThat(throwable).isNotNull();
+        assertThat(throwable).isInstanceOf(CannotAcquireLockException.class);
+        assertThat(throwable.getCause()).isNotNull();
+        assertThat(throwable).hasMessage("Query to create locks schema failed to execute");
     }
 
     @Test
@@ -140,14 +225,13 @@ public class LockTest {
                 .withConsistency("QUORUM")
                 .build();
 
-        assertThat(activityClient.retrieveQueries()).containsExactly(
-                expectedQuery,
-                expectedQuery,
-                expectedQuery,
-                expectedQuery,
-                expectedQuery,
-                expectedQuery
-        );
+        assertThat(activityClient.retrieveQueries())
+                .contains(expectedQuery, atIndex(2))
+                .contains(expectedQuery, atIndex(3))
+                .contains(expectedQuery, atIndex(4))
+                .contains(expectedQuery, atIndex(5))
+                .contains(expectedQuery, atIndex(6))
+                .contains(expectedQuery, atIndex(7));
     }
 
     @Test

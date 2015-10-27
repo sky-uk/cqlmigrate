@@ -32,6 +32,8 @@ public class Lock {
         Duration pollingInterval = lockConfig.getPollingInterval();
         Duration timeout = lockConfig.getTimeout();
 
+        ensureLocksSchemaExists(session);
+
         String name = keyspace + ".schema_migration";
         Statement query = new SimpleStatement("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS", name, CLIENT)
                 .setConsistencyLevel(QUORUM);
@@ -66,6 +68,19 @@ public class Lock {
             }
         }
 
+    }
+
+    private static void ensureLocksSchemaExists(Session session) {
+        try {
+            Statement query = new SimpleStatement("CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': 'SimpleStrategy' , 'replication_factor': 1}");
+            session.execute(query);
+
+            query = new SimpleStatement("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client uuid)");
+            session.execute(query);
+        } catch (DriverException e) {
+            log.warn("Query to create locks keyspace or locks table failed to execute", e);
+            throw new CannotAcquireLockException("Query to create locks schema failed to execute", e);
+        }
     }
 
     private static boolean timedOut(Duration timeout, long startTime) {
