@@ -38,6 +38,8 @@ public class Lock {
         Statement query = new SimpleStatement("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS", name, CLIENT)
                 .setConsistencyLevel(QUORUM);
 
+        log.info("Attempting to acquire lock for '{}', using client id '{}'", name, CLIENT);
+
         long startTime = System.currentTimeMillis();
 
         while (true) {
@@ -54,7 +56,7 @@ public class Lock {
             boolean lockAcquired = lock.getBool("[applied]");
 
             if (lockAcquired) {
-                log.debug("Lock acquired for: {}", name);
+                log.debug("Lock acquired for '{}' by client '{}'", name, CLIENT);
                 return new Lock(name, session);
             } else {
                 UUID clientWithLock = lock.getUUID("client");
