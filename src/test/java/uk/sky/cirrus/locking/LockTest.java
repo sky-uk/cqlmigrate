@@ -29,6 +29,8 @@ public class LockTest {
     private static final int BINARY_PORT = PortScavenger.getFreePort();
     private static final int ADMIN_PORT = PortScavenger.getFreePort();
     private static final String LOCK_KEYSPACE = "lock-keyspace";
+    private static final String REPLICATION_CLASS = "SimpleStrategy";
+    private static final int REPLICATION_FACTOR = 1;
 
     @ClassRule
     public static final ScassandraServerRule SCASSANDRA = new ScassandraServerRule(BINARY_PORT, ADMIN_PORT);
@@ -75,7 +77,11 @@ public class LockTest {
 
         //then
         Query expectedQuery = Query.builder()
-                .withQuery("CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': 'SimpleStrategy' , 'replication_factor': 1}")
+                .withQuery(String.format(
+                        "CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': '%s' , 'replication_factor': %s}",
+                        REPLICATION_CLASS,
+                        REPLICATION_FACTOR
+                ))
                 .build();
         assertThat(activityClient.retrieveQueries()).contains(expectedQuery);
     }
@@ -83,9 +89,12 @@ public class LockTest {
     @Test
     public void ShouldThrowExceptionIfQueryFailsToCreateKeySpace() throws Exception {
         //given
-        String query = "CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': 'SimpleStrategy' , 'replication_factor': 1}";
         primingClient.prime(PrimingRequest.queryBuilder()
-                .withQuery(query)
+                .withQuery(String.format(
+                        "CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': '%s' , 'replication_factor': %s}",
+                        REPLICATION_CLASS,
+                        REPLICATION_FACTOR
+                ))
                 .withThen(then()
                         .withResult(PrimingRequest.Result.unavailable))
                 .build()
@@ -121,9 +130,8 @@ public class LockTest {
     @Test
     public void ShouldThrowExceptionIfQueryFailsToCreateLocksTable() throws Exception {
         //given
-        String query = "CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client uuid)";
         primingClient.prime(PrimingRequest.queryBuilder()
-                .withQuery(query)
+                .withQuery("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client uuid)")
                 .withThen(then()
                         .withResult(PrimingRequest.Result.unavailable))
                 .build()
@@ -207,7 +215,7 @@ public class LockTest {
                 .build()
         );
 
-        final LockConfig lockConfig = new LockConfig(millis(50), millis(300));
+        final LockConfig lockConfig = new LockConfig(millis(50), millis(300), REPLICATION_CLASS, REPLICATION_FACTOR);
 
         //when
         Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
@@ -244,7 +252,7 @@ public class LockTest {
                 .build()
         );
 
-        final LockConfig lockConfig = new LockConfig(millis(50), millis(300));
+        final LockConfig lockConfig = new LockConfig();
 
         //when
         Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
@@ -279,7 +287,7 @@ public class LockTest {
                 .build()
         );
 
-        LockConfig lockConfig = new LockConfig(millis(50), millis(300));
+        LockConfig lockConfig = new LockConfig();
         final Lock lock = Lock.acquire(lockConfig, LOCK_KEYSPACE, session);
 
         //when

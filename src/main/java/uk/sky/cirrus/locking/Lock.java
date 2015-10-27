@@ -32,7 +32,7 @@ public class Lock {
         Duration pollingInterval = lockConfig.getPollingInterval();
         Duration timeout = lockConfig.getTimeout();
 
-        ensureLocksSchemaExists(session);
+        ensureLocksSchemaExists(lockConfig, session);
 
         String name = keyspace + ".schema_migration";
         Statement query = new SimpleStatement("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS", name, CLIENT)
@@ -70,9 +70,13 @@ public class Lock {
 
     }
 
-    private static void ensureLocksSchemaExists(Session session) {
+    private static void ensureLocksSchemaExists(LockConfig lockConfig, Session session) {
         try {
-            Statement query = new SimpleStatement("CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': 'SimpleStrategy' , 'replication_factor': 1}");
+            Statement query = new SimpleStatement(String.format(
+                    "CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': '%s' , 'replication_factor': %s}",
+                    lockConfig.getReplicationClass(),
+                    lockConfig.getReplicationFactor()
+            ));
             session.execute(query);
 
             query = new SimpleStatement("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client uuid)");
