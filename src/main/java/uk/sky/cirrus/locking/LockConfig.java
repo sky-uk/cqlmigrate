@@ -71,16 +71,25 @@ public class LockConfig {
         private LockConfigBuilder() {}
 
         public LockConfigBuilder withPollingInterval(Duration pollingInterval) {
+            if (pollingInterval.getMillis() < 0)
+                throw new IllegalArgumentException("Polling interval must be positive: " + pollingInterval.getMillis());
+
             this.pollingInterval = pollingInterval;
             return this;
         }
 
         public LockConfigBuilder withTimeout(Duration timeout) {
+            if (timeout.getMillis() < 0)
+                throw new IllegalArgumentException("Timeout must be positive: " + timeout.getMillis());
+
             this.timeout = timeout;
             return this;
         }
 
         public LockConfigBuilder withSimpleStrategyReplication(int replicationFactor) {
+            if (!dataCenters.isEmpty())
+                throw new IllegalArgumentException("Replication class 'SimpleStrategy' cannot be used with data centers: " + dataCenters);
+
             this.replicationFactor = replicationFactor;
             this.replicationClass = ReplicationClass.SimpleStrategy;
             return this;
