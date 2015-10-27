@@ -36,6 +36,7 @@ public final class CqlMigrator {
         String hostsProperty = getProperty("hosts");
         String keyspaceProperty = getProperty("keyspace");
         String directoriesProperty = getProperty("directories");
+        String port = getProperty("port");
 
         Collection<String> hosts = Lists.newArrayList(hostsProperty.split(","));
         Collection<Path> directories = new ArrayList<>();
@@ -44,7 +45,7 @@ public final class CqlMigrator {
         }
 
         new CqlMigrator(LockConfig.builder().build())
-                .migrate(hosts, 9042, keyspaceProperty, directories);
+                .migrate(hosts, port == null ? 9042 : Integer.parseInt(port), keyspaceProperty, directories);
     }
 
     /**

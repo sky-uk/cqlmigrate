@@ -1,11 +1,15 @@
 package uk.sky.cirrus;
 
 import com.datastax.driver.core.*;
+import org.apache.cassandra.exceptions.ConfigurationException;
+import org.apache.thrift.transport.TTransportException;
 import org.assertj.core.api.ThrowableAssert;
+import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
 import org.junit.*;
 import uk.sky.cirrus.locking.LockConfig;
 import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
 
+import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -25,25 +29,34 @@ import static org.junit.Assert.fail;
 public class CqlMigratorTest {
 
     private static final Collection<String> CASSANDRA_HOSTS = singletonList("localhost");
-    private static final Cluster CLUSTER = Cluster.builder().addContactPoints(CASSANDRA_HOSTS.toArray(new String[CASSANDRA_HOSTS.size()])).build();
-    private static final Session SESSION = CLUSTER.connect();
+    private static final int BINARY_PORT = 9142;
+    private static Cluster cluster;
+    private static Session session;
     private static final String TEST_KEYSPACE = "cqlmigrate_test";
     private static final String LOCK_NAME = TEST_KEYSPACE + ".schema_migration";
-    private static final int BINARY_PORT = 9042;
 
     private static final CqlMigrator MIGRATOR = new CqlMigrator(LockConfig.builder().build());
 
     private ExecutorService executorService;
 
+    @BeforeClass
+    public static void setupCassandra() throws ConfigurationException, IOException, TTransportException {
+        EmbeddedCassandraServerHelper.startEmbeddedCassandra("test-cassandra.yaml", "build/embeddedCassandra");
+        cluster = Cluster.builder().addContactPoints(CASSANDRA_HOSTS.toArray(new String[CASSANDRA_HOSTS.size()])).withPort(BINARY_PORT).build();
+        session = cluster.connect();
+    }
+
     @Before
     public void setUp() throws Exception {
-        SESSION.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test");
+        session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test");
+        session.execute("CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
+        session.execute("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client uuid)");
         executorService = Executors.newFixedThreadPool(1);
     }
 
     @After
     public void tearDown() {
-        SESSION.execute("TRUNCATE locks.locks");
+        session.execute("TRUNCATE locks.locks");
         executorService.shutdownNow();
         System.clearProperty("hosts");
         System.clearProperty("keyspace");
@@ -52,8 +65,9 @@ public class CqlMigratorTest {
 
     @AfterClass
     public static void tearDownClass() throws Exception {
-        SESSION.execute("DROP KEYSPACE locks");
-        CLUSTER.closeAsync();
+        session.execute("DROP KEYSPACE locks");
+        cluster.closeAsync();
+        EmbeddedCassandraServerHelper.cleanEmbeddedCassandra();
     }
 
     private Path getResourcePath(String resourcePath) throws URISyntaxException {
@@ -70,19 +84,19 @@ public class CqlMigratorTest {
 
         //then
         try {
-            CLUSTER.connect(TEST_KEYSPACE);
+            cluster.connect(TEST_KEYSPACE);
         } catch (Throwable t) {
             fail("Should have successfully connected, but got " + t);
         }
     }
 
-    @Test(timeout = 550)
+    @Test(timeout = 1000)
     public void shouldThrowCannotAcquireLockExceptionIfLockCannotBeAcquiredAfterTimeout() throws Exception {
         //given
         final CqlMigrator migrator = new CqlMigrator(LockConfig.builder().withPollingInterval(millis(50)).withTimeout(millis(300)).build());
 
         UUID client = UUID.randomUUID();
-        SESSION.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, client);
+        session.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, client);
 
         final Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
 
@@ -93,6 +107,7 @@ public class CqlMigratorTest {
                 migrator.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
             }
         });
+
         Thread.sleep(310);
         Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
             @Override
@@ -117,7 +132,7 @@ public class CqlMigratorTest {
 
         //then
         try {
-            CLUSTER.connect(TEST_KEYSPACE);
+            cluster.connect(TEST_KEYSPACE);
         } catch (Throwable t) {
             fail("Should have successfully connected, but got " + t);
         }
@@ -132,14 +147,14 @@ public class CqlMigratorTest {
         MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
 
         //then
-        ResultSet resultSet = SESSION.execute("SELECT * FROM locks.locks WHERE name = ?", LOCK_NAME);
+        ResultSet resultSet = session.execute("SELECT * FROM locks.locks WHERE name = ?", LOCK_NAME);
         assertThat(resultSet.isExhausted()).as("Is lock released").isTrue();
     }
 
     @Test
     public void shouldRetryWhenAcquiringLockIfNotInitiallyAvailable() throws Exception {
         //given
-        SESSION.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, UUID.randomUUID());
+        session.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, UUID.randomUUID());
         final Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
 
         //when
@@ -149,13 +164,13 @@ public class CqlMigratorTest {
                 MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
             }
         });
-        SESSION.execute("TRUNCATE locks.locks");
+        session.execute("TRUNCATE locks.locks");
         Thread.sleep(1000);
         future.get();
 
         //then
         try {
-            CLUSTER.connect(TEST_KEYSPACE);
+            cluster.connect(TEST_KEYSPACE);
         } catch (Throwable t) {
             fail("Should have successfully connected, but got " + t);
         }
@@ -171,7 +186,7 @@ public class CqlMigratorTest {
         MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
 
         //then
-        CLUSTER.connect(TEST_KEYSPACE);
+        cluster.connect(TEST_KEYSPACE);
     }
 
     @Test(expected = RuntimeException.class)
@@ -184,7 +199,7 @@ public class CqlMigratorTest {
         MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
 
         //then
-        CLUSTER.connect(TEST_KEYSPACE);
+        cluster.connect(TEST_KEYSPACE);
     }
 
     @Test(expected = RuntimeException.class)
@@ -196,7 +211,7 @@ public class CqlMigratorTest {
         MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
 
         //then
-        CLUSTER.connect(TEST_KEYSPACE);
+        cluster.connect(TEST_KEYSPACE);
     }
 
     @Test
@@ -208,7 +223,7 @@ public class CqlMigratorTest {
         MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
 
         //then
-        Session session = CLUSTER.connect(TEST_KEYSPACE);
+        Session session = cluster.connect(TEST_KEYSPACE);
         ResultSet rs = session.execute("select * from status where dependency = 'developers'");
         List<Row> rows = rs.all();
         assertThat(rows).hasSize(1);
@@ -228,7 +243,7 @@ public class CqlMigratorTest {
         MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
 
         //then
-        Session session = CLUSTER.connect(TEST_KEYSPACE);
+        Session session = cluster.connect(TEST_KEYSPACE);
         ResultSet rs = session.execute("select * from status where dependency = 'developers'");
         List<Row> rows = rs.all();
         assertThat(rows).hasSize(1);
@@ -245,7 +260,7 @@ public class CqlMigratorTest {
         MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
 
         //then
-        Session session = CLUSTER.connect(TEST_KEYSPACE);
+        Session session = cluster.connect(TEST_KEYSPACE);
         ResultSet rs = session.execute("select * from schema_updates");
         for (Row row : rs) {
             assertThat(row.getDate("applied_on")).as("applied_on").isNotNull().isAfter(now);
@@ -277,7 +292,7 @@ public class CqlMigratorTest {
         }
 
         //then
-        KeyspaceMetadata keyspaceMetadata = CLUSTER.getMetadata().getKeyspace(TEST_KEYSPACE);
+        KeyspaceMetadata keyspaceMetadata = cluster.getMetadata().getKeyspace(TEST_KEYSPACE);
         assertThat(keyspaceMetadata).as("should not have made any schema changes").isNull();
     }
 
@@ -297,7 +312,7 @@ public class CqlMigratorTest {
         }
 
         //then
-        KeyspaceMetadata keyspaceMetadata = CLUSTER.getMetadata().getKeyspace(TEST_KEYSPACE);
+        KeyspaceMetadata keyspaceMetadata = cluster.getMetadata().getKeyspace(TEST_KEYSPACE);
         assertThat(keyspaceMetadata.getTable("another_status")).as("table should not have been created").isNull();
     }
 
@@ -314,7 +329,7 @@ public class CqlMigratorTest {
         }
 
         //then
-        TableMetadata tableMetadata = CLUSTER.getMetadata().getKeyspace(TEST_KEYSPACE).getTable("status");
+        TableMetadata tableMetadata = cluster.getMetadata().getKeyspace(TEST_KEYSPACE).getTable("status");
         assertThat(tableMetadata.getColumn("waste_of_space"))
                 .as("should not have made any schema changes from sub directory")
                 .isNull();
@@ -326,12 +341,13 @@ public class CqlMigratorTest {
         System.setProperty("hosts", "localhost");
         System.setProperty("keyspace", TEST_KEYSPACE);
         System.setProperty("directories", getResourcePath("cql_valid_one").toString() + "," + getResourcePath("cql_valid_two").toString());
+        System.setProperty("port", "9142");
 
         //when
         CqlMigrator.main(new String[]{});
 
         //then
-        Session session = CLUSTER.connect(TEST_KEYSPACE);
+        Session session = cluster.connect(TEST_KEYSPACE);
         ResultSet rs = session.execute("select * from status where dependency = 'developers'");
         List<Row> rows = rs.all();
         assertThat(rows).hasSize(1);
@@ -378,7 +394,7 @@ public class CqlMigratorTest {
         MIGRATOR.clean(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE);
 
         //then
-        assertThat(CLUSTER.getMetadata().getKeyspace(TEST_KEYSPACE)).as("keyspace should be gone").isNull();
+        assertThat(cluster.getMetadata().getKeyspace(TEST_KEYSPACE)).as("keyspace should be gone").isNull();
     }
 
     @Test
