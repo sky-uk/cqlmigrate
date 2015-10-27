@@ -73,9 +73,8 @@ public class Lock {
     private static void ensureLocksSchemaExists(LockConfig lockConfig, Session session) {
         try {
             Statement query = new SimpleStatement(String.format(
-                    "CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': '%s' , 'replication_factor': %s}",
-                    lockConfig.getReplicationClass(),
-                    lockConfig.getReplicationFactor()
+                    "CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {%s}",
+                    lockConfig.getReplicationString()
             ));
             session.execute(query);
 

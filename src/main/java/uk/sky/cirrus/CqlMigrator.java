@@ -18,7 +18,7 @@ public final class CqlMigrator {
     private final LockConfig lockConfig;
 
     public CqlMigrator() {
-        this.lockConfig = new LockConfig();
+        this.lockConfig = LockConfig.builder().build();
     }
 
     public CqlMigrator(LockConfig lockConfig) {
@@ -37,7 +37,7 @@ public final class CqlMigrator {
             directories.add(java.nio.file.Paths.get(directoryString));
         }
 
-        new CqlMigrator(new LockConfig()).migrate(hosts, 9042, keyspaceProperty, directories);
+        new CqlMigrator(LockConfig.builder().build()).migrate(hosts, 9042, keyspaceProperty, directories);
     }
 
     public void migrate(Collection<String> hosts, int port, String keyspace, Collection<Path> directories) {

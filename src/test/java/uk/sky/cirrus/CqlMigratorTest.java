@@ -81,7 +81,7 @@ public class CqlMigratorTest {
     @Test(timeout = 550)
     public void shouldThrowCannotAcquireLockExceptionIfLockCannotBeAcquiredAfterTimeout() throws Exception {
         //given
-        final CqlMigrator migrator = new CqlMigrator(new LockConfig(millis(50), millis(300), REPLICATION_CLASS, REPLICATION_FACTOR));
+        final CqlMigrator migrator = new CqlMigrator(LockConfig.builder().withPollingInterval(millis(50)).withTimeout(millis(300)).build());
 
         UUID client = UUID.randomUUID();
         SESSION.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, client);

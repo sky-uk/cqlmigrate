@@ -29,6 +29,7 @@ public class LockTest {
     private static final int BINARY_PORT = PortScavenger.getFreePort();
     private static final int ADMIN_PORT = PortScavenger.getFreePort();
     private static final String LOCK_KEYSPACE = "lock-keyspace";
+    private static final LockConfig DEFAULT_LOCK_CONFIG = LockConfig.builder().build();
     private static final String REPLICATION_CLASS = "SimpleStrategy";
     private static final int REPLICATION_FACTOR = 1;
 
@@ -71,17 +72,34 @@ public class LockTest {
     }
 
     @Test
-    public void shouldTryToCreateLocksKeySpace() throws Exception {
+    public void shouldTryToCreateLocksKeySpaceWithSimpleStrategy() throws Exception {
         //when
-        Lock.acquire(new LockConfig(), LOCK_KEYSPACE, session);
+        Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session);
 
         //then
         Query expectedQuery = Query.builder()
                 .withQuery(String.format(
-                        "CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': '%s' , 'replication_factor': %s}",
+                        "CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': '%s', 'replication_factor': %s}",
                         REPLICATION_CLASS,
                         REPLICATION_FACTOR
                 ))
+                .build();
+        assertThat(activityClient.retrieveQueries()).contains(expectedQuery);
+    }
+
+    @Test
+    public void shouldTryToCreateLocksKeySpaceWithNetworkTopologyStrategy() throws Exception {
+        //when
+        LockConfig lockConfig = LockConfig.builder()
+                .withNetworkTopologyReplication("DC1", 1)
+                .withNetworkTopologyReplication("DC2", 2)
+                .build();
+
+        Lock.acquire(lockConfig, LOCK_KEYSPACE, session);
+
+        //then
+        Query expectedQuery = Query.builder()
+                .withQuery("CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': 'NetworkTopologyStrategy', 'DC2': 2, 'DC1': 1}")
                 .build();
         assertThat(activityClient.retrieveQueries()).contains(expectedQuery);
     }
@@ -91,7 +109,7 @@ public class LockTest {
         //given
         primingClient.prime(PrimingRequest.queryBuilder()
                 .withQuery(String.format(
-                        "CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': '%s' , 'replication_factor': %s}",
+                        "CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': '%s', 'replication_factor': %s}",
                         REPLICATION_CLASS,
                         REPLICATION_FACTOR
                 ))
@@ -104,7 +122,7 @@ public class LockTest {
         Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
             @Override
             public void call() throws Throwable {
-                Lock.acquire(new LockConfig(), LOCK_KEYSPACE, session);
+                Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session);
             }
         });
 
@@ -118,7 +136,7 @@ public class LockTest {
     @Test
     public void shouldTryToCreateLocksTable() throws Exception {
         //when
-        Lock.acquire(new LockConfig(), LOCK_KEYSPACE, session);
+        Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session);
 
         //then
         Query expectedQuery = Query.builder()
@@ -128,7 +146,7 @@ public class LockTest {
     }
 
     @Test
-    public void ShouldThrowExceptionIfQueryFailsToCreateLocksTable() throws Exception {
+    public void shouldThrowExceptionIfQueryFailsToCreateLocksTable() throws Exception {
         //given
         primingClient.prime(PrimingRequest.queryBuilder()
                 .withQuery("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client uuid)")
@@ -141,7 +159,7 @@ public class LockTest {
         Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
             @Override
             public void call() throws Throwable {
-                Lock.acquire(new LockConfig(), LOCK_KEYSPACE, session);
+                Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session);
             }
         });
 
@@ -164,7 +182,7 @@ public class LockTest {
         );
 
         //when
-        Lock.acquire(new LockConfig(), LOCK_KEYSPACE, session);
+        Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session);
 
         //then
         Query expectedQuery = Query.builder()
@@ -192,7 +210,7 @@ public class LockTest {
         );
 
         //when
-        Lock lock = Lock.acquire(new LockConfig(), LOCK_KEYSPACE, session);
+        Lock lock = Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session);
         lock.release();
 
         //then
@@ -215,7 +233,7 @@ public class LockTest {
                 .build()
         );
 
-        final LockConfig lockConfig = new LockConfig(millis(50), millis(300), REPLICATION_CLASS, REPLICATION_FACTOR);
+        final LockConfig lockConfig = LockConfig.builder().withPollingInterval(millis(50)).withTimeout(millis(300)).build();
 
         //when
         Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
@@ -252,13 +270,11 @@ public class LockTest {
                 .build()
         );
 
-        final LockConfig lockConfig = new LockConfig();
-
         //when
         Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
             @Override
             public void call() throws Throwable {
-                Lock.acquire(lockConfig, LOCK_KEYSPACE, session);
+                Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session);
             }
         });
 
@@ -287,8 +303,7 @@ public class LockTest {
                 .build()
         );
 
-        LockConfig lockConfig = new LockConfig();
-        final Lock lock = Lock.acquire(lockConfig, LOCK_KEYSPACE, session);
+        final Lock lock = Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session);
 
         //when
         Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
