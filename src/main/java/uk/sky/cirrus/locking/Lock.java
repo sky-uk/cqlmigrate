@@ -2,18 +2,23 @@ package uk.sky.cirrus.locking;
 
 import com.datastax.driver.core.*;
 import com.datastax.driver.core.exceptions.DriverException;
-import com.google.common.util.concurrent.Uninterruptibles;
-import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
 import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
 
+import java.time.Duration;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 import static com.datastax.driver.core.ConsistencyLevel.QUORUM;
 
+/**
+ * Class to acquire a lock on cassandra table for a single application instance.  Each instance is given a unique identifier
+ * and attempts to gain a lock on the table.  If no lock is currently acquired, the instance is given the lock on the table, otherwise
+ * the instance must wait until the lock has been relinquished. If a lock cannot be acquired within the configured timeout
+ * interval, an exception is thrown.
+ *
+ */
 public class Lock {
 
     private static final Logger log = LoggerFactory.getLogger(Lock.class);
@@ -27,8 +32,14 @@ public class Lock {
         this.session = session;
     }
 
+    /**
+     * @param lockConfig
+     * @param keyspace
+     * @param session
+     * @return the {@code Lock} object
+     * @throws CannotAcquireLockException if instance cannot acquire lock within the specified time interval or execution of query to insert lock fails
+     */
     public static Lock acquire(LockConfig lockConfig, String keyspace, Session session) throws CannotAcquireLockException {
-
         Duration pollingInterval = lockConfig.getPollingInterval();
         Duration timeout = lockConfig.getTimeout();
 
@@ -61,7 +72,11 @@ public class Lock {
             } else {
                 UUID clientWithLock = lock.getUUID("client");
                 log.debug("Lock currently in use by client: {}", clientWithLock);
-                Uninterruptibles.sleepUninterruptibly(pollingInterval.getMillis(), TimeUnit.MILLISECONDS);
+                try {
+                    Thread.sleep(pollingInterval.toMillis());
+                } catch (InterruptedException e) {
+                    log.debug("Lock was interrupted");
+                }
 
                 if (timedOut(timeout, startTime)) {
                     log.warn("Unable to acquire lock, currently in use by client: {}", clientWithLock);
@@ -70,6 +85,22 @@ public class Lock {
             }
         }
 
+    }
+
+    /**
+     * @throws CannotReleaseLockException if execution of query to remove lock fails
+     */
+    public void release() throws CannotReleaseLockException {
+        Statement query = new SimpleStatement("DELETE FROM locks.locks WHERE name = ?", name)
+                .setConsistencyLevel(QUORUM);
+
+        try {
+            session.execute(query);
+            log.debug("Lock released for: {}", name);
+        } catch (DriverException e) {
+            log.warn("Query to release lock failed to execute", e);
+            throw new CannotReleaseLockException("Query failed to execute", e);
+        }
     }
 
     private static void ensureLocksSchemaExists(LockConfig lockConfig, Session session) {
@@ -90,19 +121,7 @@ public class Lock {
 
     private static boolean timedOut(Duration timeout, long startTime) {
         long currentDuration = System.currentTimeMillis() - startTime;
-        return currentDuration >= timeout.getMillis();
+        return currentDuration >= timeout.toMillis();
     }
 
-    public void release() throws CannotReleaseLockException {
-        Statement query = new SimpleStatement("DELETE FROM locks.locks WHERE name = ?", name)
-                .setConsistencyLevel(QUORUM);
-
-        try {
-            session.execute(query);
-            log.debug("Lock released for: {}", name);
-        } catch (DriverException e) {
-            log.warn("Query to release lock failed to execute", e);
-            throw new CannotReleaseLockException("Query failed to execute", e);
-        }
-    }
 }

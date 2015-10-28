@@ -1,6 +1,6 @@
 package uk.sky.cirrus.locking.exception;
 
-import org.joda.time.Duration;
+import java.time.Duration;
 
 /**
  * Thrown if any of the queries to acquire lock fail or

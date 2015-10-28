@@ -3,7 +3,6 @@ package uk.sky.cirrus;
 import com.datastax.driver.core.*;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.thrift.transport.TTransportException;
-import org.assertj.core.api.ThrowableAssert;
 import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
 import org.junit.*;
 import uk.sky.cirrus.locking.LockConfig;
@@ -19,17 +18,17 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import static java.time.Duration.ofMillis;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
-import static org.joda.time.Duration.millis;
 import static org.junit.Assert.fail;
 
 public class CqlMigratorTest {
 
-    private static final Collection<String> CASSANDRA_HOSTS = singletonList("localhost");
-    private static final int BINARY_PORT = 9142;
+    private static final String[] CASSANDRA_HOSTS = {"localhost"};
+    private static int binaryPort;
     private static Cluster cluster;
     private static Session session;
     private static final String TEST_KEYSPACE = "cqlmigrate_test";
@@ -40,9 +39,11 @@ public class CqlMigratorTest {
     private ExecutorService executorService;
 
     @BeforeClass
-    public static void setupCassandra() throws ConfigurationException, IOException, TTransportException {
-        EmbeddedCassandraServerHelper.startEmbeddedCassandra("test-cassandra.yaml", "build/embeddedCassandra");
-        cluster = Cluster.builder().addContactPoints(CASSANDRA_HOSTS.toArray(new String[CASSANDRA_HOSTS.size()])).withPort(BINARY_PORT).build();
+    public static void setupCassandra() throws ConfigurationException, IOException, TTransportException, InterruptedException {
+        EmbeddedCassandraServerHelper.startEmbeddedCassandra(EmbeddedCassandraServerHelper.CASSANDRA_RNDPORT_YML_FILE);
+        binaryPort = EmbeddedCassandraServerHelper.getNativeTransportPort();
+
+        cluster = Cluster.builder().addContactPoints(CASSANDRA_HOSTS).withPort(binaryPort).build();
         session = cluster.connect();
     }
 
@@ -66,7 +67,7 @@ public class CqlMigratorTest {
     @AfterClass
     public static void tearDownClass() throws Exception {
         session.execute("DROP KEYSPACE locks");
-        cluster.closeAsync();
+        cluster.close();
         EmbeddedCassandraServerHelper.cleanEmbeddedCassandra();
     }
 
@@ -80,7 +81,7 @@ public class CqlMigratorTest {
         Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
 
         //when
-        MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
+        MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths);
 
         //then
         try {
@@ -93,7 +94,7 @@ public class CqlMigratorTest {
     @Test(timeout = 1000)
     public void shouldThrowCannotAcquireLockExceptionIfLockCannotBeAcquiredAfterTimeout() throws Exception {
         //given
-        final CqlMigrator migrator = new CqlMigrator(LockConfig.builder().withPollingInterval(millis(50)).withTimeout(millis(300)).build());
+        final CqlMigrator migrator = new CqlMigrator(LockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build());
 
         UUID client = UUID.randomUUID();
         session.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, client);
@@ -101,20 +102,10 @@ public class CqlMigratorTest {
         final Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
 
         //when
-        final Future<?> future = executorService.submit(new Runnable() {
-            @Override
-            public void run() {
-                migrator.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
-            }
-        });
+        final Future<?> future = executorService.submit((Runnable) () -> migrator.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths));
 
         Thread.sleep(310);
-        Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
-            @Override
-            public void call() throws Throwable {
-                future.get();
-            }
-        });
+        Throwable throwable = catchThrowable(() -> future.get());
 
         //then
         assertThat(throwable).isInstanceOf(ExecutionException.class);
@@ -128,7 +119,7 @@ public class CqlMigratorTest {
         Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
 
         //when
-        MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
+        MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths);
 
         //then
         try {
@@ -144,7 +135,7 @@ public class CqlMigratorTest {
         Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
 
         //when
-        MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
+        MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths);
 
         //then
         ResultSet resultSet = session.execute("SELECT * FROM locks.locks WHERE name = ?", LOCK_NAME);
@@ -158,12 +149,7 @@ public class CqlMigratorTest {
         final Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
 
         //when
-        Future<?> future = executorService.submit(new Runnable() {
-            @Override
-            public void run() {
-                MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
-            }
-        });
+        Future<?> future = executorService.submit((Runnable) () -> MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths));
         session.execute("TRUNCATE locks.locks");
         Thread.sleep(1000);
         future.get();
@@ -183,7 +169,7 @@ public class CqlMigratorTest {
         Collection<Path> cqlPaths = singletonList(cqlPath);
 
         //when
-        MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
+        MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths);
 
         //then
         cluster.connect(TEST_KEYSPACE);
@@ -196,7 +182,7 @@ public class CqlMigratorTest {
         Collection<Path> cqlPaths = singletonList(cqlPath);
 
         //when
-        MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
+        MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths);
 
         //then
         cluster.connect(TEST_KEYSPACE);
@@ -208,7 +194,7 @@ public class CqlMigratorTest {
         Collection<Path> cqlPaths = asList(getResourcePath("cql_bootstrap"), getResourcePath("cql_bootstrap_duplicate"));
 
         //when
-        MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
+        MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths);
 
         //then
         cluster.connect(TEST_KEYSPACE);
@@ -220,7 +206,7 @@ public class CqlMigratorTest {
         Collection<Path> cqlPaths = asList(getResourcePath("cql_valid_one"), getResourcePath("cql_valid_two"));
 
         //when
-        MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
+        MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths);
 
         //then
         Session session = cluster.connect(TEST_KEYSPACE);
@@ -236,11 +222,11 @@ public class CqlMigratorTest {
         Collection<Path> cqlPaths = new ArrayList<>();
         cqlPaths.add(getResourcePath("cql_valid_one"));
         cqlPaths.add(getResourcePath("cql_valid_two"));
-        MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
+        MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths);
 
         //when
         cqlPaths.add(getResourcePath("cql_valid_three"));
-        MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
+        MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths);
 
         //then
         Session session = cluster.connect(TEST_KEYSPACE);
@@ -257,7 +243,7 @@ public class CqlMigratorTest {
         Collection<Path> cqlPaths = asList(getResourcePath("cql_valid_one"), getResourcePath("cql_valid_two"));
 
         //when
-        MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
+        MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths);
 
         //then
         Session session = cluster.connect(TEST_KEYSPACE);
@@ -274,7 +260,7 @@ public class CqlMigratorTest {
                 getResourcePath("cql_valid_duplicate_filename"));
 
         //when
-        MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
+        MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths);
     }
 
     @Test
@@ -285,7 +271,7 @@ public class CqlMigratorTest {
 
         //when
         try {
-            MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
+            MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths);
             fail("Should have died");
         } catch (RuntimeException e) {
             // nada
@@ -300,12 +286,12 @@ public class CqlMigratorTest {
     public void shouldFailWhenFileContentsChangeForAPreviouslyAppliedCqlFile() throws Exception {
         //given
         Collection<Path> cqlPaths = asList(getResourcePath("cql_bootstrap"), getResourcePath("cql_create_status"));
-        MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
+        MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths);
 
         //when
         try {
             Collection<Path> differentContentsPaths = singletonList(getResourcePath("cql_create_status_different_contents"));
-            MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, differentContentsPaths);
+            MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, differentContentsPaths);
             fail("Should have died");
         } catch (RuntimeException e) {
             // nada
@@ -323,7 +309,7 @@ public class CqlMigratorTest {
 
         //when
         try {
-            MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
+            MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths);
         } catch (RuntimeException e) {
             // nada
         }
@@ -341,7 +327,7 @@ public class CqlMigratorTest {
         System.setProperty("hosts", "localhost");
         System.setProperty("keyspace", TEST_KEYSPACE);
         System.setProperty("directories", getResourcePath("cql_valid_one").toString() + "," + getResourcePath("cql_valid_two").toString());
-        System.setProperty("port", "9142");
+        System.setProperty("port", String.valueOf(binaryPort));
 
         //when
         CqlMigrator.main(new String[]{});
@@ -388,10 +374,10 @@ public class CqlMigratorTest {
     public void shouldRemoveAllDataWhenCleaningAKeyspace() throws Exception {
         //given
         Collection<Path> cqlPaths = asList(getResourcePath("cql_valid_one"), getResourcePath("cql_valid_two"));
-        MIGRATOR.migrate(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE, cqlPaths);
+        MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths);
 
         //when
-        MIGRATOR.clean(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE);
+        MIGRATOR.clean(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE);
 
         //then
         assertThat(cluster.getMetadata().getKeyspace(TEST_KEYSPACE)).as("keyspace should be gone").isNull();
@@ -399,7 +385,7 @@ public class CqlMigratorTest {
 
     @Test
     public void shouldFailSilentlyIfCleaningANonExistingKeyspace() throws Exception {
-        MIGRATOR.clean(CASSANDRA_HOSTS, BINARY_PORT, TEST_KEYSPACE);
+        MIGRATOR.clean(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE);
     }
 
 }

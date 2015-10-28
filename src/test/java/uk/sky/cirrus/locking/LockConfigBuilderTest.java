@@ -1,8 +1,8 @@
 package uk.sky.cirrus.locking;
 
-import org.assertj.core.api.ThrowableAssert;
-import org.joda.time.Duration;
 import org.junit.Test;
+
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
@@ -12,12 +12,7 @@ public class LockConfigBuilderTest {
     @Test
     public void shouldThrowExceptionIfPollingIntervalIsNegative() throws Exception {
         //when
-        Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
-            @Override
-            public void call() throws Throwable {
-                LockConfig.builder().withPollingInterval(Duration.millis(-1));
-            }
-        });
+        Throwable throwable = catchThrowable(() -> LockConfig.builder().withPollingInterval(Duration.ofMillis(-1)));
 
         //then
         assertThat(throwable)
@@ -28,12 +23,7 @@ public class LockConfigBuilderTest {
     @Test
     public void shouldThrowExceptionIfTimeoutIsNegative() throws Exception {
         //when
-        Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
-            @Override
-            public void call() throws Throwable {
-                LockConfig.builder().withTimeout(Duration.millis(-1));
-            }
-        });
+        Throwable throwable = catchThrowable(() -> LockConfig.builder().withTimeout(Duration.ofMillis(-1)));
 
         //then
         assertThat(throwable)
@@ -44,12 +34,7 @@ public class LockConfigBuilderTest {
     @Test
     public void shouldThrowExceptionIfSimpleStrategyIsUsedInCombinationWithDataCenters() throws Exception {
         //when
-        Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
-            @Override
-            public void call() throws Throwable {
-                LockConfig.builder().withNetworkTopologyReplication("DC", 1).withSimpleStrategyReplication(1);
-            }
-        });
+        Throwable throwable = catchThrowable(() -> LockConfig.builder().withNetworkTopologyReplication("DC", 1).withSimpleStrategyReplication(1));
 
         //then
         assertThat(throwable)

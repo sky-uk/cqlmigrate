@@ -18,10 +18,10 @@ import uk.sky.cirrus.util.PortScavenger;
 
 import java.util.UUID;
 
+import static java.time.Duration.ofMillis;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.assertj.core.data.Index.atIndex;
-import static org.joda.time.Duration.millis;
 import static org.scassandra.http.client.PrimingRequest.then;
 
 public class LockTest {
@@ -68,7 +68,7 @@ public class LockTest {
 
     @After
     public void tearDown() throws Exception {
-        cluster.closeAsync();
+        cluster.close();
     }
 
     @Test
@@ -233,15 +233,10 @@ public class LockTest {
                 .build()
         );
 
-        final LockConfig lockConfig = LockConfig.builder().withPollingInterval(millis(50)).withTimeout(millis(300)).build();
+        final LockConfig lockConfig = LockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build();
 
         //when
-        Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
-            @Override
-            public void call() throws Throwable {
-                Lock.acquire(lockConfig, LOCK_KEYSPACE, session);
-            }
-        });
+        Throwable throwable = catchThrowable(() -> Lock.acquire(lockConfig, LOCK_KEYSPACE, session));
 
         //then
         assertThat(throwable).isNotNull();

@@ -1,8 +1,10 @@
 package uk.sky.cirrus;
 
-import com.datastax.driver.core.*;
-import com.google.common.collect.Lists;
-import org.joda.time.Duration;
+import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.ConsistencyLevel;
+import com.datastax.driver.core.QueryOptions;
+import com.datastax.driver.core.Session;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.sky.cirrus.exception.ClusterUnhealthyException;
@@ -12,8 +14,17 @@ import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
 import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
+import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.stream.Collectors;
+
+/**
+ * Utility class which helps to apply schema changes required by an application prior to application startup.
+ * Makes use of a locking mechanism to ensure only one instance at a time can apply schema changes to the cassandra
+ * database.
+ *
+ */
 
 public final class CqlMigrator {
 
@@ -38,14 +49,12 @@ public final class CqlMigrator {
         String directoriesProperty = getProperty("directories");
         String port = getProperty("port");
 
-        Collection<String> hosts = Lists.newArrayList(hostsProperty.split(","));
-        Collection<Path> directories = new ArrayList<>();
-        for (String directoryString : directoriesProperty.split(",")) {
-            directories.add(java.nio.file.Paths.get(directoryString));
-        }
+        Collection<Path> directories = Arrays.stream(directoriesProperty.split(","))
+                .map(java.nio.file.Paths::get)
+                .collect(Collectors.toList());
 
         new CqlMigrator(LockConfig.builder().build())
-                .migrate(hosts, port == null ? 9042 : Integer.parseInt(port), keyspaceProperty, directories);
+                .migrate(hostsProperty.split(","), port == null ? 9042 : Integer.parseInt(port), keyspaceProperty, directories);
     }
 
     /**
@@ -56,17 +65,17 @@ public final class CqlMigrator {
      * @param port
      * @param keyspace
      * @param directories
-     * @throws ClusterUnhealthyException if any nodes are down or the schema is not
-     *                                   in agreement before running migration
-     * @throws CannotAcquireLockException if any of the queries to acquire lock fail or
-     *                                    {@link uk.sky.cirrus.locking.LockConfig.LockConfigBuilder#withTimeout(Duration)}
-     *                                    is reached before lock can be acquired.
-     * @throws CannotReleaseLockException if any of the queries to release lock fail
-     * @throws IllegalArgumentException if any file types other than .cql are found
-     * @throws IllegalStateException if cql file has changed after migration has been run
+     * @throws ClusterUnhealthyException                           if any nodes are down or the schema is not
+     *                                                             in agreement before running migration
+     * @throws CannotAcquireLockException                          if any of the queries to acquire lock fail or
+     *                                                             {@link uk.sky.cirrus.locking.LockConfig.LockConfigBuilder#withTimeout(Duration)}
+     *                                                             is reached before lock can be acquired.
+     * @throws CannotReleaseLockException                          if any of the queries to release lock fail
+     * @throws IllegalArgumentException                            if any file types other than .cql are found
+     * @throws IllegalStateException                               if cql file has changed after migration has been run
      * @throws com.datastax.driver.core.exceptions.DriverException if any of the migration queries fails
      */
-    public void migrate(Collection<String> hosts, int port, String keyspace, Collection<Path> directories)
+    public void migrate(String[] hosts, int port, String keyspace, Collection<Path> directories)
             throws ClusterUnhealthyException, CannotAcquireLockException, CannotReleaseLockException {
 
         try (Cluster cluster = createCluster(hosts, port);
@@ -100,7 +109,7 @@ public final class CqlMigrator {
      * @param keyspace
      * @throws com.datastax.driver.core.exceptions.DriverException if query fails
      */
-    public void clean(Collection<String> hosts, int port, String keyspace) {
+    public void clean(String[] hosts, int port, String keyspace) {
         try (Cluster cluster = createCluster(hosts, port);
              Session session = cluster.connect()) {
 
@@ -109,21 +118,22 @@ public final class CqlMigrator {
         }
     }
 
-    private Cluster createCluster(Collection<String> hosts, int port) {
+    private Cluster createCluster(String[] hosts, int port) {
         QueryOptions queryOptions = new QueryOptions();
         queryOptions.setConsistencyLevel(ConsistencyLevel.ALL);
 
         return Cluster.builder()
-                .addContactPoints(hosts.toArray(new String[hosts.size()]))
+                .addContactPoints(hosts)
                 .withPort(port)
                 .withQueryOptions(queryOptions)
                 .build();
     }
 
-    private static String getProperty(String propertyName) {
-        String property = System.getProperty(propertyName);
-        if (property == null || property.isEmpty())
+    private static String getProperty(final String propertyName) {
+        final String property = System.getProperty(propertyName);
+        if (StringUtils.isEmpty(property)) {
             throw new IllegalArgumentException("Expected " + propertyName + " property to be set.");
+        }
         return property;
     }
 }

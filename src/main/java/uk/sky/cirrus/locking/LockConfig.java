@@ -1,7 +1,6 @@
 package uk.sky.cirrus.locking;
 
-import org.joda.time.Duration;
-
+import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -62,8 +61,8 @@ public class LockConfig {
 
     public static class LockConfigBuilder {
 
-        private Duration pollingInterval = Duration.millis(500);
-        private Duration timeout = Duration.standardMinutes(1);
+        private Duration pollingInterval = Duration.ofMillis(500);
+        private Duration timeout = Duration.ofMinutes(1);
         private int replicationFactor = 1;
         private ReplicationClass replicationClass = ReplicationClass.SimpleStrategy;
         private Map<String, Integer> dataCenters = new HashMap<>();
@@ -78,8 +77,8 @@ public class LockConfig {
          * @throws IllegalArgumentException if value is less than 0
          */
         public LockConfigBuilder withPollingInterval(Duration pollingInterval) {
-            if (pollingInterval.getMillis() < 0)
-                throw new IllegalArgumentException("Polling interval must be positive: " + pollingInterval.getMillis());
+            if (pollingInterval.toMillis() < 0)
+                throw new IllegalArgumentException("Polling interval must be positive: " + pollingInterval.toMillis());
 
             this.pollingInterval = pollingInterval;
             return this;
@@ -93,8 +92,8 @@ public class LockConfig {
          * @throws IllegalArgumentException if value is less than 0
          */
         public LockConfigBuilder withTimeout(Duration timeout) {
-            if (timeout.getMillis() < 0)
-                throw new IllegalArgumentException("Timeout must be positive: " + timeout.getMillis());
+            if (timeout.toMillis() < 0)
+                throw new IllegalArgumentException("Timeout must be positive: " + timeout.toMillis());
 
             this.timeout = timeout;
             return this;

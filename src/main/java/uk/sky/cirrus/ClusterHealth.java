@@ -4,6 +4,10 @@ import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.Host;
 import uk.sky.cirrus.exception.ClusterUnhealthyException;
 
+import java.net.InetAddress;
+import java.util.List;
+import java.util.stream.Collectors;
+
 class ClusterHealth {
 
     private final Cluster cluster;
@@ -13,10 +17,15 @@ class ClusterHealth {
     }
 
     void check() throws ClusterUnhealthyException{
-        for (Host host : cluster.getMetadata().getAllHosts()) {
-            if (!host.isUp()) {
-                throw new ClusterUnhealthyException("Cluster not healthy, at least 1 host is down: " + host.getAddress());
-            }
+
+        final List<InetAddress> unhealthyHosts = cluster.getMetadata().getAllHosts()
+                .parallelStream()
+                .filter(host -> !host.isUp())
+                .map(Host::getAddress)
+                .collect(Collectors.toList());
+
+        if(!unhealthyHosts.isEmpty()){
+            throw new ClusterUnhealthyException("Cluster not healthy, the following hosts are down: " + unhealthyHosts);
         }
 
         if (!cluster.getMetadata().checkSchemaAgreement()) {

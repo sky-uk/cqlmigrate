@@ -98,6 +98,6 @@ public class ClusterHealthTest {
         throwable.printStackTrace();
         assertThat(throwable).isNotNull();
         assertThat(throwable).isInstanceOf(ClusterUnhealthyException.class);
-        assertThat(throwable).hasMessage("Cluster not healthy, at least 1 host is down: localhost/127.0.0.1");
+        assertThat(throwable).hasMessage("Cluster not healthy, the following hosts are down: [localhost/127.0.0.1]");
     }
 }
