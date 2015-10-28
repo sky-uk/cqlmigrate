@@ -40,14 +40,13 @@ class SchemaLoader {
             } else {
                 String lowercasePath = path.toString().toLowerCase();
                 if (lowercasePath.endsWith(".cql")) {
-                    FileLoader.loadCql(session, path);
+                    CqlLoader.load(session, path);
                 } else {
                     throw new IllegalArgumentException("Unrecognised file type: " + path);
                 }
 
                 schemaUpdates.add(filename, path);
                 LOGGER.info("Applied: {}", path.getFileName());
-
             }
         }
     }

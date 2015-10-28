@@ -13,20 +13,20 @@ import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkState;
 
-class FileLoader {
+class CqlLoader {
+    private static final Logger LOGGER = LoggerFactory.getLogger(CqlLoader.class);
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(FileLoader.class);
-
-    private FileLoader() {
+    private CqlLoader() {
     }
 
-    static void loadCql(Session session, Path cqlPath) {
-
+    static void load(Session session, Path cqlPath) {
         final StringBuilder statementBuilder = new StringBuilder();
 
         try (BufferedReader cqlReader = Files.newBufferedReader(cqlPath, Charsets.UTF_8)) {
 
-            final String cqlStatements = cqlReader.lines().map(statementBuilder::append).reduce(statementBuilder, (sb1, sb2) -> sb1).toString();
+            cqlReader.lines().forEach(statementBuilder::append);
+
+            final String cqlStatements = statementBuilder.toString();
             checkState(cqlStatements.endsWith(";"), "had a non-terminated cql line: %s", cqlStatements);
 
             Arrays.stream(cqlStatements.split(";")).forEach(session::execute);

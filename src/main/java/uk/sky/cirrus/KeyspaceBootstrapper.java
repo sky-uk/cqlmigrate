@@ -24,7 +24,7 @@ class KeyspaceBootstrapper {
         if (keyspaceMetadata == null) {
             paths.applyBootstrap((filename, path) -> {
                 LOGGER.info("Keyspace not found, applying {}", path);
-                FileLoader.loadCql(session, path);
+                CqlLoader.load(session, path);
                 LOGGER.info("Applied: bootstrap.cql");
             });
         } else {
