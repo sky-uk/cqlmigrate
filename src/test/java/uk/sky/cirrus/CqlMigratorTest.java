@@ -246,12 +246,28 @@ public class CqlMigratorTest {
         MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths);
 
         //then
-        Session session = cluster.connect(TEST_KEYSPACE);
         ResultSet rs = session.execute("select * from schema_updates");
         for (Row row : rs) {
             assertThat(row.getDate("applied_on")).as("applied_on").isNotNull().isAfter(now);
         }
     }
+
+    @Test
+    public void schemaUpdatesTableByPassingCassandraSession() throws Exception {
+        //given
+        Date now = new Date();
+        Collection<Path> cqlPaths = asList(getResourcePath("cql_valid_one"), getResourcePath("cql_valid_two"));
+
+        //when
+        MIGRATOR.migrate(session, TEST_KEYSPACE, cqlPaths);
+
+        //then
+        ResultSet rs = session.execute("select * from schema_updates");
+        for (Row row : rs) {
+            assertThat(row.getDate("applied_on")).as("applied_on").isNotNull().isAfter(now);
+        }
+    }
+
 
     @Test(expected = RuntimeException.class)
     public void shouldFailIfThereAreDuplicateCqlFilenames() throws Exception {
@@ -341,7 +357,7 @@ public class CqlMigratorTest {
     }
 
     @Test
-    public void shouldThrowIllegalArgumentIfHostsNotSetForMain() throws Exception {
+    public void shouldThrowExceptionWithAppropriateMessageIfHostsNotSetForMain() throws Exception {
         //given
         System.setProperty("keyspace", TEST_KEYSPACE);
         System.setProperty("directories", getResourcePath("cql_valid_one").toString() + "," + getResourcePath("cql_valid_two").toString());
@@ -353,7 +369,7 @@ public class CqlMigratorTest {
     }
 
     @Test
-    public void shouldThrowIllegalArgumentIfKeyspaceNotSetForMain() throws Exception {
+    public void shouldThrowExceptionWithAppropriateMessageIfKeyspaceNotSetForMain() throws Exception {
         //given
         System.setProperty("hosts", "localhost");
         System.setProperty("directories", getResourcePath("cql_valid_one").toString() + "," + getResourcePath("cql_valid_two").toString());
@@ -365,7 +381,7 @@ public class CqlMigratorTest {
     }
 
     @Test
-    public void shouldThrowIllegalArgumentIfDirectoriesNotSetForMain() throws Exception {
+    public void shouldThrowExceptionWithAppropriateMessageIfDirectoriesNotSetForMain() throws Exception {
         //given
         System.setProperty("hosts", "localhost");
         System.setProperty("keyspace", TEST_KEYSPACE);
@@ -390,8 +406,20 @@ public class CqlMigratorTest {
     }
 
     @Test
+    public void shouldCleanAKeyspaceOnACassandraSession() throws Exception {
+        //given
+        Collection<Path> cqlPaths = asList(getResourcePath("cql_valid_one"), getResourcePath("cql_valid_two"));
+        MIGRATOR.migrate(session, TEST_KEYSPACE, cqlPaths);
+
+        //when
+        MIGRATOR.clean(session, TEST_KEYSPACE);
+
+        //then
+        assertThat(cluster.getMetadata().getKeyspace(TEST_KEYSPACE)).as("keyspace should be gone").isNull();
+    }
+
+    @Test
     public void shouldFailSilentlyIfCleaningANonExistingKeyspace() throws Exception {
         MIGRATOR.clean(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE);
     }
-
 }

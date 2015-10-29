@@ -80,30 +80,24 @@ public final class CqlMigratorImpl implements CqlMigrator {
      * @throws IllegalStateException                               if cql file has changed after migration has been run
      * @throws com.datastax.driver.core.exceptions.DriverException if any of the migration queries fails
      */
-    public void migrate(String[] hosts, int port, String keyspace, Collection<Path> directories)
-            throws ClusterUnhealthyException, CannotAcquireLockException, CannotReleaseLockException {
+    public void migrate(Session session, String keyspace, Collection<Path> directories) {
+        final Cluster cluster = session.getCluster();
+        ClusterHealth clusterHealth = new ClusterHealth(cluster);
+        clusterHealth.check();
 
-        try (Cluster cluster = createCluster(hosts, port);
-             Session session = cluster.connect()) {
+        Lock lock = Lock.acquire(lockConfig, keyspace, session);
 
-            ClusterHealth clusterHealth = new ClusterHealth(cluster);
-            clusterHealth.check();
+        LOGGER.info("Loading cql files from {}", directories);
+        CqlPaths paths = CqlPaths.create(directories);
 
-            Lock lock = Lock.acquire(lockConfig, keyspace, session);
+        final KeyspaceBootstrapper keyspaceBootstrapper = new KeyspaceBootstrapper(session, keyspace, paths);
+        final SchemaUpdates schemaUpdates = new SchemaUpdates(session, keyspace);
+        final SchemaLoader schemaLoader = new SchemaLoader(session, keyspace, schemaUpdates, paths);
 
-            LOGGER.info("Loading cql files from {}", directories);
-            CqlPaths paths = CqlPaths.create(directories);
-
-            final KeyspaceBootstrapper keyspaceBootstrapper = new KeyspaceBootstrapper(session, keyspace, paths);
-            final SchemaUpdates schemaUpdates = new SchemaUpdates(session, keyspace);
-            final SchemaLoader schemaLoader = new SchemaLoader(session, keyspace, schemaUpdates, paths);
-
-            keyspaceBootstrapper.bootstrap();
-            schemaUpdates.initialise();
-            schemaLoader.load();
-
-            lock.release();
-        }
+        keyspaceBootstrapper.bootstrap();
+        schemaUpdates.initialise();
+        schemaLoader.load();
+        lock.release();
     }
 
     /**
@@ -117,10 +111,13 @@ public final class CqlMigratorImpl implements CqlMigrator {
     public void clean(String[] hosts, int port, String keyspace) {
         try (Cluster cluster = createCluster(hosts, port);
              Session session = cluster.connect()) {
-
-            session.execute("DROP KEYSPACE IF EXISTS " + keyspace);
-            LOGGER.info("Cleaned {}", keyspace);
+            this.clean(session, keyspace);
         }
+    }
+
+    public void clean(Session session, String keyspace) {
+        session.execute("DROP KEYSPACE IF EXISTS " + keyspace);
+        LOGGER.info("Cleaned {}", keyspace);
     }
 
     private Cluster createCluster(String[] hosts, int port) {

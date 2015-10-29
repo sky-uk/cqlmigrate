@@ -37,9 +37,10 @@ public class Lock {
      * @param keyspace
      * @param session
      * @return the {@code Lock} object
+     *
      * @throws CannotAcquireLockException if instance cannot acquire lock within the specified time interval or execution of query to insert lock fails
      */
-    public static Lock acquire(LockConfig lockConfig, String keyspace, Session session) throws CannotAcquireLockException {
+    public static Lock acquire(LockConfig lockConfig, String keyspace, Session session) {
         Duration pollingInterval = lockConfig.getPollingInterval();
         Duration timeout = lockConfig.getTimeout();
 
@@ -90,7 +91,7 @@ public class Lock {
     /**
      * @throws CannotReleaseLockException if execution of query to remove lock fails
      */
-    public void release() throws CannotReleaseLockException {
+    public void release() {
         Statement query = new SimpleStatement("DELETE FROM locks.locks WHERE name = ?", name)
                 .setConsistencyLevel(QUORUM);
 
