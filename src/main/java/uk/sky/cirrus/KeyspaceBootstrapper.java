@@ -11,9 +11,9 @@ class KeyspaceBootstrapper {
 
     private final Session session;
     private final String keyspace;
-    private final Paths paths;
+    private final CqlPaths paths;
 
-    KeyspaceBootstrapper(Session session, String keyspace, Paths paths) {
+    KeyspaceBootstrapper(Session session, String keyspace, CqlPaths paths) {
         this.session = session;
         this.keyspace = keyspace;
         this.paths = paths;

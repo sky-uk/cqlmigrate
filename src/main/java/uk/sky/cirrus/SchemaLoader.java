@@ -13,9 +13,9 @@ class SchemaLoader {
     private final Session session;
     private final String keyspace;
     private final SchemaUpdates schemaUpdates;
-    private final Paths paths;
+    private final CqlPaths paths;
 
-    SchemaLoader(Session session, String keyspace, SchemaUpdates schemaUpdates, Paths paths) {
+    SchemaLoader(Session session, String keyspace, SchemaUpdates schemaUpdates, CqlPaths paths) {
         this.session = session;
         this.keyspace = keyspace;
         this.schemaUpdates = schemaUpdates;
@@ -27,7 +27,7 @@ class SchemaLoader {
         paths.applyInSortedOrder(new Loader());
     }
 
-    private class Loader implements Paths.Function {
+    private class Loader implements CqlPaths.Function {
         @Override
         public void apply(String filename, Path path) {
             if (schemaUpdates.alreadyApplied(filename)) {

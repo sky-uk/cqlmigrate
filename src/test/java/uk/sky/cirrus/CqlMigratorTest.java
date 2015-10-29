@@ -34,7 +34,7 @@ public class CqlMigratorTest {
     private static final String TEST_KEYSPACE = "cqlmigrate_test";
     private static final String LOCK_NAME = TEST_KEYSPACE + ".schema_migration";
 
-    private static final CqlMigrator MIGRATOR = new CqlMigrator(LockConfig.builder().build());
+    private static final CqlMigratorImpl MIGRATOR = new CqlMigratorImpl(LockConfig.builder().build());
 
     private ExecutorService executorService;
 
@@ -94,7 +94,7 @@ public class CqlMigratorTest {
     @Test(timeout = 1000)
     public void shouldThrowCannotAcquireLockExceptionIfLockCannotBeAcquiredAfterTimeout() throws Exception {
         //given
-        final CqlMigrator migrator = new CqlMigrator(LockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build());
+        final CqlMigratorImpl migrator = new CqlMigratorImpl(LockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build());
 
         UUID client = UUID.randomUUID();
         session.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, client);
@@ -330,7 +330,7 @@ public class CqlMigratorTest {
         System.setProperty("port", String.valueOf(binaryPort));
 
         //when
-        CqlMigrator.main(new String[]{});
+        CqlMigratorImpl.main(new String[]{});
 
         //then
         Session session = cluster.connect(TEST_KEYSPACE);
@@ -340,34 +340,40 @@ public class CqlMigratorTest {
         assertThat(rows.get(0).getString("waste_of_space")).isEqualTo("true");
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void shouldThrowIllegalArgumentIfHostsNotSetForMain() throws Exception {
         //given
         System.setProperty("keyspace", TEST_KEYSPACE);
         System.setProperty("directories", getResourcePath("cql_valid_one").toString() + "," + getResourcePath("cql_valid_two").toString());
 
         //when
-        CqlMigrator.main(new String[]{});
+        final Throwable throwable = catchThrowable(() -> CqlMigratorImpl.main(new String[]{}));
+        assertThat(throwable).isNotNull().isInstanceOf(NullPointerException.class);
+        assertThat(throwable.getMessage()).isEqualTo("'hosts' property should be provided having value of a comma separated list of cassandra hosts");
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void shouldThrowIllegalArgumentIfKeyspaceNotSetForMain() throws Exception {
         //given
         System.setProperty("hosts", "localhost");
         System.setProperty("directories", getResourcePath("cql_valid_one").toString() + "," + getResourcePath("cql_valid_two").toString());
 
         //when
-        CqlMigrator.main(new String[]{});
+        final Throwable throwable = catchThrowable(() -> CqlMigratorImpl.main(new String[]{}));
+        assertThat(throwable).isNotNull().isInstanceOf(NullPointerException.class);
+        assertThat(throwable.getMessage()).isEqualTo("'keyspace' property should be provided having value of the cassandra keyspace");
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void shouldThrowIllegalArgumentIfDirectoriesNotSetForMain() throws Exception {
         //given
         System.setProperty("hosts", "localhost");
         System.setProperty("keyspace", TEST_KEYSPACE);
 
         //when
-        CqlMigrator.main(new String[]{});
+        final Throwable throwable = catchThrowable(() -> CqlMigratorImpl.main(new String[]{}));
+        assertThat(throwable).isNotNull().isInstanceOf(NullPointerException.class);
+        assertThat(throwable.getMessage()).isEqualTo("'directories' property should be provided having value of the comma separated list of paths to cql files");
     }
 
     @Test
