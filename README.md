@@ -136,6 +136,6 @@ Originally developed by the Cirrus team at Sky.
 - Malinda Rajapakse
 - Ashutosh Gawande
 - Dominic Mullings
-- Yoseph Sultan
+- Yoseph Samuel
 - David Sale
 - Supreeth Rao
