@@ -33,9 +33,9 @@ public class Lock {
     }
 
     /**
-     * @param lockConfig
-     * @param keyspace
-     * @param session
+     * @param lockConfig  {@code LockConfig} for configuring the lock to migrate the schema
+     * @param keyspace  Name of the keyspace which is to be used for migration
+     * @param session  Cassandra {@code Session} to use while acquiring the lock
      * @return the {@code Lock} object
      *
      * @throws CannotAcquireLockException if instance cannot acquire lock within the specified time interval or execution of query to insert lock fails
