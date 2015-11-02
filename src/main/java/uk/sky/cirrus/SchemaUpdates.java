@@ -1,6 +1,5 @@
 package uk.sky.cirrus;
 
-import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.google.common.base.Throwables;
@@ -31,10 +30,7 @@ class SchemaUpdates {
 
     public void initialise() {
         session.execute("USE " + keyspace + ";");
-        KeyspaceMetadata keyspaceMetadata = session.getCluster().getMetadata().getKeyspace(keyspace);
-        if (keyspaceMetadata.getTable(SCHEMA_UPDATES_TABLE) == null) {
-            session.execute("CREATE TABLE " + SCHEMA_UPDATES_TABLE + " (filename text primary key, " + CHECKSUM_COLUMN + " text, applied_on timestamp);");
-        }
+        session.execute("CREATE TABLE IF NOT EXISTS " + SCHEMA_UPDATES_TABLE + " (filename text primary key, " + CHECKSUM_COLUMN + " text, applied_on timestamp);");
     }
 
     public boolean alreadyApplied(String filename) {
