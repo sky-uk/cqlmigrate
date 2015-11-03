@@ -32,6 +32,7 @@ public class LockTest {
     private static final LockConfig DEFAULT_LOCK_CONFIG = LockConfig.builder().build();
     private static final String REPLICATION_CLASS = "SimpleStrategy";
     private static final int REPLICATION_FACTOR = 1;
+    private static final UUID CLIENT = UUID.randomUUID();
 
     @ClassRule
     public static final ScassandraServerRule SCASSANDRA = new ScassandraServerRule(BINARY_PORT, ADMIN_PORT);
@@ -74,7 +75,7 @@ public class LockTest {
     @Test
     public void shouldTryToCreateLocksKeySpaceWithSimpleStrategy() throws Exception {
         //when
-        Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session);
+        Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, CLIENT);
 
         //then
         Query expectedQuery = Query.builder()
@@ -95,7 +96,7 @@ public class LockTest {
                 .withNetworkTopologyReplication("DC2", 2)
                 .build();
 
-        Lock.acquire(lockConfig, LOCK_KEYSPACE, session);
+        Lock.acquire(lockConfig, LOCK_KEYSPACE, session, CLIENT);
 
         //then
         Query expectedQuery = Query.builder()
@@ -122,7 +123,7 @@ public class LockTest {
         Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
             @Override
             public void call() throws Throwable {
-                Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session);
+                Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, CLIENT);
             }
         });
 
@@ -136,7 +137,7 @@ public class LockTest {
     @Test
     public void shouldTryToCreateLocksTable() throws Exception {
         //when
-        Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session);
+        Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, CLIENT);
 
         //then
         Query expectedQuery = Query.builder()
@@ -159,7 +160,7 @@ public class LockTest {
         Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
             @Override
             public void call() throws Throwable {
-                Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session);
+                Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, CLIENT);
             }
         });
 
@@ -182,7 +183,7 @@ public class LockTest {
         );
 
         //when
-        Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session);
+        Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, CLIENT);
 
         //then
         Query expectedQuery = Query.builder()
@@ -210,7 +211,7 @@ public class LockTest {
         );
 
         //when
-        Lock lock = Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session);
+        Lock lock = Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, CLIENT);
         lock.release();
 
         //then
@@ -236,7 +237,7 @@ public class LockTest {
         final LockConfig lockConfig = LockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build();
 
         //when
-        Throwable throwable = catchThrowable(() -> Lock.acquire(lockConfig, LOCK_KEYSPACE, session));
+        Throwable throwable = catchThrowable(() -> Lock.acquire(lockConfig, LOCK_KEYSPACE, session, CLIENT));
 
         //then
         assertThat(throwable).isNotNull();
@@ -269,7 +270,7 @@ public class LockTest {
         Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
             @Override
             public void call() throws Throwable {
-                Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session);
+                Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, CLIENT);
             }
         });
 
@@ -298,11 +299,10 @@ public class LockTest {
                 .build()
         );
 
-        final Lock lock = Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session);
+        final Lock lock = Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, CLIENT);
 
         //when
-        Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
-            @Override
+        Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {            @Override
             public void call() throws Throwable {
                 lock.release();
             }

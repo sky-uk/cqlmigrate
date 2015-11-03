@@ -18,6 +18,7 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -108,11 +109,10 @@ public final class CqlMigratorImpl implements CqlMigrator {
         ClusterHealth clusterHealth = new ClusterHealth(cluster);
         clusterHealth.check();
 
-        Lock lock = Lock.acquire(lockConfig, keyspace, session);
+        Lock lock = Lock.acquire(lockConfig, keyspace, session, UUID.randomUUID());
 
         LOGGER.info("Loading cql files from {}", directories);
         CqlPaths paths = CqlPaths.create(directories);
-
         final KeyspaceBootstrapper keyspaceBootstrapper = new KeyspaceBootstrapper(session, keyspace, paths);
         final SchemaUpdates schemaUpdates = new SchemaUpdates(session, keyspace);
         final SchemaLoader schemaLoader = new SchemaLoader(session, keyspace, schemaUpdates, paths);
