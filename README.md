@@ -87,6 +87,7 @@ as a strongly consistent database.
 * Add axion-release plugin to handle release numbers
 * Add to jcenter for public consumption
 * Add to travisci
+* Add locking mechanism using lightweight transactions to prevent concurrent schema updates
 
 # Contributors
 
