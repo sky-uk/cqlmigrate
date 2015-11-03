@@ -2,10 +2,7 @@ package uk.sky.cirrus.locking;
 
 import com.datastax.driver.core.*;
 import com.google.common.base.Optional;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,6 +12,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.*;
 
+@Ignore("Until we separate it from unit tests")
 public class LockVerificationTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LockVerificationTest.class);

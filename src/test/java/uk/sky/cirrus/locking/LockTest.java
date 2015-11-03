@@ -188,7 +188,6 @@ public class LockTest {
         //then
         Query expectedQuery = Query.builder()
                 .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                .withConsistency("QUORUM")
                 .build();
 
         assertThat(activityClient.retrieveQueries()).contains(expectedQuery);
@@ -206,7 +205,10 @@ public class LockTest {
         );
 
         primingClient.prime(PrimingRequest.queryBuilder()
-                .withQuery("DELETE FROM locks.locks WHERE name = ?")
+                .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
+                .withThen(then()
+                        .withColumnTypes(ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
+                        .withRows(ImmutableMap.of("[applied]", true)))
                 .build()
         );
 
@@ -216,8 +218,7 @@ public class LockTest {
 
         //then
         Query expectedQuery = Query.builder()
-                .withQuery("DELETE FROM locks.locks WHERE name = ?")
-                .withConsistency("QUORUM")
+                .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
                 .build();
 
         assertThat(activityClient.retrieveQueries()).contains(expectedQuery);
@@ -244,7 +245,6 @@ public class LockTest {
 
         Query expectedQuery = Query.builder()
                 .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                .withConsistency("QUORUM")
                 .build();
 
         assertThat(activityClient.retrieveQueries())
@@ -293,7 +293,7 @@ public class LockTest {
         );
 
         primingClient.prime(PrimingRequest.queryBuilder()
-                .withQuery("DELETE FROM locks.locks WHERE name = ?")
+                .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
                 .withThen(then()
                         .withResult(PrimingRequest.Result.unavailable))
                 .build()
