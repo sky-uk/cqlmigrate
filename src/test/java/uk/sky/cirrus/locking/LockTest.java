@@ -3,7 +3,6 @@ package uk.sky.cirrus.locking;
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.Session;
 import com.google.common.collect.ImmutableMap;
-import org.assertj.core.api.ThrowableAssert;
 import org.junit.*;
 import org.scassandra.cql.PrimitiveType;
 import org.scassandra.http.client.ActivityClient;
@@ -120,12 +119,7 @@ public class LockTest {
         );
 
         //when
-        Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
-            @Override
-            public void call() throws Throwable {
-                Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, CLIENT);
-            }
-        });
+        Throwable throwable = catchThrowable(() -> Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, CLIENT));
 
         //then
         assertThat(throwable).isNotNull();
@@ -157,12 +151,7 @@ public class LockTest {
         );
 
         //when
-        Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
-            @Override
-            public void call() throws Throwable {
-                Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, CLIENT);
-            }
-        });
+        Throwable throwable = catchThrowable(() -> Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, CLIENT));
 
         //then
         assertThat(throwable).isNotNull();
@@ -267,12 +256,7 @@ public class LockTest {
         );
 
         //when
-        Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
-            @Override
-            public void call() throws Throwable {
-                Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, CLIENT);
-            }
-        });
+        Throwable throwable = catchThrowable(() -> Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, CLIENT));
 
         //then
         assertThat(throwable).isNotNull();
@@ -302,11 +286,7 @@ public class LockTest {
         final Lock lock = Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, CLIENT);
 
         //when
-        Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {            @Override
-            public void call() throws Throwable {
-                lock.release();
-            }
-        });
+        Throwable throwable = catchThrowable(() -> lock.release());
 
         //then
         assertThat(throwable).isNotNull();

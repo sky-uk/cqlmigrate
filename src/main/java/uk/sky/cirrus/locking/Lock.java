@@ -2,6 +2,7 @@ package uk.sky.cirrus.locking;
 
 import com.datastax.driver.core.*;
 import com.datastax.driver.core.exceptions.DriverException;
+import com.datastax.driver.core.exceptions.WriteTimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
@@ -35,78 +36,60 @@ public class Lock {
      * @param lockConfig  {@code LockConfig} for configuring the lock to migrate the schema
      * @param keyspace  Name of the keyspace which is to be used for migration
      * @param session  Cassandra {@code Session} to use while acquiring the lock
-     * @param client Identifier for the owner of the lock
+     * @param clientId Identifier for the owner of the lock
      * @return the {@code Lock} object
      *
      * @throws CannotAcquireLockException if instance cannot acquire lock within the specified time interval or execution of query to insert lock fails
      */
-    public static Lock acquire(LockConfig lockConfig, String keyspace, Session session, UUID client) {
-        Duration pollingInterval = lockConfig.getPollingInterval();
-        Duration timeout = lockConfig.getTimeout();
+    public static Lock acquire(LockConfig lockConfig, String keyspace, Session session, UUID clientId) {
+        final String clientName = keyspace + ".schema_migration";
         int acquireAttempts = 1;
 
         ensureLocksSchemaExists(lockConfig, session);
 
-        String name = keyspace + ".schema_migration";
-
+        log.info("Attempting to acquire lock for '{}', using client id '{}'", clientName, clientId);
         long startTime = System.currentTimeMillis();
-        log.info("Attempting to acquire lock for '{}', using client id '{}'", name, client);
+
+        final Statement query = new SimpleStatement("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS", clientName, clientId);
 
         while (true) {
-            Statement query = new SimpleStatement("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS", name, client);
+            try{
+                final ResultSet resultSet = tryAcquire(session, clientId, query);
+                final Row currentLock = resultSet.one();
+                boolean hasAcquiredLock = currentLock.getBool("[applied]");
 
-            ResultSet resultSet;
-            try {
-                resultSet = session.execute(query);
-            } catch (DriverException e) {
-                log.warn("Query to acquire lock for {} failed to execute", client, e);
-                throw new CannotAcquireLockException("Query failed to execute", e);
-            }
-
-            Row currentLock = resultSet.one();
-            boolean lockAcquired = currentLock.getBool("[applied]");
-
-            if (lockAcquired) {
-                log.info("Lock acquired for '{}' by client '{}' after {} attempts", name, client, acquireAttempts);
-                return new Lock(name, session, client);
-            } else {
-                UUID clientWithLock = currentLock.getUUID("client");
-                log.debug("Lock currently in use by client: {}", clientWithLock);
-
-                if (timedOut(timeout, startTime)) {
-                    log.warn("Unable to acquire lock for {} after {} attempts, currently in use by client: {}, time tried: {}", client, acquireAttempts, clientWithLock, (System.currentTimeMillis() - startTime));
-                    throw new CannotAcquireLockException("Lock currently in use by client: " + clientWithLock);
+                if (hasAcquiredLock) {
+                    log.info("Lock acquired for '{}' by client '{}' after {} attempts", clientName, clientId, acquireAttempts);
+                    return new Lock(clientName, session, clientId);
+                } else {
+                    waitToAcquire(lockConfig, clientId, acquireAttempts, startTime, currentLock.getUUID("client"));
                 }
 
-                try {
-                    Thread.sleep(pollingInterval.toMillis());
-                } catch (InterruptedException e) {
-                    log.debug("Lock {} was interrupted", client);
-                    Thread.currentThread().interrupt();
-                }
+            } catch (WriteTimeoutException wte){
+                log.warn("Query to acquire lock for {} failed to execute", clientId, wte);
             }
+
             acquireAttempts++;
         }
-
     }
 
     /**
      * @throws CannotReleaseLockException if execution of query to remove lock fails
      */
     public void release() {
-
-        long timestamp = System.currentTimeMillis() * 1000;
-        Statement query = new SimpleStatement("DELETE FROM locks.locks WHERE name = ? IF client = ?", name, client);
+        final long timestamp = System.currentTimeMillis() * 1000;
+        final Statement query = new SimpleStatement("DELETE FROM locks.locks WHERE name = ? IF client = ?", name, client);
 
         try {
             boolean applied = session.execute(query).one().getBool("[applied]");
-
             log.info("Lock released for {} by client {} applied {} timestamp {}", name, client, applied, timestamp);
         } catch (Exception e) {
             log.error("Query to release lock failed to execute for {} by client {}", name, client,  e);
             throw new CannotReleaseLockException("Query failed to execute", e);
         }
     }
+
+
 
     private static void ensureLocksSchemaExists(LockConfig lockConfig, Session session) {
         try {
@@ -121,6 +104,33 @@ public class Lock {
         } catch (DriverException e) {
             log.warn("Query to create locks keyspace or locks table failed to execute", e);
             throw new CannotAcquireLockException("Query to create locks schema failed to execute", e);
+        }
+    }
+
+    private static ResultSet tryAcquire (Session session, UUID client, Statement query) {
+        try {
+            return session.execute(query);
+        } catch (WriteTimeoutException wte) {
+            throw wte;
+        } catch (DriverException de) {
+            log.warn("Query to acquire lock for {} failed to execute", client, de);
+            throw new CannotAcquireLockException("Query failed to execute", de);
+        }
+    }
+
+    private static void waitToAcquire(LockConfig lockConfig, UUID clientId, int acquireAttempts, long startTime, UUID currentLockHolder) {
+        log.debug("Lock currently in use by client: {}", currentLockHolder);
+
+        if (timedOut(lockConfig.getTimeout(), startTime)) {
+            log.warn("Unable to acquire lock for {} after {} attempts, currently in use by client: {}, time tried: {}", clientId, acquireAttempts, currentLockHolder, (System.currentTimeMillis() - startTime));
+            throw new CannotAcquireLockException("Lock currently in use by client: " + currentLockHolder);
+        }
+
+        try {
+            Thread.sleep(lockConfig.getPollingInterval().toMillis());
+        } catch (InterruptedException e) {
+            log.debug("Lock {} was interrupted", clientId);
+            Thread.currentThread().interrupt();
         }
     }
 
