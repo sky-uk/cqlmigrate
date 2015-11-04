@@ -82,6 +82,7 @@ public class Lock {
                     Thread.sleep(pollingInterval.toMillis());
                 } catch (InterruptedException e) {
                     log.debug("Lock {} was interrupted", client);
+                    Thread.currentThread().interrupt();
                 }
             }
             acquireAttempts++;
