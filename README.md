@@ -1,3 +1,5 @@
+**This is currently under development and not quite ready for production usage. It is derived from an internal tool that we use in production, but is missing a few things right now.**
+
 # Cassandra CQL migration tool
 
 cqlmigrate is a library for performing schema migrations on a cassandra cluster.
@@ -76,19 +78,7 @@ as a strongly consistent database.
 * AP properties of Cassandra also apply to schema updates - so it is possible for your cluster to have an
   inconsistent schema across nodes in case of split brain or other situation. We use `ConsistencyLevel.ALL`
   to try and alleviate this.
-  
-# Todo
-
-* Split up into modules
-  * core - contains the library only
-  * cli - contains a standalone jar that can be run at the command line
-  * dw - dropwizard plugin to add cqlMigrate task
-  * graphml - plugin to add support for `.graphml` files 
-* Add axion-release plugin to handle release numbers
-* Add to jcenter for public consumption
-* Add to travisci
-* Add locking mechanism using lightweight transactions to prevent concurrent schema updates
-
+ 
 # Contributors
 
 Originally developed by the Cirrus team at Sky.
