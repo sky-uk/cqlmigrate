@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import uk.sky.cirrus.exception.ClusterUnhealthyException;
 import uk.sky.cirrus.locking.Lock;
 import uk.sky.cirrus.locking.LockConfig;
+import uk.sky.cirrus.locking.LockService;
 import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
 import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
 
@@ -18,7 +19,6 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -109,7 +109,7 @@ public final class CqlMigratorImpl implements CqlMigrator {
         ClusterHealth clusterHealth = new ClusterHealth(cluster);
         clusterHealth.check();
 
-        Lock lock = Lock.acquire(lockConfig, keyspace, session, UUID.randomUUID());
+        Lock lock = LockService.acquire(lockConfig, keyspace, session);
 
         LOGGER.info("Loading cql files from {}", directories);
         CqlPaths paths = CqlPaths.create(directories);
@@ -120,7 +120,7 @@ public final class CqlMigratorImpl implements CqlMigrator {
         keyspaceBootstrapper.bootstrap();
         schemaUpdates.initialise();
         schemaLoader.load();
-        lock.release();
+        LockService.release(lock);
     }
 
     /**

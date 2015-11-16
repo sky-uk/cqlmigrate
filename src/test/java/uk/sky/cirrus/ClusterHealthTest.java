@@ -1,7 +1,6 @@
 package uk.sky.cirrus;
 
 import com.datastax.driver.core.Cluster;
-import org.assertj.core.api.ThrowableAssert;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -68,12 +67,7 @@ public class ClusterHealthTest {
         );
 
         //when
-        Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
-            @Override
-            public void call() throws Throwable {
-                clusterHealth.check();
-            }
-        });
+        Throwable throwable = catchThrowable(clusterHealth::check);
 
         //then
         assertThat(throwable).isNotNull();
@@ -87,12 +81,7 @@ public class ClusterHealthTest {
         scassandra.stop();
 
         //when
-        Throwable throwable = catchThrowable(new ThrowableAssert.ThrowingCallable() {
-            @Override
-            public void call() throws Throwable {
-                clusterHealth.check();
-            }
-        });
+        Throwable throwable = catchThrowable(clusterHealth::check);
 
         //then
         throwable.printStackTrace();

@@ -1,6 +1,7 @@
 package uk.sky.cirrus;
 
 import com.datastax.driver.core.*;
+import com.google.common.util.concurrent.Uninterruptibles;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.thrift.transport.TTransportException;
 import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
@@ -13,10 +14,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
 
 import static java.time.Duration.ofMillis;
 import static java.util.Arrays.asList;
@@ -69,11 +67,13 @@ public class CqlMigratorTest {
         session.execute("DROP KEYSPACE locks");
         cluster.close();
         EmbeddedCassandraServerHelper.cleanEmbeddedCassandra();
+        Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
     }
 
     private Path getResourcePath(String resourcePath) throws URISyntaxException {
         return Paths.get(ClassLoader.getSystemResource(resourcePath).toURI());
     }
+
 
     @Test
     public void shouldRunTheBootstrapCqlIfKeyspaceDoesNotExist() throws Exception {

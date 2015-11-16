@@ -16,7 +16,6 @@ import java.util.UUID;
  * and attempts to gain a lock on the table.  If no lock is currently acquired, the instance is given the lock on the table, otherwise
  * the instance must wait until the lock has been relinquished. If a lock cannot be acquired within the configured timeout
  * interval, an exception is thrown.
- *
  */
 public class Lock {
 
@@ -25,6 +24,7 @@ public class Lock {
     private final String name;
     private final Session session;
     private final UUID client;
+    private boolean released;
 
     private Lock(String name, Session session, UUID client) {
         this.name = name;
@@ -33,19 +33,17 @@ public class Lock {
     }
 
     /**
-     * @param lockConfig  {@code LockConfig} for configuring the lock to migrate the schema
-     * @param keyspace  Name of the keyspace which is to be used for migration
-     * @param session  Cassandra {@code Session} to use while acquiring the lock
-     * @param clientId Identifier for the owner of the lock
+     * @param clientId   Identifier for the owner of the lock
+     * @param lockConfig {@code LockConfig} for configuring the lock to migrate the schema
+     * @param keyspace   Name of the keyspace which is to be used for migration
+     * @param session    Cassandra {@code Session} to use while acquiring the lock
      * @return the {@code Lock} object
-     *
      * @throws CannotAcquireLockException if instance cannot acquire lock within the specified time interval or execution of query to insert lock fails
      */
-    public static Lock acquire(LockConfig lockConfig, String keyspace, Session session, UUID clientId) {
+    static Lock acquire(LockConfig lockConfig, String keyspace, Session session, UUID clientId) {
+
         final String clientName = keyspace + ".schema_migration";
         int acquireAttempts = 1;
-
-        ensureLocksSchemaExists(lockConfig, session);
 
         log.info("Attempting to acquire lock for '{}', using client id '{}'", clientName, clientId);
         long startTime = System.currentTimeMillis();
@@ -53,7 +51,7 @@ public class Lock {
         final Statement query = new SimpleStatement("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS", clientName, clientId);
 
         while (true) {
-            try{
+            try {
                 final ResultSet resultSet = tryAcquire(session, clientId, query);
                 final Row currentLock = resultSet.one();
                 boolean hasAcquiredLock = currentLock.getBool("[applied]");
@@ -61,14 +59,16 @@ public class Lock {
                 if (hasAcquiredLock) {
                     log.info("Lock acquired for '{}' by client '{}' after {} attempts", clientName, clientId, acquireAttempts);
                     return new Lock(clientName, session, clientId);
+                } else if (clientId.equals(currentLock.getUUID("client"))) {
+                    return new Lock(clientName, session, clientId);
                 } else {
                     waitToAcquire(lockConfig, clientId, acquireAttempts, startTime, currentLock.getUUID("client"));
                 }
 
-            } catch (WriteTimeoutException wte){
-                log.warn("Query to acquire lock for {} failed to execute", clientId, wte);
-            }
+            } catch (WriteTimeoutException wte) {
+                log.warn("Query to acquire lock for {} failed to execute: {}", clientId, wte.getMessage());
 
+            }
             acquireAttempts++;
         }
     }
@@ -76,38 +76,41 @@ public class Lock {
     /**
      * @throws CannotReleaseLockException if execution of query to remove lock fails
      */
-    public void release() {
-        final long timestamp = System.currentTimeMillis() * 1000;
+    void release() {
         final Statement query = new SimpleStatement("DELETE FROM locks.locks WHERE name = ? IF client = ?", name, client);
 
-        try {
-            boolean applied = session.execute(query).one().getBool("[applied]");
-            log.info("Lock released for {} by client {} applied {} timestamp {}", name, client, applied, timestamp);
-        } catch (Exception e) {
-            log.error("Query to release lock failed to execute for {} by client {}", name, client,  e);
-            throw new CannotReleaseLockException("Query failed to execute", e);
+        while(!this.released){
+            try {
+                ResultSet resultSet = session.execute(query);
+                Row result = resultSet.isExhausted() ? null : resultSet.one();
+                this.released = handleLockRelease(result);
+            } catch (WriteTimeoutException wte) {
+                log.warn("Query to release lock for {} failed to execute: {}", client, wte.getMessage());
+            } catch (Exception e) {
+                log.error("Query to release lock failed to execute for {} by client {}", name, client, e);
+                throw new CannotReleaseLockException("Query failed to execute", e);
+            }
         }
     }
 
+    private boolean handleLockRelease(final Row result) {
 
+        boolean isApplied = result.getBool("[applied]");
 
-    private static void ensureLocksSchemaExists(LockConfig lockConfig, Session session) {
-        try {
-            Statement query = new SimpleStatement(String.format(
-                    "CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {%s}",
-                    lockConfig.getReplicationString()
-            ));
-            session.execute(query);
-
-            query = new SimpleStatement("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client uuid)");
-            session.execute(query);
-        } catch (DriverException e) {
-            log.warn("Query to create locks keyspace or locks table failed to execute", e);
-            throw new CannotAcquireLockException("Query to create locks schema failed to execute", e);
+        if(isApplied || !result.getColumnDefinitions().contains("client")){
+            log.info("Lock released for {} by client {} at: {}", name, client, System.currentTimeMillis());
+            return true;
         }
+
+        final UUID clientReleasingLock = result.getUUID("client");
+        if(!clientReleasingLock.equals(this.client)) {
+            log.error("Lock attempted to be released by a non lock holder {}", clientReleasingLock);
+        }
+        return false;
     }
 
-    private static ResultSet tryAcquire (Session session, UUID client, Statement query) {
+
+    private static ResultSet tryAcquire(Session session, UUID client, Statement query) {
         try {
             return session.execute(query);
         } catch (WriteTimeoutException wte) {
@@ -137,5 +140,18 @@ public class Lock {
     private static boolean timedOut(Duration timeout, long startTime) {
         long currentDuration = System.currentTimeMillis() - startTime;
         return currentDuration >= timeout.toMillis();
+    }
+
+    public UUID getClient() {
+        return this.client;
+    }
+
+    /**
+     * Clients can make use of this getter to check if they have an active or a stale lock
+     *
+     * @return if the current lock is released
+     */
+    public boolean isReleased() {
+        return this.released;
     }
 }
