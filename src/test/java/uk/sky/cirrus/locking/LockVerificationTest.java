@@ -2,14 +2,28 @@ package uk.sky.cirrus.locking;
 
 import com.datastax.driver.core.*;
 import com.google.common.base.Optional;
+import com.google.common.base.Stopwatch;
+import com.google.common.util.concurrent.Uninterruptibles;
+import org.hamcrest.Matchers;
 import org.junit.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import uk.sky.cirrus.CqlMigratorImpl;
 
+import java.net.URISyntaxException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.*;
+
+import static com.google.common.collect.Lists.newArrayList;
+import static java.util.Collections.singletonList;
+import static java.util.concurrent.Executors.newFixedThreadPool;
+import static org.junit.Assert.assertThat;
 
 @Ignore("Ignored till we can move it out of pipeline build")
 public class LockVerificationTest {
@@ -33,7 +47,9 @@ public class LockVerificationTest {
         session.execute(String.format("DROP KEYSPACE IF EXISTS %s;", KEYSPACE));
         session.execute(String.format("DROP KEYSPACE IF EXISTS %s;", "locks"));
         session.execute(String.format("CREATE KEYSPACE %s WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 3};", KEYSPACE));
+        Uninterruptibles.sleepUninterruptibly(300, TimeUnit.MILLISECONDS);
         session.execute(String.format("CREATE TABLE %s (id text PRIMARY KEY, counter int);", TABLE_NAME));
+        Uninterruptibles.sleepUninterruptibly(800, TimeUnit.MILLISECONDS);
         session.execute(new SimpleStatement(String.format("INSERT INTO %s (id, counter) VALUES (?, ?);", TABLE_NAME), "lock-tester", 1).setConsistencyLevel(ConsistencyLevel.QUORUM));
     }
 
@@ -45,6 +61,44 @@ public class LockVerificationTest {
         cluster.close();
     }
 
+    @Test
+    public void shouldManageContentionsForSchemaMigrate() throws InterruptedException, URISyntaxException {
+
+        final Path cql_bootstrap = Paths.get(ClassLoader.getSystemResource("cql_migrate_multithreads").toURI());
+        final CqlMigratorImpl cqlMigrator = new CqlMigratorImpl(LockConfig.builder().build());
+
+        final Collection<Path> cqlPaths = singletonList(cql_bootstrap);
+        final ExecutorService cqlMigratorManager = newFixedThreadPool(25);
+        final Callable<String> cqlMigrate = () ->  { cqlMigrator.migrate(session, "cqlmigrate_test", cqlPaths); return "Done"; };
+        final List<Callable<String>> workers = newArrayList();
+
+        session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test;");
+
+        for(int i=0; i< 20; i++){
+            workers.add(cqlMigrate);
+        }
+
+        Stopwatch executionTime = Stopwatch.createStarted();
+        final List<Future<String>> futures = cqlMigratorManager.invokeAll(workers);
+
+        System.out.println(futures.size());
+
+        futures.forEach(future -> {
+            try {
+                future.get();
+            } catch (Exception e) {
+                e.printStackTrace();
+                Assert.fail(e.getMessage());
+            }
+        });
+
+        executionTime.stop();
+
+        cqlMigratorManager.shutdown();
+
+        final long elapsed = executionTime.elapsed(TimeUnit.SECONDS);
+        assertThat("Schema migration took longer than 25s", elapsed, Matchers.lessThanOrEqualTo(25L));
+    }
 
     @Test
     public void shouldObtainLockToInsertRecord() throws InterruptedException {
@@ -72,7 +126,7 @@ public class LockVerificationTest {
 
         final LockVerifier lockVerifier = new LockVerifier(worker)
                 .withMaximumParallelWorkers(4)
-                .withExpectedIterations(1_000_000);
+                .withExpectedIterations(100);
         lockVerifier.start();
         lockVerifier.validateProgressAndWaitUntilDone();
 
@@ -114,7 +168,7 @@ public class LockVerificationTest {
             this.maximumIterations = 10_000_000;
             this.worker = worker;
 
-            this.executorService = Executors.newFixedThreadPool(25);
+            this.executorService = newFixedThreadPool(25);
             this.results = new HashSet<>();
         }
 

@@ -28,7 +28,7 @@ public class LockService {
      * @throws CannotAcquireLockException if instance cannot acquire lock within the specified time interval or execution of query to insert lock fails
      */
     public static Lock acquire(LockConfig lockConfig, String keyspace, Session session) {
-        if(!SCHEMA_CREATED.get()){
+        while(!SCHEMA_CREATED.get()){
             ensureLocksSchemaExists(lockConfig, session);
         }
         return Lock.acquire(lockConfig, keyspace, session, UUID.randomUUID());
@@ -48,11 +48,17 @@ public class LockService {
 
         if(locksKeyspace == null) {
             createLocksSchema(lockConfig, session);
+        } else {
+            SCHEMA_CREATED.compareAndSet(false, true);
         }
-        SCHEMA_CREATED.compareAndSet(false, true);
     }
 
     private static synchronized void createLocksSchema(final LockConfig lockConfig, final Session session) {
+
+        if(SCHEMA_CREATED.get()){
+            return;
+        }
+
         try {
             final Statement createKeyspaceQuery = new SimpleStatement(
                     String.format("CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {%s}", lockConfig.getReplicationString())
@@ -61,6 +67,7 @@ public class LockService {
 
             final Statement createTableQuery = new SimpleStatement("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client uuid)");
             session.execute(createTableQuery);
+            SCHEMA_CREATED.compareAndSet(false, true);
         } catch (DriverException e) {
             log.warn("Query to create locks keyspace or locks table failed to execute", e);
             throw new CannotAcquireLockException("Query to create locks schema failed to execute", e);

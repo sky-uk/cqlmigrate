@@ -1,5 +1,6 @@
 package uk.sky.cirrus.locking;
 
+import com.google.common.collect.ImmutableMap;
 import org.junit.After;
 import org.junit.ClassRule;
 import org.junit.Rule;
@@ -118,6 +119,32 @@ public class LockServiceTest extends AbstractLockTest {
         assertThat(throwable).isInstanceOf(CannotAcquireLockException.class);
         assertThat(throwable.getCause()).isNotNull();
         assertThat(throwable).hasMessage("Query to create locks schema failed to execute");
+    }
+
+    @Test
+    public void shouldSkipSchemaCreationIfLockSchemaAlreadyExists() throws Throwable {
+        Query[] notExpectedQueries = new Query[]{
+                Query.builder().withQuery("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client uuid)").build(),
+                Query.builder().withQuery("CREATE KEYSPACE IF NOT EXISTS locks WITH replication = { 'class': 'SimpleStrategy', 'replication_factor': 1 };").build()
+        };
+
+        //given
+        LockService.SCHEMA_CREATED.set(false);
+        primingClient.prime(PrimingRequest.queryBuilder()
+                        .withQuery("SELECT keyspace_name FROM system.schema_keyspaces WHERE keyspace_name = 'locks'")
+                        .withThen(then()
+                                .withRows(ImmutableMap.of()))
+                        .build()
+        );
+
+        //when
+        LockService.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session);
+
+        //then
+        assertThat(LockService.SCHEMA_CREATED.get()).isEqualTo(true);
+        assertThat(activityClient.retrieveQueries()).doesNotContain(notExpectedQueries);
+
+
     }
 
     @Override
