@@ -21,6 +21,9 @@ public class LockService {
     static final AtomicBoolean SCHEMA_CREATED = new AtomicBoolean(false);
 
     /**
+     * Service class which co-ordinates providing the {@code Lock} object to multiple threads trying to acquire the lock.
+     * Ensures necessary metadata / schema needed by {@code Lock} is created if not already available. Creation of the schema needed by {@code Lock} is synchronized for
+     *
      * @param lockConfig {@code LockConfig} for configuring the lock to migrate the schema
      * @param keyspace   Name of the keyspace which is to be used for migration
      * @param session    Cassandra {@code Session} to use while acquiring the lock

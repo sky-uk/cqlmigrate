@@ -11,7 +11,6 @@ import org.scassandra.http.client.PrimingClient;
 import org.scassandra.http.client.PrimingRequest;
 import org.scassandra.http.client.types.ColumnMetadata;
 import org.scassandra.junit.ScassandraServerRule;
-import uk.sky.cirrus.util.PortScavenger;
 
 import java.util.UUID;
 
@@ -28,6 +27,7 @@ public abstract class AbstractLockTest {
     protected Cluster cluster;
     protected PrimingClient primingClient;
     protected ActivityClient activityClient;
+    protected UUID clientId;
 
     public abstract int getBinaryPort();
 
@@ -37,6 +37,7 @@ public abstract class AbstractLockTest {
     public void baseSetup() throws Exception {
         primingClient = getScassandra().primingClient();
         activityClient = getScassandra().activityClient();
+        clientId = UUID.randomUUID();
         cluster = Cluster.builder()
                 .addContactPoint("localhost")
                 .withPort(getBinaryPort())
@@ -47,7 +48,7 @@ public abstract class AbstractLockTest {
                         .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
                         .withThen(then()
                                 .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
-                                .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", true)))
+                                .withRows(ImmutableMap.of("client", clientId, "[applied]", true)))
                         .build()
         );
     }

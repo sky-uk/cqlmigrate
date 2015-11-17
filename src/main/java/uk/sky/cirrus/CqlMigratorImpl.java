@@ -7,24 +7,23 @@ import com.datastax.driver.core.Session;
 import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import uk.sky.cirrus.exception.ClusterUnhealthyException;
 import uk.sky.cirrus.locking.Lock;
 import uk.sky.cirrus.locking.LockConfig;
 import uk.sky.cirrus.locking.LockService;
-import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
-import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.stream.Collectors;
 
 /**
- * Utility class which helps to apply schema changes required by an application prior to application startup.
- * Makes use of a locking mechanism to ensure only one instance at a time can apply schema changes to the cassandra
- * database.
+ * Standard implementation for {@code CqlMigrator}
+ *
+ * Implements Locking by providing mutex locking via the locks table.
+ * Client tries to acquire the lock and would only succeed for one thread.
+ * The inserted record will be deleted once the client releases the lock it holds, hence making way for a subsequent client thread to acquire the lock.
+ * Locking is done per client per keyspace. A client can obtain a lock on a different keyspace if no other client is holding a lock for that keyspace.
  *
  */
 
@@ -64,22 +63,7 @@ public final class CqlMigratorImpl implements CqlMigrator {
     }
 
     /**
-     * If all nodes are up and a lock can be acquired this runs migration
-     * starting with bootstrap.cql and then the rest in alphabetical order.
-     *
-     * @param hosts  Comma separated list of cassandra hosts
-     * @param port   Native transport port for the above cassandra nodes
-     * @param keyspace  Keyspace name for which the schema migration needs to be applied
-     * @param directories  Comma separated list of directory paths containing the cql statements for the schema change
-     *
-     * @throws ClusterUnhealthyException  if any nodes are down or the schema is not in agreement before running migration
-     * @throws CannotAcquireLockException  if any of the queries to acquire lock fail or
-     *                                     {@link uk.sky.cirrus.locking.LockConfig.LockConfigBuilder#withTimeout(Duration)}
-     *                                     is reached before lock can be acquired.
-     * @throws CannotReleaseLockException  if any of the queries to release lock fail
-     * @throws IllegalArgumentException  if any file types other than .cql are found
-     * @throws IllegalStateException  if cql file has changed after migration has been run
-     * @throws com.datastax.driver.core.exceptions.DriverException  if any of the migration queries fails
+     * {@inheritDoc}
      */
     public void migrate(String[] hosts, int port, String keyspace, Collection<Path> directories) {
 
@@ -90,19 +74,7 @@ public final class CqlMigratorImpl implements CqlMigrator {
     }
 
     /**
-     * @param session  Session to a cassandra cluster
-     * @param keyspace  Keyspace name for which the schema migration needs to be applied
-     * @param directories  Comma separated list of directory paths containing the cql statements for the schema change
-     *
-     * @throws ClusterUnhealthyException                           if any nodes are down or the schema is not
-     *                                                             in agreement before running migration
-     * @throws CannotAcquireLockException                          if any of the queries to acquire lock fail or
-     *                                                             {@link uk.sky.cirrus.locking.LockConfig.LockConfigBuilder#withTimeout(Duration)}
-     *                                                             is reached before lock can be acquired.
-     * @throws CannotReleaseLockException                          if any of the queries to release lock fail
-     * @throws IllegalArgumentException                            if any file types other than .cql are found
-     * @throws IllegalStateException                               if cql file has changed after migration has been run
-     * @throws com.datastax.driver.core.exceptions.DriverException if any of the migration queries fails
+     * {@inheritDoc}
      */
     public void migrate(Session session, String keyspace, Collection<Path> directories) {
         final Cluster cluster = session.getCluster();
@@ -124,13 +96,7 @@ public final class CqlMigratorImpl implements CqlMigrator {
     }
 
     /**
-     * Drops keyspace if it exists
-     *
-     * @param hosts  Comma separated list of cassandra hosts
-     * @param port   Native transport port for the above cassandra nodes
-     * @param keyspace  Keyspace name for which the schema migration needs to be applied
-     *
-     * @throws com.datastax.driver.core.exceptions.DriverException if query fails
+     * {@inheritDoc}
      */
     public void clean(String[] hosts, int port, String keyspace) {
         try (Cluster cluster = createCluster(hosts, port);
@@ -139,6 +105,9 @@ public final class CqlMigratorImpl implements CqlMigrator {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     public void clean(Session session, String keyspace) {
         session.execute("DROP KEYSPACE IF EXISTS " + keyspace);
         LOGGER.info("Cleaned {}", keyspace);

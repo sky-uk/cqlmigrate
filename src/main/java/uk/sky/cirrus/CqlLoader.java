@@ -29,7 +29,10 @@ class CqlLoader {
             final String cqlStatements = statementBuilder.toString();
             checkState(cqlStatements.endsWith(";"), "had a non-terminated cql line: %s", cqlStatements);
 
-            Arrays.stream(cqlStatements.split(";")).forEach(session::execute);
+            Arrays.stream(cqlStatements.split(";")).forEach( statement -> {
+                LOGGER.debug("Executing cql statement {}", statement);
+                session.execute(statement);
+            });
         } catch (Throwable t) {
             LOGGER.error("Failed to execute cql script {}: {}", cqlPath.getFileName(), t.getMessage());
             throw Throwables.propagate(t);

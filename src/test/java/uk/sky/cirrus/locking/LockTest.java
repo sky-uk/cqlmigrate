@@ -14,6 +14,9 @@ import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
 import uk.sky.cirrus.util.PortScavenger;
 
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import static java.time.Duration.ofMillis;
@@ -37,11 +40,11 @@ public class LockTest extends AbstractLockTest {
     public void shouldSetToConsistencyLevelAllWhenAcquiringLock() throws Exception {
         //given
         primingClient.prime(PrimingRequest.queryBuilder()
-                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                .withThen(then()
-                        .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", true)))
-                .build()
+                        .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                        .withThen(then()
+                                .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
+                                .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", true)))
+                        .build()
         );
 
         //when
@@ -59,19 +62,19 @@ public class LockTest extends AbstractLockTest {
     public void shouldSetToConsistencyLevelAllWhenReleasingLock() throws Exception {
         //given
         primingClient.prime(PrimingRequest.queryBuilder()
-                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                .withThen(then()
-                        .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", true)))
-                .build()
+                        .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                        .withThen(then()
+                                .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
+                                .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", true)))
+                        .build()
         );
 
         primingClient.prime(PrimingRequest.queryBuilder()
-                .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
-                .withThen(then()
-                        .withColumnTypes(ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("[applied]", true)))
-                .build()
+                        .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
+                        .withThen(then()
+                                .withColumnTypes(ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
+                                .withRows(ImmutableMap.of("[applied]", true)))
+                        .build()
         );
 
         //when
@@ -90,11 +93,11 @@ public class LockTest extends AbstractLockTest {
     public void shouldOnlyRetryAttemptToAcquireLockAfterConfiguredInterval() throws Exception {
         //given
         primingClient.prime(PrimingRequest.queryBuilder()
-                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                .withThen(then()
-                        .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", false)))
-                .build()
+                        .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                        .withThen(then()
+                                .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
+                                .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", false)))
+                        .build()
         );
 
         final int pollingInterval = 50;
@@ -120,17 +123,17 @@ public class LockTest extends AbstractLockTest {
     public void shouldReturnLockToAClientIfItIsCurrentlyOwnedByItself() throws Throwable {
         //given
         primingClient.prime(PrimingRequest.queryBuilder()
-                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                .withThen(then()
-                        .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("client", CLIENT, "[applied]", false)))
-                .build()
+                        .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                        .withThen(then()
+                                .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
+                                .withRows(ImmutableMap.of("client", CLIENT, "[applied]", false)))
+                        .build()
         );
 
         final LockConfig lockConfig = LockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build();
 
         //when
-        Lock lock =  Lock.acquire(lockConfig, LOCK_KEYSPACE, session, CLIENT);
+        Lock lock = Lock.acquire(lockConfig, LOCK_KEYSPACE, session, CLIENT);
 
         //then
         assertThat(lock).isNotNull();
@@ -141,10 +144,10 @@ public class LockTest extends AbstractLockTest {
     public void shouldThrowExceptionIfQueryFailsToExecuteWhenAcquiringLock() throws Exception {
         //given
         primingClient.prime(PrimingRequest.queryBuilder()
-                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                .withThen(then()
-                        .withResult(PrimingRequest.Result.unavailable))
-                .build()
+                        .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                        .withThen(then()
+                                .withResult(PrimingRequest.Result.unavailable))
+                        .build()
         );
 
         //when
@@ -161,18 +164,18 @@ public class LockTest extends AbstractLockTest {
     public void shouldThrowExceptionIfQueryFailsToExecuteWhenReleasingLock() throws Exception {
         //given
         primingClient.prime(PrimingRequest.queryBuilder()
-                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                .withThen(then()
-                        .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", true)))
-                .build()
+                        .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                        .withThen(then()
+                                .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
+                                .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", true)))
+                        .build()
         );
 
         primingClient.prime(PrimingRequest.queryBuilder()
-                .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
-                .withThen(then()
-                        .withResult(PrimingRequest.Result.unavailable))
-                .build()
+                        .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
+                        .withThen(then()
+                                .withResult(PrimingRequest.Result.unavailable))
+                        .build()
         );
 
         final Lock lock = Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, CLIENT);
@@ -188,7 +191,7 @@ public class LockTest extends AbstractLockTest {
     }
 
     @Test
-    public void shouldContinueWithoutFailingWhenStaleLockIsPassedToRelease(){
+    public void shouldContinueWithoutFailingWhenStaleLockIsPassedToRelease() {
 
         final Query expectedDeleteQuery = Query.builder().withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?").build();
 
@@ -199,15 +202,48 @@ public class LockTest extends AbstractLockTest {
                         .withRows(ImmutableMap.of("[applied]", true)))
                 .build());
 
-        final Lock activeLock = LockService.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session);
+        final Lock activeLock = Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, clientId);
         assertThat(activeLock).isNotNull();
 
-        LockService.release(activeLock);
+        activeLock.release();
 
         final Lock staleLock = activeLock;
-        LockService.release(staleLock);
+        staleLock.release();
 
         assertThat(activityClient.retrieveQueries().stream().filter(query -> query.equals(expectedDeleteQuery)).count()).isEqualTo(1);
+    }
+
+    @Test
+    public void shouldNotErrorWhenCurrentLockHolderIsRetryingAfterWriteTimeOutButDoesNotHoldLockNow() throws InterruptedException {
+
+        final ExecutorService lockManager = Executors.newSingleThreadExecutor();
+
+        // given
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
+                .withThen(then().withResult(PrimingRequest.Result.write_request_timeout))
+                .build());
+
+        final Lock activeLock = Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, clientId);
+        assertThat(activeLock.isReleased()).isFalse();
+
+        // Attempt to release lock
+        lockManager.submit(activeLock::release);
+
+        primeDeleteForSuccess(UUID.randomUUID());
+
+        lockManager.shutdown();
+        lockManager.awaitTermination(3, TimeUnit.SECONDS);
+        assertThat(activeLock.isReleased()).isTrue();
+    }
+
+    private void primeDeleteForSuccess(final UUID newClientId) {
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
+                .withThen(then()
+                        .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
+                        .withRows(ImmutableMap.of("client", newClientId, "[applied]", false)))
+                .build());
     }
 
     @Override

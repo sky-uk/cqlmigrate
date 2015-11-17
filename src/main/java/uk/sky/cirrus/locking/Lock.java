@@ -78,14 +78,16 @@ public class Lock {
      */
     void release() {
         final Statement query = new SimpleStatement("DELETE FROM locks.locks WHERE name = ? IF client = ?", name, client);
+        boolean isRetryAfterWriteTimeout = false;
 
-        while(!this.released){
+        while (!this.released) {
             try {
                 ResultSet resultSet = session.execute(query);
-                Row result = resultSet.isExhausted() ? null : resultSet.one();
-                this.released = handleLockRelease(result);
+                this.released = handleLockRelease(resultSet.one(), isRetryAfterWriteTimeout);
             } catch (WriteTimeoutException wte) {
                 log.warn("Query to release lock for {} failed to execute: {}", client, wte.getMessage());
+                waitToRetryRelease();
+                isRetryAfterWriteTimeout = true;
             } catch (Exception e) {
                 log.error("Query to release lock failed to execute for {} by client {}", name, client, e);
                 throw new CannotReleaseLockException("Query failed to execute", e);
@@ -93,22 +95,28 @@ public class Lock {
         }
     }
 
-    private boolean handleLockRelease(final Row result) {
+    private boolean handleLockRelease(final Row result, boolean isRetryAfterWriteTimeout) {
 
         boolean isApplied = result.getBool("[applied]");
 
-        if(isApplied || !result.getColumnDefinitions().contains("client")){
+        if (isApplied || !result.getColumnDefinitions().contains("client")) {
             log.info("Lock released for {} by client {} at: {}", name, client, System.currentTimeMillis());
             return true;
         }
 
         final UUID clientReleasingLock = result.getUUID("client");
-        if(!clientReleasingLock.equals(this.client)) {
-            log.error("Lock attempted to be released by a non lock holder {}", clientReleasingLock);
+        if (!clientReleasingLock.equals(this.client)) {
+            if (isRetryAfterWriteTimeout) {
+                log.info("Released lock for client {} in retry attempt after WriteTimeoutException", clientReleasingLock);
+                return true;
+            } else {
+                log.error("Lock attempted to be released by a non lock holder {}", clientReleasingLock);
+                throw new IllegalStateException("Lock attempted to be released by a non lock holder: " + clientReleasingLock);
+            }
         }
+
         return false;
     }
-
 
     private static ResultSet tryAcquire(Session session, UUID client, Statement query) {
         try {
@@ -133,6 +141,15 @@ public class Lock {
             Thread.sleep(lockConfig.getPollingInterval().toMillis());
         } catch (InterruptedException e) {
             log.debug("Lock {} was interrupted", clientId);
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private void waitToRetryRelease() {
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            log.warn("Thread sleep interrupted with {}", e.getMessage());
             Thread.currentThread().interrupt();
         }
     }

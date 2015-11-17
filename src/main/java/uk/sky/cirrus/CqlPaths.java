@@ -13,7 +13,7 @@ import java.util.Map;
 class CqlPaths {
 
     private static final String BOOTSTRAP_CQL = "bootstrap.cql";
-    private static final FilenameFilter CQL_FILE_NAMES = (file,name) -> name.endsWith(".cql");
+    private static final FilenameFilter CQL_FILE_NAMES = (file, name) -> name.endsWith(".cql");
 
     private final ImmutableSortedMap<String, Path> sortedCqlPaths;
 
@@ -50,7 +50,7 @@ class CqlPaths {
 
     private static void addPathToMap(final Map<String, Path> paths, final Path path) {
         final String cqlFileName = path.getFileName().toString();
-        if(paths.put(path.getFileName().toString(), path.toAbsolutePath()) != null){
+        if (paths.put(path.getFileName().toString(), path.toAbsolutePath()) != null) {
             throw new IllegalArgumentException(String.format("Multiple files with the same name: %s, %s", cqlFileName, path.toAbsolutePath()));
         }
     }
