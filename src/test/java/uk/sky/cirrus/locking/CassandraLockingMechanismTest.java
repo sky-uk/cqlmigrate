@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.scassandra.http.client.PrimingRequest.then;
 
-public class LockTest extends AbstractLockTest {
+public class CassandraLockingMechanismTest extends AbstractLockTest {
     private static final int BINARY_PORT = PortScavenger.getFreePort();
     private static final int ADMIN_PORT = PortScavenger.getFreePort();
 
@@ -36,6 +36,8 @@ public class LockTest extends AbstractLockTest {
     @Rule
     public final ScassandraServerRule resetScassandra = SCASSANDRA;
 
+    private CassandraLockingMechanism lockingMechanism;
+
     @Test
     public void shouldSetToConsistencyLevelAllWhenAcquiringLock() throws Exception {
         //given
@@ -46,9 +48,8 @@ public class LockTest extends AbstractLockTest {
                                 .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", true)))
                         .build()
         );
-
-        //when
-        Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, CLIENT);
+        lockingMechanism = new CassandraLockingMechanism(session, LOCK_KEYSPACE, CLIENT);
+        Lock.acquire(lockingMechanism, DEFAULT_LOCK_CONFIG);
 
         //then
         Query expectedQuery = Query.builder()
@@ -68,7 +69,7 @@ public class LockTest extends AbstractLockTest {
                                 .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", true)))
                         .build()
         );
-
+        lockingMechanism = new CassandraLockingMechanism(session, LOCK_KEYSPACE, CLIENT);
         primingClient.prime(PrimingRequest.queryBuilder()
                         .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
                         .withThen(then()
@@ -78,7 +79,7 @@ public class LockTest extends AbstractLockTest {
         );
 
         //when
-        Lock lock = Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, CLIENT);
+        Lock lock = Lock.acquire(lockingMechanism, DEFAULT_LOCK_CONFIG);
         lock.release();
 
         //then
@@ -99,13 +100,13 @@ public class LockTest extends AbstractLockTest {
                                 .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", false)))
                         .build()
         );
-
+        lockingMechanism = new CassandraLockingMechanism(session, LOCK_KEYSPACE, CLIENT);
         final int pollingInterval = 50;
         final int timeout = 300;
         final LockConfig lockConfig = LockConfig.builder().withPollingInterval(ofMillis(pollingInterval)).withTimeout(ofMillis(timeout)).build();
 
         //when
-        Throwable throwable = catchThrowable(() -> Lock.acquire(lockConfig, LOCK_KEYSPACE, session, CLIENT));
+        Throwable throwable = catchThrowable(() -> Lock.acquire(lockingMechanism, lockConfig));
 
         //then
         assertThat(throwable).isNotNull();
@@ -129,11 +130,11 @@ public class LockTest extends AbstractLockTest {
                                 .withRows(ImmutableMap.of("client", CLIENT, "[applied]", false)))
                         .build()
         );
-
+        lockingMechanism = new CassandraLockingMechanism(session, LOCK_KEYSPACE, CLIENT);
         final LockConfig lockConfig = LockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build();
 
         //when
-        Lock lock = Lock.acquire(lockConfig, LOCK_KEYSPACE, session, CLIENT);
+        Lock lock = Lock.acquire(lockingMechanism, lockConfig);
 
         //then
         assertThat(lock).isNotNull();
@@ -149,9 +150,9 @@ public class LockTest extends AbstractLockTest {
                                 .withResult(PrimingRequest.Result.unavailable))
                         .build()
         );
-
+        lockingMechanism = new CassandraLockingMechanism(session, LOCK_KEYSPACE, CLIENT);
         //when
-        Throwable throwable = catchThrowable(() -> Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, CLIENT));
+        Throwable throwable = catchThrowable(() -> Lock.acquire(lockingMechanism, DEFAULT_LOCK_CONFIG));
 
         //then
         assertThat(throwable).isNotNull();
@@ -170,7 +171,7 @@ public class LockTest extends AbstractLockTest {
                                 .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", true)))
                         .build()
         );
-
+        lockingMechanism = new CassandraLockingMechanism(session, LOCK_KEYSPACE, CLIENT);
         primingClient.prime(PrimingRequest.queryBuilder()
                         .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
                         .withThen(then()
@@ -178,7 +179,7 @@ public class LockTest extends AbstractLockTest {
                         .build()
         );
 
-        final Lock lock = Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, CLIENT);
+        final Lock lock = Lock.acquire(lockingMechanism, DEFAULT_LOCK_CONFIG);
 
         //when
         Throwable throwable = catchThrowable(lock::release);
@@ -201,8 +202,8 @@ public class LockTest extends AbstractLockTest {
                 .withThen(then().withColumnTypes(ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
                         .withRows(ImmutableMap.of("[applied]", true)))
                 .build());
-
-        final Lock activeLock = Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, clientId);
+        lockingMechanism = new CassandraLockingMechanism(session, LOCK_KEYSPACE, CLIENT);
+        final Lock activeLock = Lock.acquire(lockingMechanism, DEFAULT_LOCK_CONFIG);
         assertThat(activeLock).isNotNull();
 
         activeLock.release();
@@ -223,8 +224,8 @@ public class LockTest extends AbstractLockTest {
                 .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
                 .withThen(then().withResult(PrimingRequest.Result.write_request_timeout))
                 .build());
-
-        final Lock activeLock = Lock.acquire(DEFAULT_LOCK_CONFIG, LOCK_KEYSPACE, session, clientId);
+        lockingMechanism = new CassandraLockingMechanism(session, LOCK_KEYSPACE, CLIENT);
+        final Lock activeLock = Lock.acquire(lockingMechanism, DEFAULT_LOCK_CONFIG);
         assertThat(activeLock.isReleased()).isFalse();
 
         // Attempt to release lock

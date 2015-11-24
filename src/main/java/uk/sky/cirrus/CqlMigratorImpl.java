@@ -92,7 +92,7 @@ public final class CqlMigratorImpl implements CqlMigrator {
         keyspaceBootstrapper.bootstrap();
         schemaUpdates.initialise();
         schemaLoader.load();
-        LockService.release(lock);
+        lock.release();
     }
 
     /**

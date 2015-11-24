@@ -1,6 +1,5 @@
 package uk.sky.cirrus.locking;
 
-import com.datastax.driver.core.Session;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
@@ -21,25 +20,23 @@ public class Lock {
 
     private static LockingMechanism lockingMechanism;
 
-    private final UUID client;
+    private final UUID clientId;
     private boolean released;
 
-    private Lock(String name, Session session, UUID client) {
-        this.client = client;
+    private Lock(LockingMechanism lockingMechanism) {
+        this.lockingMechanism = lockingMechanism;
+        this.clientId = lockingMechanism.getClientId();
     }
 
     /**
-     * @param clientId   Identifier for the owner of the lock
      * @param lockConfig {@code LockConfig} for configuring the lock to migrate the schema
-     * @param keyspace   Name of the keyspace which is to be used for migration
-     * @param session    Cassandra {@code Session} to use while acquiring the lock
      * @return the {@code Lock} object
      * @throws CannotAcquireLockException if instance cannot acquire lock within the specified time interval or execution of query to insert lock fails
      */
-    static Lock acquire(LockConfig lockConfig, String keyspace, Session session, UUID clientId) {
+    static Lock acquire(LockingMechanism lockingMechanism, LockConfig lockConfig) {
 
-        lockingMechanism = new CassandraLockingMechanism(session, keyspace, clientId);
         String lockName = lockingMechanism.getLockName();
+        UUID clientId = lockingMechanism.getClientId();
 
         int acquireAttempts = 1;
 
@@ -49,7 +46,7 @@ public class Lock {
         while (true) {
             if (lockingMechanism.acquire()) {
                 log.info("Lock acquired for '{}' by client '{}' after {} attempts", lockName, clientId, acquireAttempts);
-                return new Lock(lockName, session, clientId);
+                return new Lock(lockingMechanism);
             } else {
                 waitToAcquire(lockConfig, clientId, acquireAttempts, startTime);
             }
@@ -61,7 +58,7 @@ public class Lock {
     /**
      * @throws CannotReleaseLockException if execution of query to remove lock fails
      */
-    void release() {
+    public void release() {
        while(true) {
            if (released || lockingMechanism.release()) {
                released = true;
@@ -69,7 +66,6 @@ public class Lock {
            }
        }
     }
-
 
     private static void waitToAcquire(LockConfig lockConfig, UUID clientId, int acquireAttempts, long startTime) {
 
@@ -92,7 +88,7 @@ public class Lock {
     }
 
     public UUID getClient() {
-        return this.client;
+        return this.clientId;
     }
 
     /**

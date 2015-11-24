@@ -110,7 +110,7 @@ public class CqlMigratorTest {
         //then
         assertThat(throwable).isInstanceOf(ExecutionException.class);
         assertThat(throwable.getCause()).isInstanceOf(CannotAcquireLockException.class);
-        assertThat(throwable.getCause().getMessage()).isEqualTo("Lock currently in use by client: " + client);
+        assertThat(throwable.getCause().getMessage()).isEqualTo("Lock currently in use");
     }
 
     @Test

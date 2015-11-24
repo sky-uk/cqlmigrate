@@ -8,7 +8,6 @@ import com.datastax.driver.core.exceptions.DriverException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
-import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
 
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -32,28 +31,20 @@ public class LockService {
      */
     public static Lock acquire(LockConfig lockConfig, String keyspace, Session session) {
         while(!SCHEMA_CREATED.get()){
-            ensureLocksSchemaExists(lockConfig, session);
+            final Row locksKeyspace = session.execute(SCHEMA_VERIFICATION_QUERY).one();
+
+            if(locksKeyspace == null) {
+                createLocksSchema(lockConfig, session);
+            } else {
+                SCHEMA_CREATED.compareAndSet(false, true);
+            }
         }
-        return Lock.acquire(lockConfig, keyspace, session, UUID.randomUUID());
-    }
 
-    /**
-     * @param lock {@code Lock} to be released
-     * @throws CannotReleaseLockException if execution of query to remove lock fails
-     */
+        UUID clientId = UUID.randomUUID();
 
-    public static void release(final Lock lock) {
-        lock.release();
-    }
+        CassandraLockingMechanism lockingMechanism = new CassandraLockingMechanism(session, keyspace, clientId);
 
-    private static void ensureLocksSchemaExists(LockConfig lockConfig, Session session) {
-        final Row locksKeyspace = session.execute(SCHEMA_VERIFICATION_QUERY).one();
-
-        if(locksKeyspace == null) {
-            createLocksSchema(lockConfig, session);
-        } else {
-            SCHEMA_CREATED.compareAndSet(false, true);
-        }
+        return Lock.acquire(lockingMechanism, lockConfig);
     }
 
     private static synchronized void createLocksSchema(final LockConfig lockConfig, final Session session) {

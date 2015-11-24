@@ -10,20 +10,17 @@ import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
 
 import java.util.UUID;
 
-public class CassandraLockingMechanism implements LockingMechanism {
+public class CassandraLockingMechanism extends LockingMechanism {
 
     private static final Logger log = LoggerFactory.getLogger(CassandraLockingMechanism.class);
 
     private final Session session;
-    private final String lockName;
-    private final UUID clientId;
 
     private boolean isRetryAfterWriteTimeout = false;
 
     public CassandraLockingMechanism(Session session, String keyspace, UUID clientId) {
+        super(keyspace + ".schema_migration", clientId);
         this.session = session;
-        this.lockName = keyspace + ".schema_migration";
-        this.clientId = clientId;
     }
 
     @Override
@@ -39,6 +36,9 @@ public class CassandraLockingMechanism implements LockingMechanism {
                 log.info("Lock currently held by {}", currentLock);
                 return false;
             }
+        } catch (WriteTimeoutException wte) {
+            log.warn("Query to acquire lock for {} failed to execute: {}", clientId, wte.getMessage());
+            return false;
         } catch (DriverException de) {
             log.warn("Query to acquire lock for {} failed to execute", clientId, de);
             throw new CannotAcquireLockException("Query failed to execute", de);
@@ -81,11 +81,6 @@ public class CassandraLockingMechanism implements LockingMechanism {
         }
 
         return false;
-    }
-
-    @Override
-    public String getLockName() {
-        return lockName;
     }
 
     private void waitToRetryRelease() {
