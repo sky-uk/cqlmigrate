@@ -1,10 +1,13 @@
 package uk.sky.cirrus.locking;
 
+import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.Session;
+import com.datastax.driver.core.exceptions.DriverException;
 import com.google.common.collect.ImmutableMap;
-import org.junit.ClassRule;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.*;
 import org.scassandra.cql.PrimitiveType;
+import org.scassandra.http.client.ActivityClient;
+import org.scassandra.http.client.PrimingClient;
 import org.scassandra.http.client.PrimingRequest;
 import org.scassandra.http.client.Query;
 import org.scassandra.http.client.types.ColumnMetadata;
@@ -14,20 +17,16 @@ import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
 import uk.sky.cirrus.util.PortScavenger;
 
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
 
-import static java.time.Duration.ofMillis;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.scassandra.http.client.PrimingRequest.then;
 
-public class CassandraLockingMechanismTest extends AbstractLockTest {
+public class CassandraLockingMechanismTest {
     private static final int BINARY_PORT = PortScavenger.getFreePort();
     private static final int ADMIN_PORT = PortScavenger.getFreePort();
-
+    private static final LockConfig DEFAULT_LOCK_CONFIG = LockConfig.builder().build();
+    private static final String LOCK_KEYSPACE = "lock-keyspace";
     private static final UUID CLIENT = UUID.randomUUID();
 
     @ClassRule
@@ -35,11 +34,46 @@ public class CassandraLockingMechanismTest extends AbstractLockTest {
 
     @Rule
     public final ScassandraServerRule resetScassandra = SCASSANDRA;
+    private final Query deleteLockQuery = Query.builder()
+            .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
+            .build();
+    private final Query insertLockQuery = Query.builder()
+            .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+            .build();
 
+    private Session session;
+    private Cluster cluster;
+    private PrimingClient primingClient = SCASSANDRA.primingClient();
+    private ActivityClient activityClient = SCASSANDRA.activityClient();
     private CassandraLockingMechanism lockingMechanism;
 
+    @Before
+    public void baseSetup() throws Exception {
+
+        cluster = Cluster.builder()
+                .addContactPoint("localhost")
+                .withPort(BINARY_PORT)
+                .build();
+        session = cluster.connect();
+
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                .withThen(then()
+                        .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
+                        .withRows(ImmutableMap.of("client", CLIENT, "[applied]", true)))
+                .build()
+        );
+
+        lockingMechanism = new CassandraLockingMechanism(session, LOCK_KEYSPACE, CLIENT);
+    }
+
+    @After
+    public void baseTearDown() throws Exception {
+        cluster.close();
+    }
+
     @Test
-    public void shouldSetToConsistencyLevelAllWhenAcquiringLock() throws Exception {
+    public void shouldInsertLockWhenAcquiringLock() throws Exception {
         //given
         primingClient.prime(PrimingRequest.queryBuilder()
                         .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
@@ -48,80 +82,87 @@ public class CassandraLockingMechanismTest extends AbstractLockTest {
                                 .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", true)))
                         .build()
         );
-        lockingMechanism = new CassandraLockingMechanism(session, LOCK_KEYSPACE, CLIENT);
-        Lock.acquire(lockingMechanism, DEFAULT_LOCK_CONFIG);
+
+        //when
+        lockingMechanism.acquire();
 
         //then
-        Query expectedQuery = Query.builder()
-                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                .build();
-
-        assertThat(activityClient.retrieveQueries()).contains(expectedQuery);
+        assertThat(activityClient.retrieveQueries()).contains(insertLockQuery);
     }
 
     @Test
-    public void shouldSetToConsistencyLevelAllWhenReleasingLock() throws Exception {
+    public void shouldSuccessfullyAcquireLockWhenInsertIsApplied() throws Exception {
         //given
         primingClient.prime(PrimingRequest.queryBuilder()
-                        .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                        .withThen(then()
-                                .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
-                                .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", true)))
-                        .build()
-        );
-        lockingMechanism = new CassandraLockingMechanism(session, LOCK_KEYSPACE, CLIENT);
-        primingClient.prime(PrimingRequest.queryBuilder()
-                        .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
-                        .withThen(then()
-                                .withColumnTypes(ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
-                                .withRows(ImmutableMap.of("[applied]", true)))
-                        .build()
+                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                .withThen(then()
+                        .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
+                        .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", true)))
+                .build()
         );
 
         //when
-        Lock lock = Lock.acquire(lockingMechanism, DEFAULT_LOCK_CONFIG);
-        lock.release();
+        boolean acquiredLock = lockingMechanism.acquire();
 
         //then
-        Query expectedQuery = Query.builder()
-                .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
-                .build();
-
-        assertThat(activityClient.retrieveQueries()).contains(expectedQuery);
+        assertThat(acquiredLock).isTrue();
     }
 
     @Test
-    public void shouldOnlyRetryAttemptToAcquireLockAfterConfiguredInterval() throws Exception {
+    public void shouldUnsuccessfullyAcquireLockWhenInsertIsNotApplied() throws Exception {
         //given
         primingClient.prime(PrimingRequest.queryBuilder()
-                        .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                        .withThen(then()
-                                .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
-                                .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", false)))
-                        .build()
+                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                .withThen(then()
+                        .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
+                        .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", false)))
+                .build()
         );
-        lockingMechanism = new CassandraLockingMechanism(session, LOCK_KEYSPACE, CLIENT);
-        final int pollingInterval = 50;
-        final int timeout = 300;
-        final LockConfig lockConfig = LockConfig.builder().withPollingInterval(ofMillis(pollingInterval)).withTimeout(ofMillis(timeout)).build();
 
         //when
-        Throwable throwable = catchThrowable(() -> Lock.acquire(lockingMechanism, lockConfig));
+        boolean acquiredLock = lockingMechanism.acquire();
 
         //then
-        assertThat(throwable).isNotNull();
-
-        Query expectedQuery = Query.builder()
-                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                .build();
-
-        final Stream<Query> actualRetries = activityClient.retrieveQueries().stream().filter(query -> query.equals(expectedQuery));
-        assertThat(actualRetries.count()).isEqualTo(1 + timeout / pollingInterval);
-
+        assertThat(acquiredLock).isFalse();
     }
 
     @Test
-    public void shouldReturnLockToAClientIfItIsCurrentlyOwnedByItself() throws Throwable {
+    public void shouldSuccessfullyAcquireLockWhenLockIsAlreadyAcquired() throws Exception {
+        //given
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                .withThen(then()
+                        .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
+                        .withRows(ImmutableMap.of("client", CLIENT, "[applied]", false)))
+                .build()
+        );
+
+        //when
+        boolean acquiredLock = lockingMechanism.acquire();
+
+        //then
+        assertThat(acquiredLock).isTrue();
+    }
+
+    @Test
+    public void shouldUnsuccessfullyAcquireLockWhenWriteTimeoutOccurs() throws Exception {
+        //given
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                .withThen(then()
+                        .withResult(PrimingRequest.Result.write_request_timeout))
+                .build()
+        );
+
+        //when
+        boolean acquiredLock = lockingMechanism.acquire();
+
+        //then
+        assertThat(acquiredLock).isFalse();
+    }
+
+    @Test
+    public void shouldSuccessfullyAcquireLockWhenLockIsAlreadyOwnedBySelf() throws Throwable {
         //given
         primingClient.prime(PrimingRequest.queryBuilder()
                         .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
@@ -130,15 +171,12 @@ public class CassandraLockingMechanismTest extends AbstractLockTest {
                                 .withRows(ImmutableMap.of("client", CLIENT, "[applied]", false)))
                         .build()
         );
-        lockingMechanism = new CassandraLockingMechanism(session, LOCK_KEYSPACE, CLIENT);
-        final LockConfig lockConfig = LockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build();
 
         //when
-        Lock lock = Lock.acquire(lockingMechanism, lockConfig);
+        boolean acquiredLock = lockingMechanism.acquire();
 
         //then
-        assertThat(lock).isNotNull();
-
+        assertThat(acquiredLock).isTrue();
     }
 
     @Test
@@ -150,28 +188,74 @@ public class CassandraLockingMechanismTest extends AbstractLockTest {
                                 .withResult(PrimingRequest.Result.unavailable))
                         .build()
         );
-        lockingMechanism = new CassandraLockingMechanism(session, LOCK_KEYSPACE, CLIENT);
         //when
-        Throwable throwable = catchThrowable(() -> Lock.acquire(lockingMechanism, DEFAULT_LOCK_CONFIG));
+        Throwable throwable = catchThrowable(() -> lockingMechanism.acquire());
 
         //then
-        assertThat(throwable).isNotNull();
-        assertThat(throwable).isInstanceOf(CannotAcquireLockException.class);
-        assertThat(throwable.getCause()).isNotNull();
-        assertThat(throwable).hasMessage("Query failed to execute");
+        assertThat(throwable)
+                .isNotNull()
+                .isInstanceOf(CannotAcquireLockException.class)
+                .hasCauseInstanceOf(DriverException.class)
+                .hasMessage("Query failed to execute");
+    }
+
+    @Test
+    public void shouldDeleteLockWhenReleasingLock() throws Exception {
+        //given
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
+                .withThen(then()
+                        .withColumnTypes(ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
+                        .withRows(ImmutableMap.of("[applied]", true)))
+                .build()
+        );
+
+        //when
+        lockingMechanism.release();
+
+        //then
+        assertThat(activityClient.retrieveQueries()).contains(deleteLockQuery);
+    }
+
+    @Test
+    public void shouldSuccessfullyReleaseLockWhenReleasingLock() throws Exception {
+        //given
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
+                .withThen(then()
+                        .withColumnTypes(ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
+                        .withRows(ImmutableMap.of("[applied]", true)))
+                .build()
+        );
+
+        //when
+        boolean releasedLock = lockingMechanism.release();
+
+        //then
+        assertThat(releasedLock).isTrue();
+    }
+
+    @Test
+    public void shouldSuccessfullyReleaseLockWhenNoLockFound() throws Exception {
+        //given
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
+                .withThen(then()
+                        .withColumnTypes(ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
+                        .withRows(ImmutableMap.of("[applied]", false)))
+                .build()
+        );
+
+        //when
+        boolean releasedLock = lockingMechanism.release();
+
+        //then
+        assertThat(releasedLock).isTrue();
     }
 
     @Test
     public void shouldThrowExceptionIfQueryFailsToExecuteWhenReleasingLock() throws Exception {
         //given
-        primingClient.prime(PrimingRequest.queryBuilder()
-                        .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                        .withThen(then()
-                                .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
-                                .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", true)))
-                        .build()
-        );
-        lockingMechanism = new CassandraLockingMechanism(session, LOCK_KEYSPACE, CLIENT);
         primingClient.prime(PrimingRequest.queryBuilder()
                         .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
                         .withThen(then()
@@ -179,79 +263,59 @@ public class CassandraLockingMechanismTest extends AbstractLockTest {
                         .build()
         );
 
-        final Lock lock = Lock.acquire(lockingMechanism, DEFAULT_LOCK_CONFIG);
-
         //when
-        Throwable throwable = catchThrowable(lock::release);
+        Throwable throwable = catchThrowable(() -> lockingMechanism.release());
 
         //then
-        assertThat(throwable).isNotNull();
-        assertThat(throwable).isInstanceOf(CannotReleaseLockException.class);
-        assertThat(throwable.getCause()).isNotNull();
-        assertThat(throwable).hasMessage("Query failed to execute");
+        assertThat(throwable)
+                .isNotNull()
+                .isInstanceOf(CannotReleaseLockException.class)
+                .hasCauseInstanceOf(DriverException.class)
+                .hasMessage("Query failed to execute");
     }
 
     @Test
-    public void shouldContinueWithoutFailingWhenStaleLockIsPassedToRelease() {
-
-        final Query expectedDeleteQuery = Query.builder().withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?").build();
-
-        // given
-        primingClient.prime(PrimingRequest.queryBuilder()
-                .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
-                .withThen(then().withColumnTypes(ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("[applied]", true)))
-                .build());
-        lockingMechanism = new CassandraLockingMechanism(session, LOCK_KEYSPACE, CLIENT);
-        final Lock activeLock = Lock.acquire(lockingMechanism, DEFAULT_LOCK_CONFIG);
-        assertThat(activeLock).isNotNull();
-
-        activeLock.release();
-
-        final Lock staleLock = activeLock;
-        staleLock.release();
-
-        assertThat(activityClient.retrieveQueries().stream().filter(query -> query.equals(expectedDeleteQuery)).count()).isEqualTo(1);
-    }
-
-    @Test(timeout = 2000)
-    public void shouldNotErrorWhenCurrentLockHolderIsRetryingAfterWriteTimeOutButDoesNotHoldLockNow() throws InterruptedException {
-
-        final ExecutorService lockManager = Executors.newSingleThreadExecutor();
+    public void shouldSuccessfullyReleaseLockWhenRetryingAfterWriteTimeOutButDoesNotHoldLockNow() throws InterruptedException {
 
         // given
         primingClient.prime(PrimingRequest.queryBuilder()
                 .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
                 .withThen(then().withResult(PrimingRequest.Result.write_request_timeout))
                 .build());
-        lockingMechanism = new CassandraLockingMechanism(session, LOCK_KEYSPACE, CLIENT);
-        final Lock activeLock = Lock.acquire(lockingMechanism, DEFAULT_LOCK_CONFIG);
 
         // Attempt to release lock
-        lockManager.submit(activeLock::release);
+        assertThat(lockingMechanism.release()).isFalse();
 
-        primeDeleteForSuccess(UUID.randomUUID());
-
-        lockManager.shutdown();
-        lockManager.awaitTermination(3, TimeUnit.SECONDS);
-    }
-
-    private void primeDeleteForSuccess(final UUID newClientId) {
         primingClient.prime(PrimingRequest.queryBuilder()
                 .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
                 .withThen(then()
                         .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("client", newClientId, "[applied]", false)))
+                        .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", false)))
                 .build());
+
+        assertThat(lockingMechanism.release()).isTrue();
     }
 
-    @Override
-    public int getBinaryPort() {
-        return BINARY_PORT;
-    }
+    @Test
+    public void shouldThrowCannotReleaseLockExceptionWhenLockNotHeldByUs() throws InterruptedException {
 
-    @Override
-    ScassandraServerRule getScassandra() {
-        return SCASSANDRA;
+        // given
+        UUID newLockHolder = UUID.randomUUID();
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
+                .withThen(then()
+                        .withColumnTypes(ColumnMetadata.column("client", PrimitiveType.UUID), ColumnMetadata.column("[applied]", PrimitiveType.BOOLEAN))
+                        .withRows(ImmutableMap.of("client", newLockHolder, "[applied]", false)))
+                .build());
+
+        // when
+        Throwable throwable = catchThrowable(() -> lockingMechanism.release());
+
+        //then
+        assertThat(throwable)
+                .isNotNull()
+                .isInstanceOf(CannotReleaseLockException.class)
+                .hasMessage(String.format("Lock attempted to be released by a non lock holder (%s). Current lock holder: %s", CLIENT, newLockHolder));
+
     }
 }

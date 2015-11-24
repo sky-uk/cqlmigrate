@@ -66,8 +66,8 @@ public class CassandraLockingMechanism extends LockingMechanism {
                     log.info("Released lock for client {} in retry attempt after WriteTimeoutException", clientReleasingLock);
                     return true;
                 } else {
-                    log.error("Lock attempted to be released by a non lock holder {}", clientReleasingLock);
-                    throw new IllegalStateException("Lock attempted to be released by a non lock holder: " + clientReleasingLock);
+                    throw new CannotReleaseLockException(
+                            String.format("Lock attempted to be released by a non lock holder (%s). Current lock holder: %s", clientId, clientReleasingLock));
                 }
             }
 
