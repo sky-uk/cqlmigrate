@@ -7,9 +7,9 @@ import com.datastax.driver.core.Session;
 import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import uk.sky.cirrus.locking.CassandraLockConfig;
 import uk.sky.cirrus.locking.CassandraLockingMechanism;
 import uk.sky.cirrus.locking.Lock;
-import uk.sky.cirrus.locking.LockConfig;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -32,9 +32,9 @@ public final class CqlMigratorImpl implements CqlMigrator {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CqlMigratorImpl.class);
 
-    private final LockConfig lockConfig;
+    private final CassandraLockConfig lockConfig;
 
-    public CqlMigratorImpl(LockConfig lockConfig) {
+    public CqlMigratorImpl(CassandraLockConfig lockConfig) {
         this.lockConfig = lockConfig;
     }
 
@@ -59,7 +59,7 @@ public final class CqlMigratorImpl implements CqlMigrator {
                 .map(Paths::get)
                 .collect(Collectors.toList());
 
-        new CqlMigratorImpl(LockConfig.builder().build())
+        new CqlMigratorImpl(CassandraLockConfig.builder().build())
                 .migrate(hosts.split(","), port == null ? 9042 : Integer.parseInt(port), keyspace, directories);
     }
 

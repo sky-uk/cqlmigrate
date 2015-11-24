@@ -6,7 +6,7 @@ import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.thrift.transport.TTransportException;
 import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
 import org.junit.*;
-import uk.sky.cirrus.locking.LockConfig;
+import uk.sky.cirrus.locking.CassandraLockConfig;
 import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
 
 import java.io.IOException;
@@ -32,7 +32,7 @@ public class CqlMigratorImplTest {
     private static final String TEST_KEYSPACE = "cqlmigrate_test";
     private static final String LOCK_NAME = TEST_KEYSPACE + ".schema_migration";
 
-    private static final CqlMigratorImpl MIGRATOR = new CqlMigratorImpl(LockConfig.builder().build());
+    private static final CqlMigratorImpl MIGRATOR = new CqlMigratorImpl(CassandraLockConfig.builder().build());
 
     private ExecutorService executorService;
 
@@ -93,7 +93,7 @@ public class CqlMigratorImplTest {
     @Test(timeout = 1000)
     public void shouldThrowCannotAcquireLockExceptionIfLockCannotBeAcquiredAfterTimeout() throws Exception {
         //given
-        final CqlMigratorImpl migrator = new CqlMigratorImpl(LockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build());
+        final CqlMigratorImpl migrator = new CqlMigratorImpl(CassandraLockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build());
 
         UUID client = UUID.randomUUID();
         session.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, client);

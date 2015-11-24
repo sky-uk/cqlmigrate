@@ -29,7 +29,7 @@ public class CassandraLockingMechanismTest {
     private static final int BINARY_PORT = PortScavenger.getFreePort();
     private static final int ADMIN_PORT = PortScavenger.getFreePort();
     private static final String LOCK_KEYSPACE = "lock-keyspace";
-    private static final LockConfig LOCK_CONFIG = LockConfig.builder().build();
+    private static final CassandraLockConfig LOCK_CONFIG = CassandraLockConfig.builder().build();
     private static final UUID CLIENT = UUID.randomUUID();
 
     @ClassRule

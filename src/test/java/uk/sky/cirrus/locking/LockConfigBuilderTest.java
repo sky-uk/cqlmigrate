@@ -34,7 +34,7 @@ public class LockConfigBuilderTest {
     @Test
     public void shouldThrowExceptionIfSimpleStrategyIsUsedInCombinationWithDataCenters() throws Exception {
         //when
-        Throwable throwable = catchThrowable(() -> LockConfig.builder().withNetworkTopologyReplication("DC", 1).withSimpleStrategyReplication(1));
+        Throwable throwable = catchThrowable(() -> CassandraLockConfig.builder().withNetworkTopologyReplication("DC", 1).withSimpleStrategyReplication(1));
 
         //then
         assertThat(throwable)

@@ -62,7 +62,7 @@ public class LockVerificationTest {
     public void shouldManageContentionsForSchemaMigrate() throws InterruptedException, URISyntaxException {
 
         final Path cql_bootstrap = Paths.get(ClassLoader.getSystemResource("cql_migrate_multithreads").toURI());
-        final CqlMigratorImpl cqlMigrator = new CqlMigratorImpl(LockConfig.builder().build());
+        final CqlMigratorImpl cqlMigrator = new CqlMigratorImpl(CassandraLockConfig.builder().build());
 
         final Collection<Path> cqlPaths = singletonList(cql_bootstrap);
         final ExecutorService cqlMigratorManager = newFixedThreadPool(25);
@@ -99,7 +99,7 @@ public class LockVerificationTest {
 
     @Test
     public void shouldObtainLockToInsertRecord() throws InterruptedException {
-        final LockConfig config = LockConfig.builder()
+        final CassandraLockConfig config = CassandraLockConfig.builder()
                 .withPollingInterval(Duration.ofMillis(30))
                 .withSimpleStrategyReplication(3)
                 .build();

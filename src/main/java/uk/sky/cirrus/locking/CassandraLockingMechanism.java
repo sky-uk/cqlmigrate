@@ -15,11 +15,11 @@ public class CassandraLockingMechanism extends LockingMechanism {
     private static final Logger log = LoggerFactory.getLogger(CassandraLockingMechanism.class);
 
     private final Session session;
-    private LockConfig lockConfig;
+    private final CassandraLockConfig lockConfig;
 
     private boolean isRetryAfterWriteTimeout = false;
 
-    public CassandraLockingMechanism(Session session, String keyspace, UUID clientId, LockConfig lockConfig) {
+    public CassandraLockingMechanism(Session session, String keyspace, UUID clientId, CassandraLockConfig lockConfig) {
         super(keyspace + ".schema_migration", clientId);
         this.session = session;
         this.lockConfig = lockConfig;
