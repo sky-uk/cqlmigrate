@@ -15,12 +15,31 @@ public class CassandraLockingMechanism extends LockingMechanism {
     private static final Logger log = LoggerFactory.getLogger(CassandraLockingMechanism.class);
 
     private final Session session;
+    private LockConfig lockConfig;
 
     private boolean isRetryAfterWriteTimeout = false;
 
-    public CassandraLockingMechanism(Session session, String keyspace, UUID clientId) {
+    public CassandraLockingMechanism(Session session, String keyspace, UUID clientId, LockConfig lockConfig) {
         super(keyspace + ".schema_migration", clientId);
         this.session = session;
+        this.lockConfig = lockConfig;
+    }
+
+    @Override
+    public void init() {
+        super.init();
+
+        try {
+            Row locksKeyspace = session.execute("SELECT keyspace_name FROM system.schema_keyspaces WHERE keyspace_name = 'locks'").one();
+
+            if (locksKeyspace == null) {
+                session.execute(String.format("CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {%s}", lockConfig.getReplicationString()));
+                session.execute("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client uuid)");
+            }
+        } catch (DriverException e) {
+            log.warn("Query to create locks keyspace or locks table failed to execute", e);
+            throw new CannotAcquireLockException("Query to create locks schema failed to execute", e);
+        }
     }
 
     @Override

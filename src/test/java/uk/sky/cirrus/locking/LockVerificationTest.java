@@ -14,10 +14,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.*;
 
 import static com.google.common.collect.Lists.newArrayList;
@@ -110,10 +107,11 @@ public class LockVerificationTest {
         final Callable<Optional<Integer>> worker = () -> {
             Integer counter = null;
             try {
-
-                final Lock lock = LockService.acquire(config, KEYSPACE, session);
+                UUID clientId = UUID.randomUUID();
+                CassandraLockingMechanism lockingMechanism = new CassandraLockingMechanism(session, KEYSPACE, clientId, config);
+                final Lock lock = Lock.acquire(lockingMechanism, config);
                 counter = readAndIncrementCounter();
-                LOGGER.info("Client {} registered counter {}", lock.getClient(), counter);
+                LOGGER.info("Client {} registered counter {}", clientId, counter);
                 lock.release();
 
             } catch (Exception e) {

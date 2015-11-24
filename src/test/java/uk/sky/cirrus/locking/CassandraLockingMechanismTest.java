@@ -1,7 +1,6 @@
 package uk.sky.cirrus.locking;
 
 import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.Session;
 import com.datastax.driver.core.exceptions.DriverException;
 import com.google.common.collect.ImmutableMap;
 import org.junit.*;
@@ -30,6 +29,7 @@ public class CassandraLockingMechanismTest {
     private static final int BINARY_PORT = PortScavenger.getFreePort();
     private static final int ADMIN_PORT = PortScavenger.getFreePort();
     private static final String LOCK_KEYSPACE = "lock-keyspace";
+    private static final LockConfig LOCK_CONFIG = LockConfig.builder().build();
     private static final UUID CLIENT = UUID.randomUUID();
 
     @ClassRule
@@ -48,7 +48,6 @@ public class CassandraLockingMechanismTest {
             .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
             .build();
 
-    private Session session;
     private Cluster cluster;
     private CassandraLockingMechanism lockingMechanism;
 
@@ -59,7 +58,6 @@ public class CassandraLockingMechanismTest {
                 .addContactPoint("localhost")
                 .withPort(BINARY_PORT)
                 .build();
-        session = cluster.connect();
 
         primingClient.prime(PrimingRequest.queryBuilder()
                 .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
@@ -69,12 +67,112 @@ public class CassandraLockingMechanismTest {
                 .build()
         );
 
-        lockingMechanism = new CassandraLockingMechanism(session, LOCK_KEYSPACE, CLIENT);
+        lockingMechanism = new CassandraLockingMechanism(cluster.connect(), LOCK_KEYSPACE, CLIENT, LOCK_CONFIG);
     }
 
     @After
     public void baseTearDown() throws Exception {
         cluster.close();
+    }
+
+    @Test
+    public void shouldThrowExceptionIfSelectKeyspaceQueryFailsWhenInit() throws Throwable {
+        //given
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery("SELECT keyspace_name FROM system.schema_keyspaces WHERE keyspace_name = 'locks'")
+                .withThen(then().withResult(PrimingRequest.Result.unavailable))
+                .build()
+        );
+
+        //when
+        Throwable throwable = catchThrowable(lockingMechanism::init);
+
+        //then
+        assertThat(throwable)
+                .isNotNull()
+                .isInstanceOf(CannotAcquireLockException.class)
+                .hasCauseInstanceOf(DriverException.class)
+                .hasMessage("Query to create locks schema failed to execute");
+    }
+
+    @Test
+    public void shouldCreateLocksKeyspaceIfItDoesNotExistWhenInit() throws Throwable {
+        //given
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery("SELECT keyspace_name FROM system.schema_keyspaces WHERE keyspace_name = 'locks'")
+                .withThen(then().withResult(PrimingRequest.Result.success))
+                .build()
+        );
+
+        //when
+        lockingMechanism.init();
+
+        //then
+        Query expectedQuery = Query.builder()
+                .withQuery("CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1}")
+                .build();
+
+        assertThat(activityClient.retrieveQueries()).contains(expectedQuery);
+    }
+
+    @Test
+    public void shouldThrowExceptionIfCreateLocksKeyspaceQueryFailsWhenInit() throws Throwable {
+        //given
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery("CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1}")
+                .withThen(then().withResult(PrimingRequest.Result.unavailable))
+                .build()
+        );
+
+        //when
+        Throwable throwable = catchThrowable(lockingMechanism::init);
+
+        //then
+        assertThat(throwable)
+                .isNotNull()
+                .isInstanceOf(CannotAcquireLockException.class)
+                .hasCauseInstanceOf(DriverException.class)
+                .hasMessage("Query to create locks schema failed to execute");
+    }
+
+    @Test
+    public void shouldCreateLocksTableIfItDoesNotExistWhenInit() throws Throwable {
+        //given
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery("SELECT keyspace_name FROM system.schema_keyspaces WHERE keyspace_name = 'locks'")
+                .withThen(then().withResult(PrimingRequest.Result.success))
+                .build()
+        );
+
+        //when
+        lockingMechanism.init();
+
+        //then
+        Query expectedQuery = Query.builder()
+                .withQuery("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client uuid)")
+                .build();
+
+        assertThat(activityClient.retrieveQueries()).contains(expectedQuery);
+    }
+
+    @Test
+    public void shouldThrowExceptionIfCreateLocksTableQueryFailsWhenInit() throws Throwable {
+        //given
+        primingClient.prime(PrimingRequest.queryBuilder()
+                .withQuery("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client uuid)")
+                .withThen(then().withResult(PrimingRequest.Result.unavailable))
+                .build()
+        );
+
+        //when
+        Throwable throwable = catchThrowable(lockingMechanism::init);
+
+        //then
+        assertThat(throwable)
+                .isNotNull()
+                .isInstanceOf(CannotAcquireLockException.class)
+                .hasCauseInstanceOf(DriverException.class)
+                .hasMessage("Query to create locks schema failed to execute");
     }
 
     @Test

@@ -15,6 +15,10 @@ public abstract class LockingMechanism {
         this.clientId = clientId;
     }
 
+    public void init() {
+
+    }
+
     abstract public boolean acquire() throws CannotAcquireLockException;
     abstract public boolean release() throws CannotReleaseLockException;
 

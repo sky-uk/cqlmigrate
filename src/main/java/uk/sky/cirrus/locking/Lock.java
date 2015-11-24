@@ -19,11 +19,9 @@ public class Lock {
     private static final Logger log = LoggerFactory.getLogger(Lock.class);
 
     private final LockingMechanism lockingMechanism;
-    private final UUID clientId;
 
     private Lock(LockingMechanism lockingMechanism) {
         this.lockingMechanism = lockingMechanism;
-        this.clientId = lockingMechanism.getClientId();
     }
 
     /**
@@ -31,7 +29,9 @@ public class Lock {
      * @return the {@code Lock} object
      * @throws CannotAcquireLockException if instance cannot acquire lock within the specified time interval or execution of query to insert lock fails
      */
-    static Lock acquire(LockingMechanism lockingMechanism, LockConfig lockConfig) {
+    public static Lock acquire(LockingMechanism lockingMechanism, LockConfig lockConfig) {
+
+        lockingMechanism.init();
 
         String lockName = lockingMechanism.getLockName();
         UUID clientId = lockingMechanism.getClientId();
@@ -78,9 +78,5 @@ public class Lock {
     private static boolean timedOut(Duration timeout, long startTime) {
         long currentDuration = System.currentTimeMillis() - startTime;
         return currentDuration >= timeout.toMillis();
-    }
-
-    public UUID getClient() {
-        return this.clientId;
     }
 }

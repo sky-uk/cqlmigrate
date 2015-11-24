@@ -7,14 +7,15 @@ import com.datastax.driver.core.Session;
 import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import uk.sky.cirrus.locking.CassandraLockingMechanism;
 import uk.sky.cirrus.locking.Lock;
 import uk.sky.cirrus.locking.LockConfig;
-import uk.sky.cirrus.locking.LockService;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -81,7 +82,8 @@ public final class CqlMigratorImpl implements CqlMigrator {
         ClusterHealth clusterHealth = new ClusterHealth(cluster);
         clusterHealth.check();
 
-        Lock lock = LockService.acquire(lockConfig, keyspace, session);
+        CassandraLockingMechanism cassandraLockingMechanism = new CassandraLockingMechanism(session, keyspace, UUID.randomUUID(), lockConfig);
+        Lock lock = Lock.acquire(cassandraLockingMechanism, lockConfig);
 
         LOGGER.info("Loading cql files from {}", directories);
         CqlPaths paths = CqlPaths.create(directories);

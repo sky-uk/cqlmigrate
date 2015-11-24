@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.junit.Assert.fail;
 
-public class CqlMigratorTest {
+public class CqlMigratorImplTest {
 
     private static final String[] CASSANDRA_HOSTS = {"localhost"};
     private static int binaryPort;
@@ -73,7 +73,6 @@ public class CqlMigratorTest {
     private Path getResourcePath(String resourcePath) throws URISyntaxException {
         return Paths.get(ClassLoader.getSystemResource(resourcePath).toURI());
     }
-
 
     @Test
     public void shouldRunTheBootstrapCqlIfKeyspaceDoesNotExist() throws Exception {
@@ -267,7 +266,6 @@ public class CqlMigratorTest {
             assertThat(row.getDate("applied_on")).as("applied_on").isNotNull().isAfter(now);
         }
     }
-
 
     @Test(expected = RuntimeException.class)
     public void shouldFailIfThereAreDuplicateCqlFilenames() throws Exception {
