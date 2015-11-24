@@ -214,7 +214,7 @@ public class CassandraLockingMechanismTest extends AbstractLockTest {
         assertThat(activityClient.retrieveQueries().stream().filter(query -> query.equals(expectedDeleteQuery)).count()).isEqualTo(1);
     }
 
-    @Test
+    @Test(timeout = 2000)
     public void shouldNotErrorWhenCurrentLockHolderIsRetryingAfterWriteTimeOutButDoesNotHoldLockNow() throws InterruptedException {
 
         final ExecutorService lockManager = Executors.newSingleThreadExecutor();
@@ -226,7 +226,6 @@ public class CassandraLockingMechanismTest extends AbstractLockTest {
                 .build());
         lockingMechanism = new CassandraLockingMechanism(session, LOCK_KEYSPACE, CLIENT);
         final Lock activeLock = Lock.acquire(lockingMechanism, DEFAULT_LOCK_CONFIG);
-        assertThat(activeLock.isReleased()).isFalse();
 
         // Attempt to release lock
         lockManager.submit(activeLock::release);
@@ -235,7 +234,6 @@ public class CassandraLockingMechanismTest extends AbstractLockTest {
 
         lockManager.shutdown();
         lockManager.awaitTermination(3, TimeUnit.SECONDS);
-        assertThat(activeLock.isReleased()).isTrue();
     }
 
     private void primeDeleteForSuccess(final UUID newClientId) {

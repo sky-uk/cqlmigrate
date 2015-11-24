@@ -18,9 +18,9 @@ public class Lock {
 
     private static final Logger log = LoggerFactory.getLogger(Lock.class);
 
-    private static LockingMechanism lockingMechanism;
-
+    private final LockingMechanism lockingMechanism;
     private final UUID clientId;
+
     private boolean released;
 
     private Lock(LockingMechanism lockingMechanism) {
@@ -89,14 +89,5 @@ public class Lock {
 
     public UUID getClient() {
         return this.clientId;
-    }
-
-    /**
-     * Clients can make use of this getter to check if they have an active or a stale lock
-     *
-     * @return if the current lock is released
-     */
-    public boolean isReleased() {
-        return this.released;
     }
 }

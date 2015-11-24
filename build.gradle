@@ -26,6 +26,7 @@ dependencies {
     testCompile 'org.assertj:assertj-core:2.0.0'
     testCompile 'org.scassandra:java-client:0.10.0'
     testCompile 'org.cassandraunit:cassandra-unit-shaded:2.1.9.2'
+    testCompile 'org.mockito:mockito-all:1.10.19'
 }
 
 task sourcesJar(type: Jar) {
