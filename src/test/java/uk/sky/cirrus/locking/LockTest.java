@@ -11,7 +11,6 @@ import java.time.Duration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.fail;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 @RunWith(MockitoJUnitRunner.class)
@@ -84,34 +83,5 @@ public class LockTest {
 
         //then
         verify(lockingMechanism).release();
-    }
-
-    @Test
-    public void retriesToReleaseLock() throws Throwable {
-        //given
-        given(lockingMechanism.acquire()).willReturn(true);
-        given(lockingMechanism.release()).willReturn(false, true);
-        Lock lock = Lock.acquire(lockingMechanism, LOCK_CONFIG);
-
-        //when
-        lock.release();
-
-        //then
-        verify(lockingMechanism, times(2)).release();
-    }
-
-    @Test
-    public void shouldOnlyReleaseIfNotPreviouslyReleased() throws Throwable {
-        //given
-        given(lockingMechanism.acquire()).willReturn(true);
-        given(lockingMechanism.release()).willReturn(true);
-        Lock lock = Lock.acquire(lockingMechanism, LOCK_CONFIG);
-        lock.release();
-
-        //when
-        lock.release();
-
-        //then
-        verify(lockingMechanism, times(1)).release();
     }
 }

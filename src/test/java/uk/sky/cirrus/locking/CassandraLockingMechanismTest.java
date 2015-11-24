@@ -17,15 +17,18 @@ import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
 import uk.sky.cirrus.util.PortScavenger;
 
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.scassandra.http.client.PrimingRequest.then;
 
 public class CassandraLockingMechanismTest {
+
     private static final int BINARY_PORT = PortScavenger.getFreePort();
     private static final int ADMIN_PORT = PortScavenger.getFreePort();
-    private static final LockConfig DEFAULT_LOCK_CONFIG = LockConfig.builder().build();
     private static final String LOCK_KEYSPACE = "lock-keyspace";
     private static final UUID CLIENT = UUID.randomUUID();
 
@@ -34,6 +37,10 @@ public class CassandraLockingMechanismTest {
 
     @Rule
     public final ScassandraServerRule resetScassandra = SCASSANDRA;
+
+    private final PrimingClient primingClient = SCASSANDRA.primingClient();
+    private final ActivityClient activityClient = SCASSANDRA.activityClient();
+
     private final Query deleteLockQuery = Query.builder()
             .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
             .build();
@@ -43,8 +50,6 @@ public class CassandraLockingMechanismTest {
 
     private Session session;
     private Cluster cluster;
-    private PrimingClient primingClient = SCASSANDRA.primingClient();
-    private ActivityClient activityClient = SCASSANDRA.activityClient();
     private CassandraLockingMechanism lockingMechanism;
 
     @Before
@@ -274,18 +279,21 @@ public class CassandraLockingMechanismTest {
                 .hasMessage("Query failed to execute");
     }
 
-    @Test
+    @Test(timeout = 2000)
     public void shouldSuccessfullyReleaseLockWhenRetryingAfterWriteTimeOutButDoesNotHoldLockNow() throws InterruptedException {
+        //given
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
 
-        // given
         primingClient.prime(PrimingRequest.queryBuilder()
                 .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
                 .withThen(then().withResult(PrimingRequest.Result.write_request_timeout))
                 .build());
 
-        // Attempt to release lock
-        assertThat(lockingMechanism.release()).isFalse();
+        //given
+        executorService.submit(lockingMechanism::release);
 
+
+        //then prime a success
         primingClient.prime(PrimingRequest.queryBuilder()
                 .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
                 .withThen(then()
@@ -293,13 +301,15 @@ public class CassandraLockingMechanismTest {
                         .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", false)))
                 .build());
 
-        assertThat(lockingMechanism.release()).isTrue();
+        executorService.shutdown();
+        executorService.awaitTermination(3, TimeUnit.SECONDS);
+
+        assertThat(activityClient.retrieveQueries()).contains(deleteLockQuery, deleteLockQuery);
     }
 
     @Test
     public void shouldThrowCannotReleaseLockExceptionWhenLockNotHeldByUs() throws InterruptedException {
-
-        // given
+        //given
         UUID newLockHolder = UUID.randomUUID();
         primingClient.prime(PrimingRequest.queryBuilder()
                 .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
@@ -308,7 +318,7 @@ public class CassandraLockingMechanismTest {
                         .withRows(ImmutableMap.of("client", newLockHolder, "[applied]", false)))
                 .build());
 
-        // when
+        //when
         Throwable throwable = catchThrowable(() -> lockingMechanism.release());
 
         //then
@@ -316,6 +326,5 @@ public class CassandraLockingMechanismTest {
                 .isNotNull()
                 .isInstanceOf(CannotReleaseLockException.class)
                 .hasMessage(String.format("Lock attempted to be released by a non lock holder (%s). Current lock holder: %s", CLIENT, newLockHolder));
-
     }
 }

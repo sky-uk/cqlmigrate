@@ -47,40 +47,37 @@ public class CassandraLockingMechanism extends LockingMechanism {
 
     @Override
     public boolean release() {
-        Statement query = new SimpleStatement("DELETE FROM locks.locks WHERE name = ? IF client = ?", lockName, clientId);
+        while (true) {
+            Statement query = new SimpleStatement("DELETE FROM locks.locks WHERE name = ? IF client = ?", lockName, clientId);
 
-        try {
-            ResultSet resultSet = session.execute(query);
-            Row result = resultSet.one();
+            try {
+                ResultSet resultSet = session.execute(query);
+                Row result = resultSet.one();
 
-            boolean isApplied = result.getBool("[applied]");
-
-            if (isApplied || !result.getColumnDefinitions().contains("client")) {
-                log.info("Lock released for {} by client {} at: {}", lockName, clientId, System.currentTimeMillis());
-                return true;
-            }
-
-            UUID clientReleasingLock = result.getUUID("client");
-            if (!clientReleasingLock.equals(clientId)) {
-                if (isRetryAfterWriteTimeout) {
-                    log.info("Released lock for client {} in retry attempt after WriteTimeoutException", clientReleasingLock);
+                if (result.getBool("[applied]") || !result.getColumnDefinitions().contains("client")) {
+                    log.info("Lock released for {} by client {} at: {}", lockName, clientId, System.currentTimeMillis());
                     return true;
-                } else {
-                    throw new CannotReleaseLockException(
-                            String.format("Lock attempted to be released by a non lock holder (%s). Current lock holder: %s", clientId, clientReleasingLock));
                 }
+
+                UUID clientReleasingLock = result.getUUID("client");
+                if (!clientReleasingLock.equals(clientId)) {
+                    if (isRetryAfterWriteTimeout) {
+                        log.info("Released lock for client {} in retry attempt after WriteTimeoutException", clientReleasingLock);
+                        return true;
+                    } else {
+                        throw new CannotReleaseLockException(
+                                String.format("Lock attempted to be released by a non lock holder (%s). Current lock holder: %s", clientId, clientReleasingLock));
+                    }
+                }
+
+            } catch (WriteTimeoutException e) {
+                isRetryAfterWriteTimeout = true;
+                waitToRetryRelease();
+            } catch (DriverException e) {
+                log.error("Query to release lock failed to execute for {} by client {}", lockName, clientId, e);
+                throw new CannotReleaseLockException("Query failed to execute", e);
             }
-
-        } catch (WriteTimeoutException e) {
-            isRetryAfterWriteTimeout = true;
-            waitToRetryRelease();
-
-        } catch (DriverException e) {
-            log.error("Query to release lock failed to execute for {} by client {}", lockName, clientId, e);
-            throw new CannotReleaseLockException("Query failed to execute", e);
         }
-
-        return false;
     }
 
     private void waitToRetryRelease() {

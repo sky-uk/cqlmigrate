@@ -21,8 +21,6 @@ public class Lock {
     private final LockingMechanism lockingMechanism;
     private final UUID clientId;
 
-    private boolean released;
-
     private Lock(LockingMechanism lockingMechanism) {
         this.lockingMechanism = lockingMechanism;
         this.clientId = lockingMechanism.getClientId();
@@ -59,12 +57,7 @@ public class Lock {
      * @throws CannotReleaseLockException if execution of query to remove lock fails
      */
     public void release() {
-       while(true) {
-           if (released || lockingMechanism.release()) {
-               released = true;
-               return;
-           }
-       }
+       lockingMechanism.release();
     }
 
     private static void waitToAcquire(LockConfig lockConfig, UUID clientId, int acquireAttempts, long startTime) {
