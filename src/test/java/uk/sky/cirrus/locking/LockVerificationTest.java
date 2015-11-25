@@ -108,7 +108,7 @@ public class LockVerificationTest {
             Integer counter = null;
             try {
                 UUID clientId = UUID.randomUUID();
-                CassandraLockingMechanism lockingMechanism = new CassandraLockingMechanism(session, KEYSPACE, clientId, config);
+                CassandraLockingMechanism lockingMechanism = new CassandraLockingMechanism(session, KEYSPACE, config);
                 final Lock lock = Lock.acquire(lockingMechanism, config);
                 counter = readAndIncrementCounter();
                 LOGGER.info("Client {} registered counter {}", clientId, counter);

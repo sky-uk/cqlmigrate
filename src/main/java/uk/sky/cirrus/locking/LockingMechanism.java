@@ -3,14 +3,12 @@ package uk.sky.cirrus.locking;
 import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
 import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
 
-import java.util.UUID;
-
 public abstract class LockingMechanism {
 
     protected final String lockName;
-    protected final UUID clientId;
+    protected final String clientId;
 
-    public LockingMechanism(String lockName, UUID clientId) {
+    public LockingMechanism(String lockName, String clientId) {
         this.lockName = lockName;
         this.clientId = clientId;
     }
@@ -26,7 +24,7 @@ public abstract class LockingMechanism {
         return lockName;
     }
 
-    public UUID getClientId() {
+    public String getClientId() {
         return clientId;
     }
 }

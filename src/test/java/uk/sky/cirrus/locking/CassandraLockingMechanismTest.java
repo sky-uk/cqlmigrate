@@ -26,8 +26,8 @@ public class CassandraLockingMechanismTest {
     private static final int BINARY_PORT = PortScavenger.getFreePort();
     private static final int ADMIN_PORT = PortScavenger.getFreePort();
     private static final String LOCK_KEYSPACE = "lock-keyspace";
-    private static final CassandraLockConfig LOCK_CONFIG = CassandraLockConfig.builder().build();
-    private static final UUID CLIENT = UUID.randomUUID();
+    private static final String CLIENT_ID = UUID.randomUUID().toString();
+    private static final CassandraLockConfig LOCK_CONFIG = CassandraLockConfig.builder().withClientId(CLIENT_ID).build();
 
     @ClassRule
     public static final ScassandraServerRule SCASSANDRA = new ScassandraServerRule(BINARY_PORT, ADMIN_PORT);
@@ -40,12 +40,12 @@ public class CassandraLockingMechanismTest {
 
     private final PreparedStatementExecution deleteLockPreparedStatement = PreparedStatementExecution.builder()
             .withPreparedStatementText("DELETE FROM locks.locks WHERE name = ? IF client = ?")
-            .withVariables(LOCK_KEYSPACE + ".schema_migration", CLIENT.toString())
+            .withVariables(LOCK_KEYSPACE + ".schema_migration", CLIENT_ID)
             .build();
 
     private final PreparedStatementExecution insertLockPreparedStatement = PreparedStatementExecution.builder()
             .withPreparedStatementText("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-            .withVariables(LOCK_KEYSPACE + ".schema_migration", CLIENT.toString())
+            .withVariables(LOCK_KEYSPACE + ".schema_migration", CLIENT_ID)
             .build();
 
     private Cluster cluster;
@@ -62,7 +62,7 @@ public class CassandraLockingMechanismTest {
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
                 .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
                 .withThen(then()
-                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.UUID)
+                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
                         .withColumnTypes(column("[applied]", PrimitiveType.BOOLEAN))
                         .withRows(ImmutableMap.of("[applied]", true)))
                 .build()
@@ -71,13 +71,13 @@ public class CassandraLockingMechanismTest {
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
                 .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
                 .withThen(then()
-                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.UUID)
+                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
                         .withColumnTypes(column("[applied]", PrimitiveType.BOOLEAN))
                         .withRows(ImmutableMap.of("[applied]", true)))
                 .build()
         );
 
-        lockingMechanism = new CassandraLockingMechanism(cluster.connect(), LOCK_KEYSPACE, CLIENT, LOCK_CONFIG);
+        lockingMechanism = new CassandraLockingMechanism(cluster.connect(), LOCK_KEYSPACE, LOCK_CONFIG);
         lockingMechanism.init();
 
         activityClient.clearAllRecordedActivity();
@@ -162,7 +162,7 @@ public class CassandraLockingMechanismTest {
 
         //then
         Query expectedQuery = Query.builder()
-                .withQuery("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client uuid)")
+                .withQuery("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client text)")
                 .build();
 
         assertThat(activityClient.retrieveQueries()).contains(expectedQuery);
@@ -172,7 +172,7 @@ public class CassandraLockingMechanismTest {
     public void shouldThrowExceptionIfCreateLocksTableQueryFailsWhenInit() throws Throwable {
         //given
         primingClient.prime(PrimingRequest.queryBuilder()
-                .withQuery("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client uuid)")
+                .withQuery("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client text)")
                 .withThen(then().withResult(PrimingRequest.Result.unavailable))
                 .build()
         );
@@ -238,9 +238,9 @@ public class CassandraLockingMechanismTest {
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
                 .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
                 .withThen(then()
-                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.UUID)
-                        .withColumnTypes(column("client", PrimitiveType.UUID), column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("client", UUID.randomUUID(), "[applied]", false)))
+                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
+                        .withColumnTypes(column("client", PrimitiveType.TEXT), column("[applied]", PrimitiveType.BOOLEAN))
+                        .withRows(ImmutableMap.of("client", "a different client", "[applied]", false)))
                 .build()
         );
 
@@ -257,9 +257,9 @@ public class CassandraLockingMechanismTest {
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
                 .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
                 .withThen(then()
-                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.UUID)
-                        .withColumnTypes(column("client", PrimitiveType.UUID), column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("client", CLIENT, "[applied]", false)))
+                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
+                        .withColumnTypes(column("client", PrimitiveType.TEXT), column("[applied]", PrimitiveType.BOOLEAN))
+                        .withRows(ImmutableMap.of("client", CLIENT_ID, "[applied]", false)))
                 .build()
         );
 
@@ -331,7 +331,7 @@ public class CassandraLockingMechanismTest {
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
                 .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
                 .withThen(then()
-                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.UUID)
+                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
                         .withColumnTypes(column("[applied]", PrimitiveType.BOOLEAN))
                         .withRows(ImmutableMap.of("[applied]", false)))
                 .build()
@@ -383,7 +383,7 @@ public class CassandraLockingMechanismTest {
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
                 .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
                 .withThen(then()
-                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.UUID)
+                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
                         .withColumnTypes(column("[applied]", PrimitiveType.BOOLEAN))
                         .withRows(ImmutableMap.of("[applied]", true)))
                 .build()
@@ -398,13 +398,13 @@ public class CassandraLockingMechanismTest {
     @Test
     public void shouldThrowCannotReleaseLockExceptionWhenLockNotHeldByUs() throws InterruptedException {
         //given
-        UUID newLockHolder = UUID.randomUUID();
+        String newLockHolder = "new lock holder";
 
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
                 .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
                 .withThen(then()
-                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.UUID)
-                        .withColumnTypes(column("client", PrimitiveType.UUID), column("[applied]", PrimitiveType.BOOLEAN))
+                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
+                        .withColumnTypes(column("client", PrimitiveType.TEXT), column("[applied]", PrimitiveType.BOOLEAN))
                         .withRows(ImmutableMap.of("client", newLockHolder, "[applied]", false)))
                 .build()
         );
@@ -416,6 +416,6 @@ public class CassandraLockingMechanismTest {
         assertThat(throwable)
                 .isNotNull()
                 .isInstanceOf(CannotReleaseLockException.class)
-                .hasMessage(String.format("Lock attempted to be released by a non lock holder (%s). Current lock holder: %s", CLIENT, newLockHolder));
+                .hasMessage(String.format("Lock attempted to be released by a non lock holder (%s). Current lock holder: %s", CLIENT_ID, newLockHolder));
     }
 }

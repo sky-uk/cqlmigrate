@@ -6,7 +6,6 @@ import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
 import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
 
 import java.time.Duration;
-import java.util.UUID;
 
 /**
  * Class to acquire a lock on cassandra table for a single application instance.  Each instance is given a unique identifier
@@ -34,7 +33,7 @@ public class Lock {
         lockingMechanism.init();
 
         String lockName = lockingMechanism.getLockName();
-        UUID clientId = lockingMechanism.getClientId();
+        String clientId = lockingMechanism.getClientId();
 
         int acquireAttempts = 1;
 
@@ -60,7 +59,7 @@ public class Lock {
        lockingMechanism.release();
     }
 
-    private static void waitToAcquire(LockConfig lockConfig, UUID clientId, int acquireAttempts, long startTime) {
+    private static void waitToAcquire(LockConfig lockConfig, String clientId, int acquireAttempts, long startTime) {
 
         if (timedOut(lockConfig.getTimeout(), startTime)) {
             log.warn("Unable to acquire lock for {} after {} attempts, time tried: {}", clientId, acquireAttempts, (System.currentTimeMillis() - startTime));

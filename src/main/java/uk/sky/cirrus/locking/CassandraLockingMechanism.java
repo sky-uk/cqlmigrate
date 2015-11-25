@@ -1,14 +1,15 @@
 package uk.sky.cirrus.locking;
 
-import com.datastax.driver.core.*;
+import com.datastax.driver.core.PreparedStatement;
+import com.datastax.driver.core.ResultSet;
+import com.datastax.driver.core.Row;
+import com.datastax.driver.core.Session;
 import com.datastax.driver.core.exceptions.DriverException;
 import com.datastax.driver.core.exceptions.WriteTimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
 import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
-
-import java.util.UUID;
 
 public class CassandraLockingMechanism extends LockingMechanism {
 
@@ -21,8 +22,8 @@ public class CassandraLockingMechanism extends LockingMechanism {
     private PreparedStatement deleteLockQuery;
     private boolean isRetryAfterWriteTimeout = false;
 
-    public CassandraLockingMechanism(Session session, String keyspace, UUID clientId, CassandraLockConfig lockConfig) {
-        super(keyspace + ".schema_migration", clientId);
+    public CassandraLockingMechanism(Session session, String keyspace, CassandraLockConfig lockConfig) {
+        super(keyspace + ".schema_migration", lockConfig.getClientId());
         this.session = session;
         this.lockConfig = lockConfig;
     }
@@ -36,7 +37,7 @@ public class CassandraLockingMechanism extends LockingMechanism {
 
             if (locksKeyspace == null) {
                 session.execute(String.format("CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {%s}", lockConfig.getReplicationString()));
-                session.execute("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client uuid)");
+                session.execute("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client text)");
             }
 
             insertLockQuery = session.prepare("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS");
@@ -53,7 +54,7 @@ public class CassandraLockingMechanism extends LockingMechanism {
         try {
             ResultSet resultSet = session.execute(insertLockQuery.bind(lockName, clientId));
             Row currentLock = resultSet.one();
-            if (currentLock.getBool("[applied]") || clientId.equals(currentLock.getUUID("client"))) {
+            if (currentLock.getBool("[applied]") || clientId.equals(currentLock.getString("client"))) {
                 return true;
             } else {
                 log.info("Lock currently held by {}", currentLock);
@@ -80,7 +81,7 @@ public class CassandraLockingMechanism extends LockingMechanism {
                     return true;
                 }
 
-                UUID clientReleasingLock = result.getUUID("client");
+                String clientReleasingLock = result.getString("client");
                 if (!clientReleasingLock.equals(clientId)) {
                     if (isRetryAfterWriteTimeout) {
                         log.info("Released lock for client {} in retry attempt after WriteTimeoutException", clientReleasingLock);

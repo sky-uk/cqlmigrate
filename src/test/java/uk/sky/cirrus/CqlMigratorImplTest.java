@@ -49,7 +49,7 @@ public class CqlMigratorImplTest {
     public void setUp() throws Exception {
         session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test");
         session.execute("CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
-        session.execute("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client uuid)");
+        session.execute("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client text)");
         executorService = Executors.newFixedThreadPool(1);
     }
 
@@ -95,7 +95,7 @@ public class CqlMigratorImplTest {
         //given
         final CqlMigratorImpl migrator = new CqlMigratorImpl(CassandraLockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build());
 
-        UUID client = UUID.randomUUID();
+        String client = UUID.randomUUID().toString();
         session.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, client);
 
         final Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
@@ -144,7 +144,7 @@ public class CqlMigratorImplTest {
     @Test
     public void shouldRetryWhenAcquiringLockIfNotInitiallyAvailable() throws Exception {
         //given
-        session.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, UUID.randomUUID());
+        session.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, UUID.randomUUID().toString());
         final Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
 
         //when

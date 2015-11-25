@@ -1,14 +1,17 @@
 package uk.sky.cirrus.locking;
 
 import java.time.Duration;
+import java.util.UUID;
 
 public class LockConfig {
 
     protected final Duration pollingInterval, timeout;
+    protected final String clientId;
 
-    protected LockConfig(Duration pollingInterval, Duration timeout) {
+    protected LockConfig(Duration pollingInterval, Duration timeout, String clientId) {
         this.pollingInterval = pollingInterval;
         this.timeout = timeout;
+        this.clientId = clientId;
     }
 
     Duration getPollingInterval() {
@@ -19,6 +22,10 @@ public class LockConfig {
         return timeout;
     }
 
+    String getClientId() {
+        return clientId;
+    }
+
     public static LockConfigBuilder builder() {
         return new LockConfigBuilder();
     }
@@ -27,6 +34,7 @@ public class LockConfig {
 
         protected Duration pollingInterval = Duration.ofMillis(500);
         protected Duration timeout = Duration.ofMinutes(1);
+        protected String clientId = UUID.randomUUID().toString();
 
         protected LockConfigBuilder() {}
 
@@ -60,8 +68,13 @@ public class LockConfig {
             return this;
         }
 
+        public LockConfigBuilder withClientId(String clientId) {
+            this.clientId = clientId;
+            return this;
+        }
+
         public LockConfig build() {
-            return new LockConfig(pollingInterval, timeout);
+            return new LockConfig(pollingInterval, timeout, clientId);
         }
     }
 }

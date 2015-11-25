@@ -15,7 +15,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
@@ -82,7 +81,7 @@ public final class CqlMigratorImpl implements CqlMigrator {
         ClusterHealth clusterHealth = new ClusterHealth(cluster);
         clusterHealth.check();
 
-        CassandraLockingMechanism cassandraLockingMechanism = new CassandraLockingMechanism(session, keyspace, UUID.randomUUID(), lockConfig);
+        CassandraLockingMechanism cassandraLockingMechanism = new CassandraLockingMechanism(session, keyspace, lockConfig);
         Lock lock = Lock.acquire(cassandraLockingMechanism, lockConfig);
 
         LOGGER.info("Loading cql files from {}", directories);

@@ -11,8 +11,8 @@ public class CassandraLockConfig extends LockConfig {
     private final int replicationFactor;
     private final Map<String, Integer> dataCenters;
 
-    private CassandraLockConfig(Duration pollingInterval, Duration timeout, ReplicationClass replicationClass, int replicationFactor, Map<String, Integer> dataCenters) {
-        super(pollingInterval, timeout);
+    private CassandraLockConfig(Duration pollingInterval, Duration timeout, String clientId, ReplicationClass replicationClass, int replicationFactor, Map<String, Integer> dataCenters) {
+        super(pollingInterval, timeout, clientId);
         this.replicationClass = replicationClass;
         this.replicationFactor = replicationFactor;
         this.dataCenters = Collections.unmodifiableMap(dataCenters);
@@ -104,8 +104,14 @@ public class CassandraLockConfig extends LockConfig {
             return this;
         }
 
+        @Override
+        public CassandraLockConfigBuilder withClientId(String clientId) {
+            super.withClientId(clientId);
+            return this;
+        }
+
         public CassandraLockConfig build() {
-            return new CassandraLockConfig(pollingInterval, timeout, replicationClass, replicationFactor, dataCenters);
+            return new CassandraLockConfig(pollingInterval, timeout, clientId, replicationClass, replicationFactor, dataCenters);
         }
     }
 }
