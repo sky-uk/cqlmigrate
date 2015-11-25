@@ -13,17 +13,19 @@ For example, to apply all `.cql` files located in `/cql` in the classpath:
 
 Configure the lock:
 
-    LockConfig lockConfig = LockConfig.builder()
+    CassandraLockConfig lockConfig = CassandraLockConfig.builder()
                     .withTimeout(Duration.standardSeconds(3))
                     .withPollingInterval(Duration.millis(500))
+                    .withClientId("127.0.0.1")
                     .withSimpleStrategyReplication(3)
                     .build();
                     
 Or
 
-    LockConfig lockConfig = LockConfig.builder()
+    CassandraLockConfig lockConfig = CassandraLockConfig.builder()
                     .withTimeout(Duration.standardSeconds(3))
                     .withPollingInterval(Duration.millis(500))
+                    .withClientId("127.0.0.1")
                     .withNetworkTopologyReplication("DC1", 3)
                     .withNetworkTopologyReplication("DC2", 3)
                     .build();

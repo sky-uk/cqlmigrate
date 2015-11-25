@@ -8,10 +8,7 @@ import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
 import java.time.Duration;
 
 /**
- * Class to acquire a lock on cassandra table for a single application instance.  Each instance is given a unique identifier
- * and attempts to gain a lock on the table.  If no lock is currently acquired, the instance is given the lock on the table, otherwise
- * the instance must wait until the lock has been relinquished. If a lock cannot be acquired within the configured timeout
- * interval, an exception is thrown.
+ * Each instance attempts to acquire the lock.
  */
 public class Lock {
 
@@ -24,11 +21,16 @@ public class Lock {
     }
 
     /**
-     * @param lockConfig {@code LockConfig} for configuring the lock to migrate the schema
+     * If the lock is successfully acquired, the lock is returned, otherwise
+     * this will wait until the lock has been released. If a lock cannot
+     * be acquired within the configured timeout interval, an exception is thrown.
+     *
+     * @param lockingMechanism {@code LockingMechanism} to use to acquire the lock
+     * @param lockConfig {@code LockConfig} for configuring the lock polling interval, timeout and client id
      * @return the {@code Lock} object
-     * @throws CannotAcquireLockException if instance cannot acquire lock within the specified time interval or execution of query to insert lock fails
+     * @throws CannotAcquireLockException if this cannot acquire lock within the specified time interval or locking mechanism fails
      */
-    public static Lock acquire(LockingMechanism lockingMechanism, LockConfig lockConfig) {
+    public static Lock acquire(LockingMechanism lockingMechanism, LockConfig lockConfig) throws CannotAcquireLockException {
 
         lockingMechanism.init();
 
@@ -53,9 +55,11 @@ public class Lock {
     }
 
     /**
-     * @throws CannotReleaseLockException if execution of query to remove lock fails
+     * Will release the lock using the locking mechanism.
+     *
+     * @throws CannotReleaseLockException locking mechanism fails to release lock
      */
-    public void release() {
+    public void release() throws CannotReleaseLockException {
        lockingMechanism.release();
     }
 

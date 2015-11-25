@@ -17,8 +17,18 @@ public abstract class LockingMechanism {
 
     }
 
+    /**
+     * Returns true if successfully acquired lock.
+     *
+     * @return result
+     * @throws CannotAcquireLockException if any fatal failure occurs when trying to acquire lock.
+     */
     abstract public boolean acquire() throws CannotAcquireLockException;
-    abstract public boolean release() throws CannotReleaseLockException;
+
+    /**
+     * @throws CannotReleaseLockException if any failure occurs when trying to release lock.
+     */
+    abstract public void release() throws CannotReleaseLockException;
 
     public String getLockName() {
         return lockName;

@@ -91,7 +91,6 @@ public class LockTest {
     public void usesLockingMechanismToReleaseLock() throws Throwable {
         //given
         given(lockingMechanism.acquire()).willReturn(true);
-        given(lockingMechanism.release()).willReturn(true);
         Lock lock = Lock.acquire(lockingMechanism, LOCK_CONFIG);
 
         //when

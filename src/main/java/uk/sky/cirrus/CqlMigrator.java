@@ -27,7 +27,7 @@ public interface CqlMigrator {
      *
      * @throws ClusterUnhealthyException  if any nodes are down or the schema is not in agreement before running migration
      * @throws CannotAcquireLockException  if any of the queries to acquire lock fail or
-     *                                     {@link uk.sky.cirrus.locking.LockConfig.LockConfigBuilder#withTimeout(Duration)}
+     *                                     {@link uk.sky.cirrus.locking.CassandraLockConfig.CassandraLockConfigBuilder#withTimeout(Duration)}
      *                                     is reached before lock can be acquired.
      * @throws CannotReleaseLockException  if any of the queries to release lock fail
      * @throws IllegalArgumentException  if any file types other than .cql are found
@@ -44,7 +44,7 @@ public interface CqlMigrator {
      * @throws ClusterUnhealthyException                           if any nodes are down or the schema is not
      *                                                             in agreement before running migration
      * @throws CannotAcquireLockException                          if any of the queries to acquire lock fail or
-     *                                                             {@link uk.sky.cirrus.locking.LockConfig.LockConfigBuilder#withTimeout(Duration)}
+     *                                                             {@link uk.sky.cirrus.locking.CassandraLockConfig.CassandraLockConfigBuilder#withTimeout(Duration)}
      *                                                             is reached before lock can be acquired.
      * @throws CannotReleaseLockException                          if any of the queries to release lock fail
      * @throws IllegalArgumentException                            if any file types other than .cql are found

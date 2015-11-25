@@ -28,8 +28,14 @@ public class CassandraLockingMechanism extends LockingMechanism {
         this.lockConfig = lockConfig;
     }
 
+    /**
+     * Creates locks keyspace and table if they don't already exist.
+     * Prepares queries for acquiring and releasing lock.
+     *
+     * @throws CannotAcquireLockException if any DriverException thrown while executing queries.
+     */
     @Override
-    public void init() {
+    public void init() throws CannotAcquireLockException {
         super.init();
 
         try {
@@ -48,8 +54,17 @@ public class CassandraLockingMechanism extends LockingMechanism {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * Returns true if successfully inserted lock.
+     * Returns false if current lock is owned by this client.
+     * Returns false if WriteTimeoutException thrown.
+     *
+     * @throws CannotAcquireLockException if any DriverException thrown while executing queries.
+     */
     @Override
-    public boolean acquire() {
+    public boolean acquire() throws CannotAcquireLockException {
         try {
             ResultSet resultSet = session.execute(insertLockQuery.bind(lockName, clientId));
             Row currentLock = resultSet.one();
@@ -67,8 +82,18 @@ public class CassandraLockingMechanism extends LockingMechanism {
         }
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * Deletes lock from locks table.
+     * Will retry to release lock if WriteTimeoutException thrown.
+     * If a WriteTimeoutException has previously been thrown this
+     * will check if the lock did actually successfully deleted.
+     *
+     * @throws CannotAcquireLockException if any DriverException thrown while executing queries.
+     */
     @Override
-    public boolean release() {
+    public void release() throws CannotReleaseLockException {
         while (true) {
             try {
                 ResultSet resultSet = session.execute(deleteLockQuery.bind(lockName, clientId));
@@ -76,14 +101,14 @@ public class CassandraLockingMechanism extends LockingMechanism {
 
                 if (result.getBool("[applied]") || !result.getColumnDefinitions().contains("client")) {
                     log.info("Lock released for {} by client {} at: {}", lockName, clientId, System.currentTimeMillis());
-                    return true;
+                    return;
                 }
 
                 String clientReleasingLock = result.getString("client");
                 if (!clientReleasingLock.equals(clientId)) {
                     if (isRetryAfterWriteTimeout) {
                         log.info("Released lock for client {} in retry attempt after WriteTimeoutException", clientReleasingLock);
-                        return true;
+                        return;
                     } else {
                         throw new CannotReleaseLockException(
                                 String.format("Lock %s attempted to be released by a non lock holder (%s). Current lock holder: %s", lockName, clientId, clientReleasingLock));

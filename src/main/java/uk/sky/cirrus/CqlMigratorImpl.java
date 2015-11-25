@@ -40,8 +40,6 @@ public final class CqlMigratorImpl implements CqlMigrator {
     /**
      * Allows cql migrate to be run on the command line.
      * Set hosts, keyspace and directories using system properties.
-     *
-     * @param args
      */
     public static void main(String[] args) {
 

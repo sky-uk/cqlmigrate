@@ -317,15 +317,6 @@ public class CassandraLockingMechanismTest {
     }
 
     @Test
-    public void shouldSuccessfullyReleaseLockWhenReleasingLock() throws Exception {
-        //when
-        boolean releasedLock = lockingMechanism.release();
-
-        //then
-        assertThat(releasedLock).isTrue();
-    }
-
-    @Test
     public void shouldSuccessfullyReleaseLockWhenNoLockFound() throws Exception {
         //given
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
@@ -338,10 +329,9 @@ public class CassandraLockingMechanismTest {
         );
 
         //when
-        boolean releasedLock = lockingMechanism.release();
+        lockingMechanism.release();
 
-        //then
-        assertThat(releasedLock).isTrue();
+        //no exception thrown
     }
 
     @Test
