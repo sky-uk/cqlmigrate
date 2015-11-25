@@ -45,7 +45,7 @@ public class Lock {
                 log.info("Lock acquired for '{}' by client '{}' after {} attempts", lockName, clientId, acquireAttempts);
                 return new Lock(lockingMechanism);
             } else {
-                waitToAcquire(lockConfig, clientId, acquireAttempts, startTime);
+                waitToAcquire(lockConfig, lockName, clientId, acquireAttempts, startTime);
             }
 
             acquireAttempts++;
@@ -59,7 +59,7 @@ public class Lock {
        lockingMechanism.release();
     }
 
-    private static void waitToAcquire(LockConfig lockConfig, String clientId, int acquireAttempts, long startTime) {
+    private static void waitToAcquire(LockConfig lockConfig, String lockName, String clientId, int acquireAttempts, long startTime) {
 
         if (timedOut(lockConfig.getTimeout(), startTime)) {
             log.warn("Unable to acquire lock for {} after {} attempts, time tried: {}", clientId, acquireAttempts, (System.currentTimeMillis() - startTime));
@@ -69,7 +69,7 @@ public class Lock {
         try {
             Thread.sleep(lockConfig.getPollingInterval().toMillis());
         } catch (InterruptedException e) {
-            log.debug("Lock {} was interrupted", clientId);
+            log.error("Polling to acquire lock {} for client {} was interrupted", lockName, clientId);
             Thread.currentThread().interrupt();
         }
     }

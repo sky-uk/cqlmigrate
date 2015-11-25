@@ -44,7 +44,6 @@ public class CassandraLockingMechanism extends LockingMechanism {
             deleteLockQuery = session.prepare("DELETE FROM locks.locks WHERE name = ? IF client = ?");
 
         } catch (DriverException e) {
-            log.warn("Query to create locks keyspace or locks table failed to execute", e);
             throw new CannotAcquireLockException("Query to create locks schema failed to execute", e);
         }
     }
@@ -64,8 +63,7 @@ public class CassandraLockingMechanism extends LockingMechanism {
             log.warn("Query to acquire lock for {} failed to execute: {}", clientId, wte.getMessage());
             return false;
         } catch (DriverException de) {
-            log.warn("Query to acquire lock for {} failed to execute", clientId, de);
-            throw new CannotAcquireLockException("Query failed to execute", de);
+            throw new CannotAcquireLockException(String.format("Query to acquire lock %s for client %s failed to execute", lockName, clientId), de);
         }
     }
 
@@ -88,7 +86,7 @@ public class CassandraLockingMechanism extends LockingMechanism {
                         return true;
                     } else {
                         throw new CannotReleaseLockException(
-                                String.format("Lock attempted to be released by a non lock holder (%s). Current lock holder: %s", clientId, clientReleasingLock));
+                                String.format("Lock %s attempted to be released by a non lock holder (%s). Current lock holder: %s", lockName, clientId, clientReleasingLock));
                     }
                 }
 

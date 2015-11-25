@@ -304,7 +304,7 @@ public class CassandraLockingMechanismTest {
                 .isNotNull()
                 .isInstanceOf(CannotAcquireLockException.class)
                 .hasCauseInstanceOf(DriverException.class)
-                .hasMessage("Query failed to execute");
+                .hasMessage(String.format("Query to acquire lock %s.schema_migration for client %s failed to execute", LOCK_KEYSPACE, CLIENT_ID));
     }
 
     @Test
@@ -416,6 +416,6 @@ public class CassandraLockingMechanismTest {
         assertThat(throwable)
                 .isNotNull()
                 .isInstanceOf(CannotReleaseLockException.class)
-                .hasMessage(String.format("Lock attempted to be released by a non lock holder (%s). Current lock holder: %s", CLIENT_ID, newLockHolder));
+                .hasMessage(String.format("Lock %s.schema_migration attempted to be released by a non lock holder (%s). Current lock holder: %s", LOCK_KEYSPACE, CLIENT_ID, newLockHolder));
     }
 }
