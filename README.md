@@ -59,7 +59,7 @@ $ java -Dhosts=localhost,192.168.1.1 -Dkeyspace=my_keyspace -Ddirectories=cql-co
      WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };
    ```        
 
-4. Applies `.cql` files one by one, sorted by filename in descending order. It is suggested you prefix
+4. Applies `.cql` files one by one, sorted by filename in ascending order. It is suggested you prefix
    your files with a datetime to order them.
 
    For example:

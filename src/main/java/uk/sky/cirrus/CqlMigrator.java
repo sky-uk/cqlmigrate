@@ -19,6 +19,8 @@ public interface CqlMigrator {
     /**
      * If all nodes are up and a lock can be acquired this runs migration
      * starting with bootstrap.cql and then the rest in alphabetical order.
+     * If the migration fails for any reason, the lock will not be released
+     * and manual intervention is required to cleanup and fix the issue.
      *
      * @param hosts  Comma separated list of cassandra hosts
      * @param port   Native transport port for the above cassandra nodes
@@ -37,6 +39,11 @@ public interface CqlMigrator {
     void migrate(String[] hosts, int port, String keyspace, Collection<Path> directories);
 
     /**
+     * If all nodes are up and a lock can be acquired this runs migration
+     * starting with bootstrap.cql and then the rest in alphabetical order.
+     * If the migration fails for any reason, the lock will not be released
+     * and manual intervention is required to cleanup and fix the issue.
+     *
      * @param session  Session to a cassandra cluster
      * @param keyspace  Keyspace name for which the schema migration needs to be applied
      * @param directories  Comma separated list of directory paths containing the cql statements for the schema change
