@@ -19,7 +19,7 @@ class ClusterHealth {
     void check() throws ClusterUnhealthyException{
 
         final List<InetAddress> unhealthyHosts = cluster.getMetadata().getAllHosts()
-                .parallelStream()
+                .stream()
                 .filter(host -> !host.isUp())
                 .map(Host::getAddress)
                 .collect(Collectors.toList());
