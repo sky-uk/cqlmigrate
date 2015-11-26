@@ -5,6 +5,13 @@ cqlmigrate is a library for performing schema migrations on a cassandra cluster.
 It is best used as a dependency in your application, but can also be used
 standalone.
 
+## Prerequisites
+
+The locks keyspace and table needs to be created before running the migration.
+
+    CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': 'REPLICATION_CLASS', 'replication_factor': REPLICATION_FACTOR };
+    CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client text);
+
 ## Library usage
 
 The API is contained in `CqlMigrator`, and works on directories of files ending with `.cql`.
