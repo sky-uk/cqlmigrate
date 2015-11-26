@@ -26,7 +26,7 @@ public class Lock {
      * be acquired within the configured timeout interval, an exception is thrown.
      *
      * @param lockingMechanism {@code LockingMechanism} to use to acquire the lock
-     * @param lockConfig {@code LockConfig} for configuring the lock polling interval, timeout and client id
+     * @param lockConfig       {@code LockConfig} for configuring the lock polling interval, timeout and client id
      * @return the {@code Lock} object
      * @throws CannotAcquireLockException if this cannot acquire lock within the specified time interval or locking mechanism fails
      */
@@ -60,7 +60,7 @@ public class Lock {
      * @throws CannotReleaseLockException locking mechanism fails to release lock
      */
     public void release() throws CannotReleaseLockException {
-       lockingMechanism.release();
+        lockingMechanism.release();
     }
 
     private static void waitToAcquire(LockConfig lockConfig, String lockName, String clientId, int acquireAttempts, long startTime) {

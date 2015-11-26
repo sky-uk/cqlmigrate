@@ -46,7 +46,7 @@ public class CassandraLockingMechanism extends LockingMechanism {
 
     /**
      * {@inheritDoc}
-     *
+     * <p>
      * Returns true if successfully inserted lock.
      * Returns false if current lock is owned by this client.
      * Returns false if WriteTimeoutException thrown.
@@ -74,7 +74,7 @@ public class CassandraLockingMechanism extends LockingMechanism {
 
     /**
      * {@inheritDoc}
-     *
+     * <p>
      * Deletes lock from locks table.
      * Will retry to release lock if WriteTimeoutException thrown.
      * If a WriteTimeoutException has previously been thrown this

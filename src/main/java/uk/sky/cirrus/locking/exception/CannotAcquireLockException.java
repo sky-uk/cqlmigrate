@@ -10,7 +10,7 @@ import java.time.Duration;
 public class CannotAcquireLockException extends LockException {
 
     public CannotAcquireLockException(String message) {
-       super(message);
+        super(message);
     }
 
     public CannotAcquireLockException(String message, Throwable cause) {

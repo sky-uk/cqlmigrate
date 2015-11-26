@@ -16,8 +16,7 @@ import static com.google.common.base.Preconditions.checkState;
 class CqlLoader {
     private static final Logger LOGGER = LoggerFactory.getLogger(CqlLoader.class);
 
-    private CqlLoader() {
-    }
+    private CqlLoader() {}
 
     static void load(Session session, Path cqlPath) {
         StringBuilder statementBuilder = new StringBuilder();
@@ -29,7 +28,7 @@ class CqlLoader {
             String cqlStatements = statementBuilder.toString();
             checkState(cqlStatements.endsWith(";"), "had a non-terminated cql line: %s", cqlStatements);
 
-            Arrays.stream(cqlStatements.split(";")).forEach( statement -> {
+            Arrays.stream(cqlStatements.split(";")).forEach(statement -> {
                 LOGGER.debug("Executing cql statement {}", statement);
                 session.execute(statement);
             });

@@ -44,8 +44,7 @@ class SchemaUpdates {
 
     @Nullable
     private Row getSchemaUpdate(Session session, String filename) {
-        return session.execute("SELECT * FROM " + SCHEMA_UPDATES_TABLE + " where filename = ?", filename)
-                      .one();
+        return session.execute("SELECT * FROM " + SCHEMA_UPDATES_TABLE + " where filename = ?", filename).one();
     }
 
     boolean contentsAreDifferent(String filename, Path path) {

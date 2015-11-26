@@ -16,7 +16,7 @@ class ClusterHealth {
         this.cluster = cluster;
     }
 
-    void check() throws ClusterUnhealthyException{
+    void check() throws ClusterUnhealthyException {
 
         List<InetAddress> unhealthyHosts = cluster.getMetadata().getAllHosts()
                 .stream()
@@ -24,7 +24,7 @@ class ClusterHealth {
                 .map(Host::getAddress)
                 .collect(Collectors.toList());
 
-        if(!unhealthyHosts.isEmpty()){
+        if (!unhealthyHosts.isEmpty()) {
             throw new ClusterUnhealthyException("Cluster not healthy, the following hosts are down: " + unhealthyHosts);
         }
 

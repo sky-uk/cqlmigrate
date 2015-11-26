@@ -22,19 +22,18 @@ public interface CqlMigrator {
      * If the migration fails for any reason, the lock will not be released
      * and manual intervention is required to cleanup and fix the issue.
      *
-     * @param hosts  Comma separated list of cassandra hosts
-     * @param port   Native transport port for the above cassandra nodes
-     * @param keyspace  Keyspace name for which the schema migration needs to be applied
-     * @param directories  Comma separated list of directory paths containing the cql statements for the schema change
-     *
-     * @throws ClusterUnhealthyException  if any nodes are down or the schema is not in agreement before running migration
-     * @throws CannotAcquireLockException  if any of the queries to acquire lock fail or
-     *                                     {@link uk.sky.cirrus.locking.CassandraLockConfig.CassandraLockConfigBuilder#withTimeout(Duration)}
-     *                                     is reached before lock can be acquired.
-     * @throws CannotReleaseLockException  if any of the queries to release lock fail
-     * @throws IllegalArgumentException  if any file types other than .cql are found
-     * @throws IllegalStateException  if cql file has changed after migration has been run
-     * @throws com.datastax.driver.core.exceptions.DriverException  if any of the migration queries fails
+     * @param hosts       Comma separated list of cassandra hosts
+     * @param port        Native transport port for the above cassandra nodes
+     * @param keyspace    Keyspace name for which the schema migration needs to be applied
+     * @param directories Comma separated list of directory paths containing the cql statements for the schema change
+     * @throws ClusterUnhealthyException                           if any nodes are down or the schema is not in agreement before running migration
+     * @throws CannotAcquireLockException                          if any of the queries to acquire lock fail or
+     *                                                             {@link uk.sky.cirrus.locking.CassandraLockConfig.CassandraLockConfigBuilder#withTimeout(Duration)}
+     *                                                             is reached before lock can be acquired.
+     * @throws CannotReleaseLockException                          if any of the queries to release lock fail
+     * @throws IllegalArgumentException                            if any file types other than .cql are found
+     * @throws IllegalStateException                               if cql file has changed after migration has been run
+     * @throws com.datastax.driver.core.exceptions.DriverException if any of the migration queries fails
      */
     void migrate(String[] hosts, int port, String keyspace, Collection<Path> directories);
 
@@ -44,10 +43,9 @@ public interface CqlMigrator {
      * If the migration fails for any reason, the lock will not be released
      * and manual intervention is required to cleanup and fix the issue.
      *
-     * @param session  Session to a cassandra cluster
-     * @param keyspace  Keyspace name for which the schema migration needs to be applied
-     * @param directories  Comma separated list of directory paths containing the cql statements for the schema change
-     *
+     * @param session     Session to a cassandra cluster
+     * @param keyspace    Keyspace name for which the schema migration needs to be applied
+     * @param directories Comma separated list of directory paths containing the cql statements for the schema change
      * @throws ClusterUnhealthyException                           if any nodes are down or the schema is not
      *                                                             in agreement before running migration
      * @throws CannotAcquireLockException                          if any of the queries to acquire lock fail or
@@ -63,10 +61,9 @@ public interface CqlMigrator {
     /**
      * Drops keyspace if it exists
      *
-     * @param hosts  Comma separated list of cassandra hosts
-     * @param port   Native transport port for the above cassandra nodes
-     * @param keyspace  Keyspace name for which the schema migration needs to be applied
-     *
+     * @param hosts    Comma separated list of cassandra hosts
+     * @param port     Native transport port for the above cassandra nodes
+     * @param keyspace Keyspace name for which the schema migration needs to be applied
      * @throws com.datastax.driver.core.exceptions.DriverException if query fails
      */
     void clean(String[] hosts, int port, String keyspace);
@@ -75,8 +72,7 @@ public interface CqlMigrator {
      * Drops keyspace if it exists
      *
      * @param session  Session to a cassandra cluster
-     * @param keyspace  Keyspace name for which the schema migration needs to be applied
-     *
+     * @param keyspace Keyspace name for which the schema migration needs to be applied
      * @throws com.datastax.driver.core.exceptions.DriverException if query fails
      */
     void clean(Session session, String keyspace);
