@@ -1,4 +1,4 @@
-package uk.sky.cirrus;
+package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.Cluster;
 import org.junit.After;
@@ -9,8 +9,8 @@ import org.scassandra.ScassandraFactory;
 import org.scassandra.http.client.ActivityClient;
 import org.scassandra.http.client.PrimingClient;
 import org.scassandra.http.client.PrimingRequest;
-import uk.sky.cirrus.exception.ClusterUnhealthyException;
-import uk.sky.cirrus.util.PortScavenger;
+import uk.sky.cqlmigrate.exception.ClusterUnhealthyException;
+import uk.sky.cqlmigrate.util.PortScavenger;
 
 import java.util.Collection;
 

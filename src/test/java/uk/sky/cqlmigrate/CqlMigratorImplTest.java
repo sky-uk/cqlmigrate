@@ -1,4 +1,4 @@
-package uk.sky.cirrus;
+package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.*;
 import com.google.common.util.concurrent.Uninterruptibles;
@@ -6,8 +6,7 @@ import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.thrift.transport.TTransportException;
 import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
 import org.junit.*;
-import uk.sky.cirrus.locking.CassandraLockConfig;
-import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
+import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
 
 import java.io.IOException;
 import java.net.URISyntaxException;

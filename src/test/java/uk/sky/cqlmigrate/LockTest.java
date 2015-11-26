@@ -1,11 +1,14 @@
-package uk.sky.cirrus.locking;
+package uk.sky.cqlmigrate;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
-import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
+import uk.sky.cqlmigrate.Lock;
+import uk.sky.cqlmigrate.LockConfig;
+import uk.sky.cqlmigrate.LockingMechanism;
+import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
 
 import java.time.Duration;
 

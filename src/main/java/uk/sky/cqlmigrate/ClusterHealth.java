@@ -1,8 +1,8 @@
-package uk.sky.cirrus;
+package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.Host;
-import uk.sky.cirrus.exception.ClusterUnhealthyException;
+import uk.sky.cqlmigrate.exception.ClusterUnhealthyException;
 
 import java.net.InetAddress;
 import java.util.List;

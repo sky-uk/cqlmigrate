@@ -1,4 +1,4 @@
-package uk.sky.cirrus.locking;
+package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.*;
 import com.google.common.base.Optional;
@@ -8,7 +8,6 @@ import org.hamcrest.Matchers;
 import org.junit.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import uk.sky.cirrus.CqlMigratorImpl;
 
 import java.net.URISyntaxException;
 import java.nio.file.Path;

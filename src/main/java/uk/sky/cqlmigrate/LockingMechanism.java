@@ -1,9 +1,9 @@
-package uk.sky.cirrus.locking;
+package uk.sky.cqlmigrate;
 
-import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
-import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
+import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
+import uk.sky.cqlmigrate.exception.CannotReleaseLockException;
 
-public abstract class LockingMechanism {
+abstract class LockingMechanism {
 
     protected final String lockName;
     protected final String clientId;

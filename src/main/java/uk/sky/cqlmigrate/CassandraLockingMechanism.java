@@ -1,4 +1,4 @@
-package uk.sky.cirrus.locking;
+package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ResultSet;
@@ -8,10 +8,10 @@ import com.datastax.driver.core.exceptions.DriverException;
 import com.datastax.driver.core.exceptions.WriteTimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
-import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
+import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
+import uk.sky.cqlmigrate.exception.CannotReleaseLockException;
 
-public class CassandraLockingMechanism extends LockingMechanism {
+class CassandraLockingMechanism extends LockingMechanism {
 
     private static final Logger log = LoggerFactory.getLogger(CassandraLockingMechanism.class);
 

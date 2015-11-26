@@ -1,6 +1,8 @@
-package uk.sky.cirrus.locking;
+package uk.sky.cqlmigrate;
 
 import org.junit.Test;
+import uk.sky.cqlmigrate.CassandraLockConfig;
+import uk.sky.cqlmigrate.LockConfig;
 
 import java.time.Duration;
 

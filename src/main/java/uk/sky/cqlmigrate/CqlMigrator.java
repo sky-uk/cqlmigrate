@@ -1,9 +1,9 @@
-package uk.sky.cirrus;
+package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.Session;
-import uk.sky.cirrus.exception.ClusterUnhealthyException;
-import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
-import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
+import uk.sky.cqlmigrate.exception.ClusterUnhealthyException;
+import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
+import uk.sky.cqlmigrate.exception.CannotReleaseLockException;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -28,7 +28,7 @@ public interface CqlMigrator {
      * @param directories Comma separated list of directory paths containing the cql statements for the schema change
      * @throws ClusterUnhealthyException                           if any nodes are down or the schema is not in agreement before running migration
      * @throws CannotAcquireLockException                          if any of the queries to acquire lock fail or
-     *                                                             {@link uk.sky.cirrus.locking.CassandraLockConfig.CassandraLockConfigBuilder#withTimeout(Duration)}
+     *                                                             {@link CassandraLockConfig.CassandraLockConfigBuilder#withTimeout(Duration)}
      *                                                             is reached before lock can be acquired.
      * @throws CannotReleaseLockException                          if any of the queries to release lock fail
      * @throws IllegalArgumentException                            if any file types other than .cql are found
@@ -49,7 +49,7 @@ public interface CqlMigrator {
      * @throws ClusterUnhealthyException                           if any nodes are down or the schema is not
      *                                                             in agreement before running migration
      * @throws CannotAcquireLockException                          if any of the queries to acquire lock fail or
-     *                                                             {@link uk.sky.cirrus.locking.CassandraLockConfig.CassandraLockConfigBuilder#withTimeout(Duration)}
+     *                                                             {@link CassandraLockConfig.CassandraLockConfigBuilder#withTimeout(Duration)}
      *                                                             is reached before lock can be acquired.
      * @throws CannotReleaseLockException                          if any of the queries to release lock fail
      * @throws IllegalArgumentException                            if any file types other than .cql are found

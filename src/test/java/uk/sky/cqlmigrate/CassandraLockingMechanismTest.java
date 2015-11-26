@@ -1,4 +1,4 @@
-package uk.sky.cirrus.locking;
+package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.exceptions.DriverException;
@@ -7,9 +7,11 @@ import org.junit.*;
 import org.scassandra.cql.PrimitiveType;
 import org.scassandra.http.client.*;
 import org.scassandra.junit.ScassandraServerRule;
-import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
-import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
-import uk.sky.cirrus.util.PortScavenger;
+import uk.sky.cqlmigrate.CassandraLockConfig;
+import uk.sky.cqlmigrate.CassandraLockingMechanism;
+import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
+import uk.sky.cqlmigrate.exception.CannotReleaseLockException;
+import uk.sky.cqlmigrate.util.PortScavenger;
 
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;

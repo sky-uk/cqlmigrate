@@ -1,4 +1,4 @@
-package uk.sky.cirrus.locking.exception;
+package uk.sky.cqlmigrate.exception;
 
 public class LockException extends RuntimeException {
 

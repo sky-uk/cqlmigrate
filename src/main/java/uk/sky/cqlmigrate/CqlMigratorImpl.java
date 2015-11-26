@@ -1,4 +1,4 @@
-package uk.sky.cirrus;
+package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ConsistencyLevel;
@@ -7,9 +7,6 @@ import com.datastax.driver.core.Session;
 import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import uk.sky.cirrus.locking.CassandraLockConfig;
-import uk.sky.cirrus.locking.CassandraLockingMechanism;
-import uk.sky.cirrus.locking.Lock;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;

@@ -1,4 +1,4 @@
-package uk.sky.cirrus.locking;
+package uk.sky.cqlmigrate;
 
 import java.time.Duration;
 import java.util.Collections;

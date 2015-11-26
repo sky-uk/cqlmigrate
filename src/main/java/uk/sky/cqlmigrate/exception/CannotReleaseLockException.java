@@ -1,4 +1,4 @@
-package uk.sky.cirrus.locking.exception;
+package uk.sky.cqlmigrate.exception;
 
 /**
  * Thrown if any of the queries to release lock fail.

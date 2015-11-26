@@ -1,16 +1,16 @@
-package uk.sky.cirrus.locking;
+package uk.sky.cqlmigrate;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import uk.sky.cirrus.locking.exception.CannotAcquireLockException;
-import uk.sky.cirrus.locking.exception.CannotReleaseLockException;
+import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
+import uk.sky.cqlmigrate.exception.CannotReleaseLockException;
 
 import java.time.Duration;
 
 /**
  * Each instance attempts to acquire the lock.
  */
-public class Lock {
+class Lock {
 
     private static final Logger log = LoggerFactory.getLogger(Lock.class);
 

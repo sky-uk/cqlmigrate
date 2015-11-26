@@ -1,10 +1,12 @@
-package uk.sky.cirrus.locking.exception;
+package uk.sky.cqlmigrate.exception;
+
+import uk.sky.cqlmigrate.LockConfig;
 
 import java.time.Duration;
 
 /**
  * Thrown if any of the queries to acquire lock fail or
- * {@link uk.sky.cirrus.locking.LockConfig.LockConfigBuilder#withTimeout(Duration)}
+ * {@link LockConfig.LockConfigBuilder#withTimeout(Duration)}
  * is reached before lock can be acquired.
  */
 public class CannotAcquireLockException extends LockException {

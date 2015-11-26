@@ -1,4 +1,4 @@
-package uk.sky.cirrus.exception;
+package uk.sky.cqlmigrate.exception;
 
 /**
  * Thrown if any nodes are down or the schema is not

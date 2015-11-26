@@ -1,4 +1,4 @@
-package uk.sky.cirrus;
+package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.Row;
