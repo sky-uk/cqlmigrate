@@ -22,7 +22,7 @@ class CqlPaths {
     }
 
     static CqlPaths create(Collection<Path> directories) {
-        final Map<String, Path> paths = new HashMap<>();
+        Map<String, Path> paths = new HashMap<>();
 
         directories.stream()
                 .map(path -> path.toFile().listFiles(CQL_FILE_NAMES))
@@ -48,8 +48,8 @@ class CqlPaths {
         void apply(String filename, Path path);
     }
 
-    private static void addPathToMap(final Map<String, Path> paths, final Path path) {
-        final String cqlFileName = path.getFileName().toString();
+    private static void addPathToMap(Map<String, Path> paths, Path path) {
+        String cqlFileName = path.getFileName().toString();
         if (paths.put(path.getFileName().toString(), path.toAbsolutePath()) != null) {
             throw new IllegalArgumentException(String.format("Multiple files with the same name: %s, %s", cqlFileName, path.toAbsolutePath()));
         }

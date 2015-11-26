@@ -19,12 +19,11 @@ import java.util.stream.Collectors;
 
 /**
  * Standard implementation for {@code CqlMigrator}
- *
+ * <p>
  * Implements Locking by providing mutex locking via the locks table.
  * Client tries to acquire the lock and would only succeed for one thread.
  * The inserted record will be deleted once the client releases the lock it holds, hence making way for a subsequent client thread to acquire the lock.
  * Locking is done per client per keyspace. A client can obtain a lock on a different keyspace if no other client is holding a lock for that keyspace.
- *
  */
 
 public final class CqlMigratorImpl implements CqlMigrator {
@@ -43,16 +42,16 @@ public final class CqlMigratorImpl implements CqlMigrator {
      */
     public static void main(String[] args) {
 
-        final String hosts = System.getProperty("hosts");
-        final String keyspace = System.getProperty("keyspace");
-        final String directoriesProperty = System.getProperty("directories");
-        final String port = System.getProperty("port");
+        String hosts = System.getProperty("hosts");
+        String keyspace = System.getProperty("keyspace");
+        String directoriesProperty = System.getProperty("directories");
+        String port = System.getProperty("port");
 
         Preconditions.checkNotNull(hosts, "'hosts' property should be provided having value of a comma separated list of cassandra hosts");
         Preconditions.checkNotNull(keyspace, "'keyspace' property should be provided having value of the cassandra keyspace");
         Preconditions.checkNotNull(directoriesProperty, "'directories' property should be provided having value of the comma separated list of paths to cql files");
 
-        final Collection<Path> directories = Arrays.stream(directoriesProperty.split(","))
+        Collection<Path> directories = Arrays.stream(directoriesProperty.split(","))
                 .map(Paths::get)
                 .collect(Collectors.toList());
 
@@ -75,7 +74,7 @@ public final class CqlMigratorImpl implements CqlMigrator {
      * {@inheritDoc}
      */
     public void migrate(Session session, String keyspace, Collection<Path> directories) {
-        final Cluster cluster = session.getCluster();
+        Cluster cluster = session.getCluster();
         ClusterHealth clusterHealth = new ClusterHealth(cluster);
         clusterHealth.check();
 
@@ -84,9 +83,9 @@ public final class CqlMigratorImpl implements CqlMigrator {
 
         LOGGER.info("Loading cql files from {}", directories);
         CqlPaths paths = CqlPaths.create(directories);
-        final KeyspaceBootstrapper keyspaceBootstrapper = new KeyspaceBootstrapper(session, keyspace, paths);
-        final SchemaUpdates schemaUpdates = new SchemaUpdates(session, keyspace);
-        final SchemaLoader schemaLoader = new SchemaLoader(session, keyspace, schemaUpdates, paths);
+        KeyspaceBootstrapper keyspaceBootstrapper = new KeyspaceBootstrapper(session, keyspace, paths);
+        SchemaUpdates schemaUpdates = new SchemaUpdates(session, keyspace);
+        SchemaLoader schemaLoader = new SchemaLoader(session, keyspace, schemaUpdates, paths);
 
         keyspaceBootstrapper.bootstrap();
         schemaUpdates.initialise();

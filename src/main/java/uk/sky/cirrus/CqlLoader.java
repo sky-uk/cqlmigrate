@@ -20,13 +20,13 @@ class CqlLoader {
     }
 
     static void load(Session session, Path cqlPath) {
-        final StringBuilder statementBuilder = new StringBuilder();
+        StringBuilder statementBuilder = new StringBuilder();
 
         try (BufferedReader cqlReader = Files.newBufferedReader(cqlPath, Charsets.UTF_8)) {
 
             cqlReader.lines().forEach(statementBuilder::append);
 
-            final String cqlStatements = statementBuilder.toString();
+            String cqlStatements = statementBuilder.toString();
             checkState(cqlStatements.endsWith(";"), "had a non-terminated cql line: %s", cqlStatements);
 
             Arrays.stream(cqlStatements.split(";")).forEach( statement -> {
