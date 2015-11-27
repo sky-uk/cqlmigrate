@@ -15,9 +15,11 @@ class Lock {
     private static final Logger log = LoggerFactory.getLogger(Lock.class);
 
     private final LockingMechanism lockingMechanism;
+    private final String clientId;
 
-    private Lock(LockingMechanism lockingMechanism) {
+    private Lock(LockingMechanism lockingMechanism, String clientId) {
         this.lockingMechanism = lockingMechanism;
+        this.clientId = clientId;
     }
 
     /**
@@ -43,9 +45,9 @@ class Lock {
         long startTime = System.currentTimeMillis();
 
         while (true) {
-            if (lockingMechanism.acquire()) {
+            if (lockingMechanism.acquire(clientId)) {
                 log.info("Lock acquired for '{}' by client '{}' after {} attempts", lockName, clientId, acquireAttempts);
-                return new Lock(lockingMechanism);
+                return new Lock(lockingMechanism, clientId);
             } else {
                 waitToAcquire(lockConfig, lockName, clientId, acquireAttempts, startTime);
             }
@@ -60,7 +62,7 @@ class Lock {
      * @throws CannotReleaseLockException locking mechanism fails to release lock
      */
     public void release() throws CannotReleaseLockException {
-        lockingMechanism.release();
+        lockingMechanism.release(clientId);
     }
 
     private static void waitToAcquire(LockConfig lockConfig, String lockName, String clientId, int acquireAttempts, long startTime) {

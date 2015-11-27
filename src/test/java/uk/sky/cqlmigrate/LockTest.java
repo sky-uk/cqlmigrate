@@ -33,7 +33,7 @@ public class LockTest {
     @Test
     public void shouldInitLockingMechanismBeforeAttemptingAcquire() throws Throwable {
         //given
-        given(lockingMechanism.acquire()).willReturn(true);
+        given(lockingMechanism.acquire(LOCK_CONFIG.getClientId())).willReturn(true);
 
         //when
         Lock.acquire(lockingMechanism, LOCK_CONFIG);
@@ -41,13 +41,13 @@ public class LockTest {
         //then
         InOrder inOrder = inOrder(lockingMechanism);
         inOrder.verify(lockingMechanism).init();
-        inOrder.verify(lockingMechanism).acquire();
+        inOrder.verify(lockingMechanism).acquire(LOCK_CONFIG.getClientId());
     }
 
     @Test
     public void ifLockCanBeAcquiredShouldReturnLock() throws Throwable {
         //given
-        given(lockingMechanism.acquire()).willReturn(true);
+        given(lockingMechanism.acquire(LOCK_CONFIG.getClientId())).willReturn(true);
 
         //when
         Lock lock = Lock.acquire(lockingMechanism, LOCK_CONFIG);
@@ -59,7 +59,7 @@ public class LockTest {
     @Test
     public void retriesToAcquireLockAfterIntervalIfFailedTheFirstTime() throws Throwable {
         //given
-        given(lockingMechanism.acquire()).willReturn(false, true);
+        given(lockingMechanism.acquire(LOCK_CONFIG.getClientId())).willReturn(false, true);
 
         //when
         long startTime = System.currentTimeMillis();
@@ -74,7 +74,7 @@ public class LockTest {
     @Test
     public void throwsExceptionIfFailedToAcquireLockBeforeTimeout() throws Throwable {
         //given
-        given(lockingMechanism.acquire()).willReturn(false);
+        given(lockingMechanism.acquire(LOCK_CONFIG.getClientId())).willReturn(false);
 
         //when
         long startTime = System.currentTimeMillis();
@@ -92,7 +92,7 @@ public class LockTest {
     public void throwsExceptionIfThreadSleepIsInterrupted() throws Throwable {
         //given
         given(lockingMechanism.getLockName()).willReturn("some lock");
-        given(lockingMechanism.acquire()).willReturn(false);
+        given(lockingMechanism.acquire(LOCK_CONFIG.getClientId())).willReturn(false);
         Thread.currentThread().interrupt();
 
         //when
@@ -108,13 +108,13 @@ public class LockTest {
     @Test
     public void usesLockingMechanismToReleaseLock() throws Throwable {
         //given
-        given(lockingMechanism.acquire()).willReturn(true);
+        given(lockingMechanism.acquire(LOCK_CONFIG.getClientId())).willReturn(true);
         Lock lock = Lock.acquire(lockingMechanism, LOCK_CONFIG);
 
         //when
         lock.release();
 
         //then
-        verify(lockingMechanism).release();
+        verify(lockingMechanism).release(LOCK_CONFIG.getClientId());
     }
 }

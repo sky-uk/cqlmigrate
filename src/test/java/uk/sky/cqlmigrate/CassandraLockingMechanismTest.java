@@ -27,7 +27,6 @@ public class CassandraLockingMechanismTest {
     private static final int ADMIN_PORT = PortScavenger.getFreePort();
     private static final String LOCK_KEYSPACE = "lock-keyspace";
     private static final String CLIENT_ID = UUID.randomUUID().toString();
-    private static final CassandraLockConfig LOCK_CONFIG = CassandraLockConfig.builder().withClientId(CLIENT_ID).build();
 
     @ClassRule
     public static final ScassandraServerRule SCASSANDRA = new ScassandraServerRule(BINARY_PORT, ADMIN_PORT);
@@ -77,7 +76,7 @@ public class CassandraLockingMechanismTest {
                 .build()
         );
 
-        lockingMechanism = new CassandraLockingMechanism(cluster.connect(), LOCK_KEYSPACE, LOCK_CONFIG);
+        lockingMechanism = new CassandraLockingMechanism(cluster.connect(), LOCK_KEYSPACE);
         lockingMechanism.init();
 
         activityClient.clearAllRecordedActivity();
@@ -117,7 +116,7 @@ public class CassandraLockingMechanismTest {
     @Test
     public void shouldInsertLockWhenAcquiringLock() throws Exception {
         //when
-        lockingMechanism.acquire();
+        lockingMechanism.acquire(CLIENT_ID);
 
         //then
         assertThat(activityClient.retrievePreparedStatementExecutions()).contains(insertLockPreparedStatement);
@@ -126,7 +125,7 @@ public class CassandraLockingMechanismTest {
     @Test
     public void shouldSuccessfullyAcquireLockWhenInsertIsApplied() throws Exception {
         //when
-        boolean acquiredLock = lockingMechanism.acquire();
+        boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
 
         //then
         assertThat(acquiredLock).isTrue();
@@ -145,7 +144,7 @@ public class CassandraLockingMechanismTest {
         );
 
         //when
-        boolean acquiredLock = lockingMechanism.acquire();
+        boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
 
         //then
         assertThat(acquiredLock).isFalse();
@@ -164,7 +163,7 @@ public class CassandraLockingMechanismTest {
         );
 
         //when
-        boolean acquiredLock = lockingMechanism.acquire();
+        boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
 
         //then
         assertThat(acquiredLock).isTrue();
@@ -181,7 +180,7 @@ public class CassandraLockingMechanismTest {
         );
 
         //when
-        boolean acquiredLock = lockingMechanism.acquire();
+        boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
 
         //then
         assertThat(acquiredLock).isFalse();
@@ -197,7 +196,7 @@ public class CassandraLockingMechanismTest {
                         .build()
         );
         //when
-        Throwable throwable = catchThrowable(() -> lockingMechanism.acquire());
+        Throwable throwable = catchThrowable(() -> lockingMechanism.acquire(CLIENT_ID));
 
         //then
         assertThat(throwable)
@@ -210,7 +209,7 @@ public class CassandraLockingMechanismTest {
     @Test
     public void shouldDeleteLockWhenReleasingLock() throws Exception {
         //when
-        lockingMechanism.release();
+        lockingMechanism.release(CLIENT_ID);
 
         //then
         assertThat(activityClient.retrievePreparedStatementExecutions()).contains(deleteLockPreparedStatement);
@@ -229,7 +228,7 @@ public class CassandraLockingMechanismTest {
         );
 
         //when
-        lockingMechanism.release();
+        lockingMechanism.release(CLIENT_ID);
 
         //no exception thrown
     }
@@ -245,7 +244,7 @@ public class CassandraLockingMechanismTest {
         );
 
         //when
-        Throwable throwable = catchThrowable(() -> lockingMechanism.release());
+        Throwable throwable = catchThrowable(() -> lockingMechanism.release(CLIENT_ID));
 
         //then
         assertThat(throwable)
@@ -266,7 +265,7 @@ public class CassandraLockingMechanismTest {
                 .build());
 
         //given
-        executorService.submit(lockingMechanism::release);
+        executorService.submit(() -> lockingMechanism.release(CLIENT_ID));
 
 
         //then prime a success
@@ -300,7 +299,7 @@ public class CassandraLockingMechanismTest {
         );
 
         //when
-        Throwable throwable = catchThrowable(() -> lockingMechanism.release());
+        Throwable throwable = catchThrowable(() -> lockingMechanism.release(CLIENT_ID));
 
         //then
         assertThat(throwable)

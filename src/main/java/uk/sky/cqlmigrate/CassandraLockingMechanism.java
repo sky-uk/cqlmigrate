@@ -20,8 +20,8 @@ class CassandraLockingMechanism extends LockingMechanism {
     private PreparedStatement insertLockQuery;
     private PreparedStatement deleteLockQuery;
 
-    public CassandraLockingMechanism(Session session, String keyspace, CassandraLockConfig lockConfig) {
-        super(keyspace + ".schema_migration", lockConfig.getClientId());
+    public CassandraLockingMechanism(Session session, String keyspace) {
+        super(keyspace + ".schema_migration");
         this.session = session;
     }
 
@@ -53,7 +53,7 @@ class CassandraLockingMechanism extends LockingMechanism {
      * @throws CannotAcquireLockException if any DriverException thrown while executing queries.
      */
     @Override
-    public boolean acquire() throws CannotAcquireLockException {
+    public boolean acquire(String clientId) throws CannotAcquireLockException {
         try {
             ResultSet resultSet = session.execute(insertLockQuery.bind(lockName, clientId));
             Row currentLock = resultSet.one();
@@ -82,7 +82,7 @@ class CassandraLockingMechanism extends LockingMechanism {
      * @throws CannotAcquireLockException if any DriverException thrown while executing queries.
      */
     @Override
-    public void release() throws CannotReleaseLockException {
+    public void release(String clientId) throws CannotReleaseLockException {
         boolean isRetryAfterWriteTimeout = false;
         while (true) {
             try {

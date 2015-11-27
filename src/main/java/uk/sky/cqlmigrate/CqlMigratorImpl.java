@@ -74,7 +74,7 @@ public final class CqlMigratorImpl implements CqlMigrator {
         ClusterHealth clusterHealth = new ClusterHealth(cluster);
         clusterHealth.check();
 
-        CassandraLockingMechanism cassandraLockingMechanism = new CassandraLockingMechanism(session, keyspace, lockConfig);
+        CassandraLockingMechanism cassandraLockingMechanism = new CassandraLockingMechanism(session, keyspace);
         Lock lock = Lock.acquire(cassandraLockingMechanism, lockConfig);
 
         LOGGER.info("Loading cql files from {}", directories);
