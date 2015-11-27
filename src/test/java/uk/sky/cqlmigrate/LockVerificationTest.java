@@ -65,7 +65,7 @@ public class LockVerificationTest {
     public void shouldManageContentionsForSchemaMigrate() throws InterruptedException, URISyntaxException {
 
         final Path cql_bootstrap = Paths.get(ClassLoader.getSystemResource("cql_migrate_multithreads").toURI());
-        final CqlMigratorImpl cqlMigrator = new CqlMigratorImpl(CassandraLockConfig.builder().build());
+        final CqlMigrator cqlMigrator = CqlMigratorFactory.create(CassandraLockConfig.builder().build());
 
         final Collection<Path> cqlPaths = singletonList(cql_bootstrap);
         final ExecutorService cqlMigratorManager = newFixedThreadPool(25);

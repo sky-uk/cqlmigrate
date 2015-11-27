@@ -29,7 +29,7 @@ public final class CqlMigratorImpl implements CqlMigrator {
 
     private final CassandraLockConfig lockConfig;
 
-    public CqlMigratorImpl(CassandraLockConfig lockConfig) {
+    CqlMigratorImpl(CassandraLockConfig lockConfig) {
         this.lockConfig = lockConfig;
     }
 
@@ -38,7 +38,6 @@ public final class CqlMigratorImpl implements CqlMigrator {
      * Set hosts, keyspace and directories using system properties.
      */
     public static void main(String[] args) {
-
         String hosts = System.getProperty("hosts");
         String keyspace = System.getProperty("keyspace");
         String directoriesProperty = System.getProperty("directories");

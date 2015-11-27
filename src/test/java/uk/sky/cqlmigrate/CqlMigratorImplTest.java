@@ -92,15 +92,15 @@ public class CqlMigratorImplTest {
     @Test(timeout = 1000)
     public void shouldThrowCannotAcquireLockExceptionIfLockCannotBeAcquiredAfterTimeout() throws Exception {
         //given
-        final CqlMigratorImpl migrator = new CqlMigratorImpl(CassandraLockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build());
+        CqlMigrator migrator = new CqlMigratorImpl(CassandraLockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build());
 
         String client = UUID.randomUUID().toString();
         session.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, client);
 
-        final Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
+        Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
 
         //when
-        final Future<?> future = executorService.submit((Runnable) () -> migrator.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths));
+        Future<?> future = executorService.submit((Runnable) () -> migrator.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths));
 
         Thread.sleep(310);
         Throwable throwable = catchThrowable(() -> future.get());
@@ -144,7 +144,7 @@ public class CqlMigratorImplTest {
     public void shouldRetryWhenAcquiringLockIfNotInitiallyAvailable() throws Exception {
         //given
         session.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, UUID.randomUUID().toString());
-        final Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
+        Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
 
         //when
         Future<?> future = executorService.submit((Runnable) () -> MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths));
@@ -360,7 +360,7 @@ public class CqlMigratorImplTest {
         System.setProperty("directories", getResourcePath("cql_valid_one").toString() + "," + getResourcePath("cql_valid_two").toString());
 
         //when
-        final Throwable throwable = catchThrowable(() -> CqlMigratorImpl.main(new String[]{}));
+        Throwable throwable = catchThrowable(() -> CqlMigratorImpl.main(new String[]{}));
         assertThat(throwable).isNotNull().isInstanceOf(NullPointerException.class);
         assertThat(throwable.getMessage()).isEqualTo("'hosts' property should be provided having value of a comma separated list of cassandra hosts");
     }
@@ -372,7 +372,7 @@ public class CqlMigratorImplTest {
         System.setProperty("directories", getResourcePath("cql_valid_one").toString() + "," + getResourcePath("cql_valid_two").toString());
 
         //when
-        final Throwable throwable = catchThrowable(() -> CqlMigratorImpl.main(new String[]{}));
+        Throwable throwable = catchThrowable(() -> CqlMigratorImpl.main(new String[]{}));
         assertThat(throwable).isNotNull().isInstanceOf(NullPointerException.class);
         assertThat(throwable.getMessage()).isEqualTo("'keyspace' property should be provided having value of the cassandra keyspace");
     }
@@ -384,7 +384,7 @@ public class CqlMigratorImplTest {
         System.setProperty("keyspace", TEST_KEYSPACE);
 
         //when
-        final Throwable throwable = catchThrowable(() -> CqlMigratorImpl.main(new String[]{}));
+        Throwable throwable = catchThrowable(() -> CqlMigratorImpl.main(new String[]{}));
         assertThat(throwable).isNotNull().isInstanceOf(NullPointerException.class);
         assertThat(throwable.getMessage()).isEqualTo("'directories' property should be provided having value of the comma separated list of paths to cql files");
     }
