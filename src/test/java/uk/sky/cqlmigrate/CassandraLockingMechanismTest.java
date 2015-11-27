@@ -7,8 +7,6 @@ import org.junit.*;
 import org.scassandra.cql.PrimitiveType;
 import org.scassandra.http.client.*;
 import org.scassandra.junit.ScassandraServerRule;
-import uk.sky.cqlmigrate.CassandraLockConfig;
-import uk.sky.cqlmigrate.CassandraLockingMechanism;
 import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
 import uk.sky.cqlmigrate.exception.CannotReleaseLockException;
 import uk.sky.cqlmigrate.util.PortScavenger;
@@ -41,12 +39,12 @@ public class CassandraLockingMechanismTest {
     private final ActivityClient activityClient = SCASSANDRA.activityClient();
 
     private final PreparedStatementExecution deleteLockPreparedStatement = PreparedStatementExecution.builder()
-            .withPreparedStatementText("DELETE FROM locks.locks WHERE name = ? IF client = ?")
+            .withPreparedStatementText("DELETE FROM cqlmigrate_locks.locks WHERE name = ? IF client = ?")
             .withVariables(LOCK_KEYSPACE + ".schema_migration", CLIENT_ID)
             .build();
 
     private final PreparedStatementExecution insertLockPreparedStatement = PreparedStatementExecution.builder()
-            .withPreparedStatementText("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+            .withPreparedStatementText("INSERT INTO cqlmigrate_locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
             .withVariables(LOCK_KEYSPACE + ".schema_migration", CLIENT_ID)
             .build();
 
@@ -62,7 +60,7 @@ public class CassandraLockingMechanismTest {
                 .build();
 
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                .withQuery("INSERT INTO cqlmigrate_locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
                 .withThen(then()
                         .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
                         .withColumnTypes(column("[applied]", PrimitiveType.BOOLEAN))
@@ -71,7 +69,7 @@ public class CassandraLockingMechanismTest {
         );
 
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
+                .withQuery("DELETE FROM cqlmigrate_locks.locks WHERE name = ? IF client = ?")
                 .withThen(then()
                         .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
                         .withColumnTypes(column("[applied]", PrimitiveType.BOOLEAN))
@@ -97,7 +95,7 @@ public class CassandraLockingMechanismTest {
 
         //then
         PreparedStatementPreparation expectedPreparedStatement = PreparedStatementPreparation.builder()
-                .withPreparedStatementText("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                .withPreparedStatementText("INSERT INTO cqlmigrate_locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
                 .build();
 
         assertThat(activityClient.retrievePreparedStatementPreparations()).contains(expectedPreparedStatement);
@@ -110,7 +108,7 @@ public class CassandraLockingMechanismTest {
 
         //then
         PreparedStatementPreparation expectedPreparedStatement = PreparedStatementPreparation.builder()
-                .withPreparedStatementText("DELETE FROM locks.locks WHERE name = ? IF client = ?")
+                .withPreparedStatementText("DELETE FROM cqlmigrate_locks.locks WHERE name = ? IF client = ?")
                 .build();
 
         assertThat(activityClient.retrievePreparedStatementPreparations()).contains(expectedPreparedStatement);
@@ -138,7 +136,7 @@ public class CassandraLockingMechanismTest {
     public void shouldUnsuccessfullyAcquireLockWhenInsertIsNotApplied() throws Exception {
         //given
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                .withQuery("INSERT INTO cqlmigrate_locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
                 .withThen(then()
                         .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
                         .withColumnTypes(column("client", PrimitiveType.TEXT), column("[applied]", PrimitiveType.BOOLEAN))
@@ -157,7 +155,7 @@ public class CassandraLockingMechanismTest {
     public void shouldSuccessfullyAcquireLockWhenLockIsAlreadyAcquired() throws Exception {
         //given
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                .withQuery("INSERT INTO cqlmigrate_locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
                 .withThen(then()
                         .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
                         .withColumnTypes(column("client", PrimitiveType.TEXT), column("[applied]", PrimitiveType.BOOLEAN))
@@ -176,7 +174,7 @@ public class CassandraLockingMechanismTest {
     public void shouldUnsuccessfullyAcquireLockWhenWriteTimeoutOccurs() throws Exception {
         //given
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                .withQuery("INSERT INTO cqlmigrate_locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
                 .withThen(then()
                         .withResult(PrimingRequest.Result.write_request_timeout))
                 .build()
@@ -193,7 +191,7 @@ public class CassandraLockingMechanismTest {
     public void shouldThrowExceptionIfQueryFailsToExecuteWhenAcquiringLock() throws Exception {
         //given
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                        .withQuery("INSERT INTO locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                        .withQuery("INSERT INTO cqlmigrate_locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
                         .withThen(then()
                                 .withResult(PrimingRequest.Result.unavailable))
                         .build()
@@ -222,7 +220,7 @@ public class CassandraLockingMechanismTest {
     public void shouldSuccessfullyReleaseLockWhenNoLockFound() throws Exception {
         //given
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
+                .withQuery("DELETE FROM cqlmigrate_locks.locks WHERE name = ? IF client = ?")
                 .withThen(then()
                         .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
                         .withColumnTypes(column("[applied]", PrimitiveType.BOOLEAN))
@@ -240,7 +238,7 @@ public class CassandraLockingMechanismTest {
     public void shouldThrowExceptionIfQueryFailsToExecuteWhenReleasingLock() throws Exception {
         //given
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                        .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
+                        .withQuery("DELETE FROM cqlmigrate_locks.locks WHERE name = ? IF client = ?")
                         .withThen(then()
                                 .withResult(PrimingRequest.Result.unavailable))
                         .build()
@@ -263,7 +261,7 @@ public class CassandraLockingMechanismTest {
         ExecutorService executorService = Executors.newSingleThreadExecutor();
 
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
+                .withQuery("DELETE FROM cqlmigrate_locks.locks WHERE name = ? IF client = ?")
                 .withThen(then().withResult(PrimingRequest.Result.write_request_timeout))
                 .build());
 
@@ -273,7 +271,7 @@ public class CassandraLockingMechanismTest {
 
         //then prime a success
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
+                .withQuery("DELETE FROM cqlmigrate_locks.locks WHERE name = ? IF client = ?")
                 .withThen(then()
                         .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
                         .withColumnTypes(column("[applied]", PrimitiveType.BOOLEAN))
@@ -293,7 +291,7 @@ public class CassandraLockingMechanismTest {
         String newLockHolder = "new lock holder";
 
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("DELETE FROM locks.locks WHERE name = ? IF client = ?")
+                .withQuery("DELETE FROM cqlmigrate_locks.locks WHERE name = ? IF client = ?")
                 .withThen(then()
                         .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
                         .withColumnTypes(column("client", PrimitiveType.TEXT), column("[applied]", PrimitiveType.BOOLEAN))

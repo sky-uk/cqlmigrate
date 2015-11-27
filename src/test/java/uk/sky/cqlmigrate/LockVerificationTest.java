@@ -40,10 +40,10 @@ public class LockVerificationTest {
         session = cluster.connect();
 
         session.execute(String.format("DROP KEYSPACE IF EXISTS %s;", KEYSPACE));
-        session.execute("DROP KEYSPACE IF EXISTS locks");
+        session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_locks");
 
-        session.execute("CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
-        session.execute("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client text)");
+        session.execute("CREATE KEYSPACE IF NOT EXISTS cqlmigrate_locks WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
+        session.execute("CREATE TABLE IF NOT EXISTS cqlmigrate_locks.locks (name text PRIMARY KEY, client text)");
 
         session.execute(String.format("CREATE KEYSPACE %s WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 3};", KEYSPACE));
         Uninterruptibles.sleepUninterruptibly(300, TimeUnit.MILLISECONDS);

@@ -47,14 +47,14 @@ public class CqlMigratorImplTest {
     @Before
     public void setUp() throws Exception {
         session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test");
-        session.execute("CREATE KEYSPACE IF NOT EXISTS locks WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
-        session.execute("CREATE TABLE IF NOT EXISTS locks.locks (name text PRIMARY KEY, client text)");
+        session.execute("CREATE KEYSPACE IF NOT EXISTS cqlmigrate_locks WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
+        session.execute("CREATE TABLE IF NOT EXISTS cqlmigrate_locks.locks (name text PRIMARY KEY, client text)");
         executorService = Executors.newFixedThreadPool(1);
     }
 
     @After
     public void tearDown() {
-        session.execute("TRUNCATE locks.locks");
+        session.execute("TRUNCATE cqlmigrate_locks.locks");
         executorService.shutdownNow();
         System.clearProperty("hosts");
         System.clearProperty("keyspace");
@@ -63,7 +63,7 @@ public class CqlMigratorImplTest {
 
     @AfterClass
     public static void tearDownClass() throws Exception {
-        session.execute("DROP KEYSPACE locks");
+        session.execute("DROP KEYSPACE cqlmigrate_locks");
         cluster.close();
         EmbeddedCassandraServerHelper.cleanEmbeddedCassandra();
         Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
@@ -95,7 +95,7 @@ public class CqlMigratorImplTest {
         CqlMigrator migrator = new CqlMigratorImpl(CassandraLockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build());
 
         String client = UUID.randomUUID().toString();
-        session.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, client);
+        session.execute("INSERT INTO cqlmigrate_locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, client);
 
         Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
 
@@ -136,19 +136,19 @@ public class CqlMigratorImplTest {
         MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths);
 
         //then
-        ResultSet resultSet = session.execute("SELECT * FROM locks.locks WHERE name = ?", LOCK_NAME);
+        ResultSet resultSet = session.execute("SELECT * FROM cqlmigrate_locks.locks WHERE name = ?", LOCK_NAME);
         assertThat(resultSet.isExhausted()).as("Is lock released").isTrue();
     }
 
     @Test
     public void shouldRetryWhenAcquiringLockIfNotInitiallyAvailable() throws Exception {
         //given
-        session.execute("INSERT INTO locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, UUID.randomUUID().toString());
+        session.execute("INSERT INTO cqlmigrate_locks.locks (name, client) VALUES (?, ?)", LOCK_NAME, UUID.randomUUID().toString());
         Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
 
         //when
         Future<?> future = executorService.submit((Runnable) () -> MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths));
-        session.execute("TRUNCATE locks.locks");
+        session.execute("TRUNCATE cqlmigrate_locks.locks");
         Thread.sleep(1000);
         future.get();
 
