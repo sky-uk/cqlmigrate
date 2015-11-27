@@ -19,7 +19,6 @@ class CassandraLockingMechanism extends LockingMechanism {
 
     private PreparedStatement insertLockQuery;
     private PreparedStatement deleteLockQuery;
-    private boolean isRetryAfterWriteTimeout = false;
 
     public CassandraLockingMechanism(Session session, String keyspace, CassandraLockConfig lockConfig) {
         super(keyspace + ".schema_migration", lockConfig.getClientId());
@@ -84,6 +83,7 @@ class CassandraLockingMechanism extends LockingMechanism {
      */
     @Override
     public void release() throws CannotReleaseLockException {
+        boolean isRetryAfterWriteTimeout = false;
         while (true) {
             try {
                 ResultSet resultSet = session.execute(deleteLockQuery.bind(lockName, clientId));
