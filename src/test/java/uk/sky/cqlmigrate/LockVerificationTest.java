@@ -2,7 +2,6 @@ package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.*;
 import com.google.common.base.Optional;
-import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.Uninterruptibles;
 import org.hamcrest.Matchers;
 import org.junit.*;
@@ -78,7 +77,7 @@ public class LockVerificationTest {
             workers.add(cqlMigrate);
         }
 
-        Stopwatch executionTime = Stopwatch.createStarted();
+        long startTime = System.currentTimeMillis();
         final List<Future<String>> futures = cqlMigratorManager.invokeAll(workers);
 
         System.out.println(futures.size());
@@ -92,11 +91,9 @@ public class LockVerificationTest {
             }
         });
 
-        executionTime.stop();
-
         cqlMigratorManager.shutdown();
 
-        final long elapsed = executionTime.elapsed(TimeUnit.SECONDS);
+        long elapsed = (System.currentTimeMillis() - startTime) / 1000;
         assertThat("Schema migration took longer than 25s", elapsed, Matchers.lessThanOrEqualTo(25L));
     }
 
