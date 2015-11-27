@@ -27,9 +27,5 @@ class ClusterHealth {
         if (!unhealthyHosts.isEmpty()) {
             throw new ClusterUnhealthyException("Cluster not healthy, the following hosts are down: " + unhealthyHosts);
         }
-
-        if (!cluster.getMetadata().checkSchemaAgreement()) {
-            throw new ClusterUnhealthyException("Cluster not healthy, schema not in agreement");
-        }
     }
 }

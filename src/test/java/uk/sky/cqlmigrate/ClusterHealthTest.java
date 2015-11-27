@@ -8,7 +8,6 @@ import org.scassandra.Scassandra;
 import org.scassandra.ScassandraFactory;
 import org.scassandra.http.client.ActivityClient;
 import org.scassandra.http.client.PrimingClient;
-import org.scassandra.http.client.PrimingRequest;
 import uk.sky.cqlmigrate.exception.ClusterUnhealthyException;
 import uk.sky.cqlmigrate.util.PortScavenger;
 
@@ -17,7 +16,6 @@ import java.util.Collection;
 import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
-import static org.scassandra.http.client.PrimingRequest.then;
 
 public class ClusterHealthTest {
 
@@ -55,24 +53,6 @@ public class ClusterHealthTest {
     public void tearDown() throws Exception {
         scassandra.stop();
         cluster.close();
-    }
-
-    @Test
-    public void shouldThrowExceptionIfSchemaNotInAgreement() throws Exception {
-        //given
-        primingClient.prime(PrimingRequest.queryBuilder()
-                .withQuery("SELECT peer, rpc_address, schema_version FROM system.peers")
-                .withThen(then().withResult(PrimingRequest.Result.unavailable))
-                .build()
-        );
-
-        //when
-        Throwable throwable = catchThrowable(clusterHealth::check);
-
-        //then
-        assertThat(throwable).isNotNull();
-        assertThat(throwable).isInstanceOf(ClusterUnhealthyException.class);
-        assertThat(throwable).hasMessage("Cluster not healthy, schema not in agreement");
     }
 
     @Test
