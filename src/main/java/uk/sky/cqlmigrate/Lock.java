@@ -35,7 +35,7 @@ class Lock {
         lockingMechanism.init();
 
         String lockName = lockingMechanism.getLockName();
-        String clientId = lockingMechanism.getClientId();
+        String clientId = lockConfig.getClientId();
 
         int acquireAttempts = 1;
 
@@ -73,8 +73,9 @@ class Lock {
         try {
             Thread.sleep(lockConfig.getPollingInterval().toMillis());
         } catch (InterruptedException e) {
-            log.error("Polling to acquire lock {} for client {} was interrupted", lockName, clientId);
             Thread.currentThread().interrupt();
+            throw new CannotAcquireLockException(String.format("Polling to acquire lock %s for client %s was interrupted", lockName, clientId), e);
+
         }
     }
 

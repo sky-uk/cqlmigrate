@@ -5,14 +5,12 @@ import org.junit.runner.RunWith;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
-import uk.sky.cqlmigrate.Lock;
-import uk.sky.cqlmigrate.LockConfig;
-import uk.sky.cqlmigrate.LockingMechanism;
 import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
 
 import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.junit.Assert.fail;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.inOrder;
@@ -88,6 +86,23 @@ public class LockTest {
 
         //then
         assertThat(duration).isLessThanOrEqualTo(TIMEOUT_MILLIS * 2);
+    }
+
+    @Test
+    public void throwsExceptionIfThreadSleepIsInterrupted() throws Throwable {
+        //given
+        given(lockingMechanism.getLockName()).willReturn("some lock");
+        given(lockingMechanism.acquire()).willReturn(false);
+        Thread.currentThread().interrupt();
+
+        //when
+        Throwable throwable = catchThrowable(() -> Lock.acquire(lockingMechanism, LOCK_CONFIG));
+
+        //then
+        assertThat(throwable)
+                .isInstanceOf(CannotAcquireLockException.class)
+                .hasCauseInstanceOf(InterruptedException.class)
+                .hasMessage(String.format("Polling to acquire lock some lock for client %s was interrupted", LOCK_CONFIG.getClientId()));
     }
 
     @Test
