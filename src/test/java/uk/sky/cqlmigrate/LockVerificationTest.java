@@ -103,9 +103,7 @@ public class LockVerificationTest {
     @Test
     public void shouldObtainLockToInsertRecord() throws InterruptedException {
         final CassandraLockConfig config = CassandraLockConfig.builder()
-                .withPollingInterval(Duration.ofMillis(30))
-                .withSimpleStrategyReplication(3)
-                .build();
+                .withPollingInterval(Duration.ofMillis(30)).build();
 
         final Callable<Optional<Integer>> worker = () -> {
             Integer counter = null;

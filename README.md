@@ -24,7 +24,6 @@ Configure the lock:
                     .withTimeout(Duration.standardSeconds(3))
                     .withPollingInterval(Duration.millis(500))
                     .withClientId("127.0.0.1")
-                    .withSimpleStrategyReplication(3)
                     .build();
                     
 Or
@@ -33,8 +32,6 @@ Or
                     .withTimeout(Duration.standardSeconds(3))
                     .withPollingInterval(Duration.millis(500))
                     .withClientId("127.0.0.1")
-                    .withNetworkTopologyReplication("DC1", 3)
-                    .withNetworkTopologyReplication("DC2", 3)
                     .build();
 
 Then:                    
@@ -55,7 +52,7 @@ $ java -Dhosts=localhost,192.168.1.1 -Dkeyspace=my_keyspace -Ddirectories=cql-co
 
 1. Checks all nodes are up and their schema's are in agreement.
 
-2. Create a locks keyspace and table if they don't exist and tries to acquire a lock for the keyspace you are migrating. 
+2. Tries to acquire a lock for the keyspace you are migrating.
    If it can't initially be acquired it will continue to retry at a set polling time until the timeout is reached.  
 
 3. Looks for a `bootstrap.cql` file and runs it first. This file should contain your keyspace definition.
