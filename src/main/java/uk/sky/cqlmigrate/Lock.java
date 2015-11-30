@@ -17,33 +17,34 @@ class Lock {
     private final LockingMechanism lockingMechanism;
     private final LockConfig lockConfig;
 
-    private Lock(LockingMechanism lockingMechanism, LockConfig clientId) {
-        this.lockingMechanism = lockingMechanism;
-        this.lockConfig = clientId;
-    }
-
     /**
-     * If the lock is successfully acquired, the lock is returned, otherwise
-     * this will wait until the lock has been released. If a lock cannot
-     * be acquired within the configured timeout interval, an exception is thrown.
      *
      * @param lockingMechanism {@code LockingMechanism} to use to acquire the lock
      * @param lockConfig       {@code LockConfig} for configuring the lock polling interval, timeout and client id
-     * @return the {@code Lock} object
+     */
+    Lock(LockingMechanism lockingMechanism, LockConfig lockConfig) {
+        this.lockingMechanism = lockingMechanism;
+        this.lockConfig = lockConfig;
+    }
+
+    /**
+     * If the lock is successfully acquired, the method will return, otherwise
+     * this will wait until the lock has been released. If a lock cannot
+     * be acquired within the configured timeout interval, an exception is thrown.
+     *
      * @throws CannotAcquireLockException if this cannot acquire lock within the specified time interval or locking mechanism fails
      */
-    public static Lock acquire(LockingMechanism lockingMechanism, LockConfig lockConfig) throws CannotAcquireLockException {
+    public void lock() throws CannotAcquireLockException {
         lockingMechanism.init();
 
         String lockName = lockingMechanism.getLockName();
         String clientId = lockConfig.getClientId();
         try {
             log.info("Attempting to acquire lock for '{}', using client id '{}'", lockName, lockConfig.getClientId());
-            return RetryTask.attempt(() -> lockingMechanism.acquire(clientId))
+            RetryTask.attempt(() -> lockingMechanism.acquire(clientId))
                     .withTimeout(lockConfig.getTimeout())
                     .withPollingInterval(lockConfig.getPollingInterval())
-                    .untilSuccess()
-                    .thenReturn(() -> new Lock(lockingMechanism, lockConfig));
+                    .untilSuccess();
         } catch (TimeoutException te) {
             log.warn("Unable to acquire lock for {}", lockConfig.getClientId(), te);
             throw new CannotAcquireLockException("Lock currently in use", te);
@@ -59,7 +60,7 @@ class Lock {
      *
      * @throws CannotReleaseLockException if this cannot release lock within the specified time interval or locking mechanism fails
      */
-    public void release() throws CannotReleaseLockException {
+    public void unlock() throws CannotReleaseLockException {
         String lockName = lockingMechanism.getLockName();
         try {
             log.info("Attempting to release lock for '{}', using client id '{}'", lockName, lockConfig.getClientId());

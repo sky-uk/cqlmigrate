@@ -1,5 +1,6 @@
 package uk.sky.cqlmigrate;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InOrder;
@@ -29,6 +30,13 @@ public class LockTest {
 
     @Mock
     private LockingMechanism lockingMechanism;
+    
+    private Lock lock;
+
+    @Before
+    public void setUp() throws Exception {
+        lock = new Lock(lockingMechanism, LOCK_CONFIG);
+    }
 
     @Test
     public void shouldInitLockingMechanismBeforeAttemptingAcquire() throws Throwable {
@@ -36,7 +44,7 @@ public class LockTest {
         given(lockingMechanism.acquire(LOCK_CONFIG.getClientId())).willReturn(true);
 
         //when
-        Lock.acquire(lockingMechanism, LOCK_CONFIG);
+        lock.lock();
 
         //then
         InOrder inOrder = inOrder(lockingMechanism);
@@ -45,15 +53,12 @@ public class LockTest {
     }
 
     @Test
-    public void ifLockCanBeAcquiredShouldReturnLock() throws Throwable {
+    public void ifLockCanBeAcquiredShouldNotThrowException() throws Throwable {
         //given
         given(lockingMechanism.acquire(LOCK_CONFIG.getClientId())).willReturn(true);
 
         //when
-        Lock lock = Lock.acquire(lockingMechanism, LOCK_CONFIG);
-
-        //then
-        assertThat(lock).isNotNull();
+        lock.lock();
     }
 
     @Test
@@ -63,12 +68,11 @@ public class LockTest {
 
         //when
         long startTime = System.currentTimeMillis();
-        Lock lock = Lock.acquire(lockingMechanism, LOCK_CONFIG);
+        lock.lock();
         long duration = System.currentTimeMillis() - startTime;
 
         //then
-        assertThat(lock).isNotNull();
-        assertThat(duration).isGreaterThan(POLLING_MILLIS);
+        assertThat(duration).isGreaterThanOrEqualTo(POLLING_MILLIS);
     }
 
     @Test
@@ -79,7 +83,7 @@ public class LockTest {
         //when
         long startTime = System.currentTimeMillis();
         try {
-            Lock.acquire(lockingMechanism, LOCK_CONFIG);
+            lock.lock();
             fail("Expected Exception");
         } catch (CannotAcquireLockException e) {}
         long duration = System.currentTimeMillis() - startTime;
@@ -96,7 +100,7 @@ public class LockTest {
         Thread.currentThread().interrupt();
 
         //when
-        Throwable throwable = catchThrowable(() -> Lock.acquire(lockingMechanism, LOCK_CONFIG));
+        Throwable throwable = catchThrowable(() -> lock.lock());
 
         //then
         assertThat(throwable)
@@ -113,10 +117,10 @@ public class LockTest {
         //given
         given(lockingMechanism.acquire(LOCK_CONFIG.getClientId())).willReturn(true);
         given(lockingMechanism.release(LOCK_CONFIG.getClientId())).willReturn(true);
-        Lock lock = Lock.acquire(lockingMechanism, LOCK_CONFIG);
+        lock.lock();
 
         //when
-        lock.release();
+        lock.unlock();
 
         //then
         verify(lockingMechanism).release(LOCK_CONFIG.getClientId());
@@ -127,15 +131,15 @@ public class LockTest {
         //given
         given(lockingMechanism.acquire(LOCK_CONFIG.getClientId())).willReturn(true);
         given(lockingMechanism.release(LOCK_CONFIG.getClientId())).willReturn(false, true);
-        Lock lock = Lock.acquire(lockingMechanism, LOCK_CONFIG);
+        lock.lock();
 
         //when
         long startTime = System.currentTimeMillis();
-        lock.release();
+        lock.unlock();
         long duration = System.currentTimeMillis() - startTime;
 
         //then
-        assertThat(duration).isGreaterThan(POLLING_MILLIS);
+        assertThat(duration).isGreaterThanOrEqualTo(POLLING_MILLIS);
         verify(lockingMechanism, times(2)).release(LOCK_CONFIG.getClientId());
     }
 
@@ -144,12 +148,12 @@ public class LockTest {
         //given
         given(lockingMechanism.acquire(LOCK_CONFIG.getClientId())).willReturn(true);
         given(lockingMechanism.release(LOCK_CONFIG.getClientId())).willReturn(false);
-        Lock lock = Lock.acquire(lockingMechanism, LOCK_CONFIG);
+        lock.lock();
 
         //when
         long startTime = System.currentTimeMillis();
         try {
-            lock.release();
+            lock.unlock();
             fail("Expected Exception");
         } catch (CannotReleaseLockException e) {
             // nada

@@ -107,10 +107,11 @@ public class LockVerificationTest {
             try {
                 UUID clientId = UUID.randomUUID();
                 CassandraLockingMechanism lockingMechanism = new CassandraLockingMechanism(session, KEYSPACE);
-                final Lock lock = Lock.acquire(lockingMechanism, config);
+                Lock lock = new Lock(lockingMechanism, config);
+                lock.lock();
                 counter = readAndIncrementCounter();
                 LOGGER.info("Client {} registered counter {}", clientId, counter);
-                lock.release();
+                lock.unlock();
 
             } catch (Exception e) {
                 LOGGER.error("Unexpected exception:", e);

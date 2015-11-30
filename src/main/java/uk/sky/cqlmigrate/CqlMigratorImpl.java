@@ -74,8 +74,10 @@ public final class CqlMigratorImpl implements CqlMigrator {
         ClusterHealth clusterHealth = new ClusterHealth(cluster);
         clusterHealth.check();
 
+
         CassandraLockingMechanism cassandraLockingMechanism = new CassandraLockingMechanism(session, keyspace);
-        Lock lock = Lock.acquire(cassandraLockingMechanism, lockConfig);
+        Lock lock = new Lock(cassandraLockingMechanism, lockConfig);
+        lock.lock();
 
         LOGGER.info("Loading cql files from {}", directories);
         CqlPaths paths = CqlPaths.create(directories);
@@ -86,7 +88,7 @@ public final class CqlMigratorImpl implements CqlMigrator {
         keyspaceBootstrapper.bootstrap();
         schemaUpdates.initialise();
         schemaLoader.load();
-        lock.release();
+        lock.unlock();
     }
 
     /**
