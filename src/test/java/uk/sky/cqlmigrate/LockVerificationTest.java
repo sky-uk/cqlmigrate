@@ -50,23 +50,11 @@ public class LockVerificationTest {
         cluster = createCluster();
         session = cluster.connect();
 
-        session.execute(String.format("DROP KEYSPACE IF EXISTS %s", KEYSPACE));
         session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_locks");
-        session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test");
-
         session.execute("CREATE KEYSPACE IF NOT EXISTS cqlmigrate_locks WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
         Uninterruptibles.sleepUninterruptibly(800, TimeUnit.MILLISECONDS);
-
         session.execute("CREATE TABLE IF NOT EXISTS cqlmigrate_locks.locks (name text PRIMARY KEY, client text);");
         Uninterruptibles.sleepUninterruptibly(800, TimeUnit.MILLISECONDS);
-
-        session.execute(String.format("CREATE KEYSPACE %s WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};", KEYSPACE));
-        Uninterruptibles.sleepUninterruptibly(800, TimeUnit.MILLISECONDS);
-
-        session.execute(String.format("CREATE TABLE %s (id text PRIMARY KEY, counter int);", TABLE_NAME));
-        Uninterruptibles.sleepUninterruptibly(800, TimeUnit.MILLISECONDS);
-
-        session.execute(new SimpleStatement(String.format("INSERT INTO %s (id, counter) VALUES (?, ?);", TABLE_NAME), "lock-tester", 0).setConsistencyLevel(ConsistencyLevel.QUORUM));
     }
 
     @After
@@ -80,6 +68,9 @@ public class LockVerificationTest {
 
     @Test
     public void shouldManageContentionsForSchemaMigrate() throws InterruptedException, URISyntaxException {
+        session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test");
+        Uninterruptibles.sleepUninterruptibly(800, TimeUnit.MILLISECONDS);
+
         final Collection<Path> cqlPaths = singletonList(Paths.get(ClassLoader.getSystemResource("cql_migrate_multithreads").toURI()));
         final Callable<String> cqlMigrate = () -> {
             Cluster cluster = createCluster();
@@ -92,8 +83,6 @@ public class LockVerificationTest {
             cluster.close();
             return "Done";
         };
-
-        session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test;");
 
         List<Callable<String>> workers = IntStream.range(0, 25)
                 .mapToObj(i -> cqlMigrate)
@@ -116,6 +105,14 @@ public class LockVerificationTest {
 
     @Test
     public void shouldObtainLockToInsertRecord() throws InterruptedException {
+        session.execute(String.format("DROP KEYSPACE IF EXISTS %s", KEYSPACE));
+        session.execute(String.format("CREATE KEYSPACE %s WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};", KEYSPACE));
+        Uninterruptibles.sleepUninterruptibly(800, TimeUnit.MILLISECONDS);
+        session.execute(String.format("CREATE TABLE %s (id text PRIMARY KEY, counter int);", TABLE_NAME));
+        Uninterruptibles.sleepUninterruptibly(800, TimeUnit.MILLISECONDS);
+        session.execute(new SimpleStatement(String.format("INSERT INTO %s (id, counter) VALUES (?, ?);", TABLE_NAME), "lock-tester", 0).setConsistencyLevel(ConsistencyLevel.QUORUM));
+
+
         final int maximumCounter = 1000;
         final int maximumWorkers = 25;
         final Callable<Set<Integer>> worker = () -> {
