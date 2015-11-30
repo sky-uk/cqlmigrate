@@ -92,10 +92,10 @@ public class RetryTaskTest {
 
         //when
         retryTask.untilSuccess();
-        Instant aproximateEndTime = Instant.now();
+        Instant approximateEndTime = Instant.now();
 
         //then
-        assertThat(Duration.between(approximateStartTime, aproximateEndTime)).isGreaterThan(Duration.ofMillis(5 * 2));
+        assertThat(Duration.between(approximateStartTime, approximateEndTime)).isGreaterThanOrEqualTo(Duration.ofMillis(5 * 2));
     }
 
     @Test
