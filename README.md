@@ -107,6 +107,14 @@ This table is used to keep track of what locks are currently in place.
 
 Each lock will be deleted by Cql Migrate once the migration is complete.
 
+## Supported Cassandra versions
+
+This project has been tested against the following versions:
+* 2.1.7
+* DSE 4.7.3 (2.1.8)
+* 2.2.2
+* 2.2.3
+
 ## Caveats
 
 Cassandra is an eventually consistent, AP database, and so applying schema updates are not as simple
