@@ -19,6 +19,7 @@ class CassandraLockingMechanism extends LockingMechanism {
 
     private PreparedStatement insertLockQuery;
     private PreparedStatement deleteLockQuery;
+    private boolean isRetryAfterWriteTimeout;
 
     public CassandraLockingMechanism(Session session, String keyspace) {
         super(keyspace + ".schema_migration");
@@ -75,52 +76,43 @@ class CassandraLockingMechanism extends LockingMechanism {
      * {@inheritDoc}
      * <p>
      * Deletes lock from locks table.
-     * Will retry to release lock if WriteTimeoutException thrown.
      * If a WriteTimeoutException has previously been thrown this
-     * will check if the lock did actually successfully deleted.
+     * will check if the lock did get successfully deleted.
      *
-     * @throws CannotAcquireLockException if any DriverException thrown while executing queries.
+     * @throws CannotReleaseLockException if any DriverException thrown while executing queries.
      */
     @Override
-    public void release(String clientId) throws CannotReleaseLockException {
-        boolean isRetryAfterWriteTimeout = false;
-        while (true) {
-            try {
-                ResultSet resultSet = session.execute(deleteLockQuery.bind(lockName, clientId));
-                Row result = resultSet.one();
-
-                if (result.getBool("[applied]") || !result.getColumnDefinitions().contains("client")) {
-                    log.info("Lock released for {} by client {} at: {}", lockName, clientId, System.currentTimeMillis());
-                    return;
-                }
-
-                String clientReleasingLock = result.getString("client");
-                if (!clientReleasingLock.equals(clientId)) {
-                    if (isRetryAfterWriteTimeout) {
-                        log.info("Released lock for client {} in retry attempt after WriteTimeoutException", clientReleasingLock);
-                        return;
-                    } else {
-                        throw new CannotReleaseLockException(
-                                String.format("Lock %s attempted to be released by a non lock holder (%s). Current lock holder: %s", lockName, clientId, clientReleasingLock));
-                    }
-                }
-
-            } catch (WriteTimeoutException e) {
-                isRetryAfterWriteTimeout = true;
-                waitToRetryRelease();
-            } catch (DriverException e) {
-                log.error("Query to release lock failed to execute for {} by client {}", lockName, clientId, e);
-                throw new CannotReleaseLockException("Query failed to execute", e);
-            }
-        }
-    }
-
-    private void waitToRetryRelease() {
+    public boolean release(String clientId) throws CannotReleaseLockException {
         try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            log.warn("Thread sleep interrupted with {}", e.getMessage());
-            Thread.currentThread().interrupt();
+            ResultSet resultSet = session.execute(deleteLockQuery.bind(lockName, clientId));
+            Row result = resultSet.one();
+
+            if (result.getBool("[applied]") || !result.getColumnDefinitions().contains("client")) {
+                log.info("Lock released for {} by client {} at: {}", lockName, clientId, System.currentTimeMillis());
+                return true;
+            }
+
+            String clientReleasingLock = result.getString("client");
+            if (!clientReleasingLock.equals(clientId)) {
+                if (isRetryAfterWriteTimeout) {
+                    log.info("Released lock for client {} in retry attempt after WriteTimeoutException", clientReleasingLock);
+                    return true;
+                } else {
+                    throw new CannotReleaseLockException(
+                            String.format("Lock %s attempted to be released by a non lock holder (%s). Current lock holder: %s", lockName, clientId, clientReleasingLock));
+                }
+            } else {
+                log.error("Delete lock query did not get applied but client is still {}. This should never happen.", clientId);
+                return false;
+            }
+
+        } catch (WriteTimeoutException e) {
+            isRetryAfterWriteTimeout = true;
+            return false;
+        } catch (DriverException e) {
+            log.error("Query to release lock failed to execute for {} by client {}", lockName, clientId, e);
+            throw new CannotReleaseLockException("Query failed to execute", e);
         }
+
     }
 }

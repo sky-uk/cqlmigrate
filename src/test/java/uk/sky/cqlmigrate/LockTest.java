@@ -6,6 +6,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
+import uk.sky.cqlmigrate.exception.CannotReleaseLockException;
 
 import java.time.Duration;
 
@@ -13,8 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.junit.Assert.fail;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 @RunWith(MockitoJUnitRunner.class)
 public class LockTest {
@@ -88,7 +88,7 @@ public class LockTest {
         assertThat(duration).isLessThanOrEqualTo(TIMEOUT_MILLIS * 2);
     }
 
-    @Test
+    @Test()
     public void throwsExceptionIfThreadSleepIsInterrupted() throws Throwable {
         //given
         given(lockingMechanism.getLockName()).willReturn("some lock");
@@ -103,12 +103,16 @@ public class LockTest {
                 .isInstanceOf(CannotAcquireLockException.class)
                 .hasCauseInstanceOf(InterruptedException.class)
                 .hasMessage(String.format("Polling to acquire lock some lock for client %s was interrupted", LOCK_CONFIG.getClientId()));
+
+        //clean up
+        assertThat(Thread.interrupted()).isTrue();
     }
 
     @Test
     public void usesLockingMechanismToReleaseLock() throws Throwable {
         //given
         given(lockingMechanism.acquire(LOCK_CONFIG.getClientId())).willReturn(true);
+        given(lockingMechanism.release(LOCK_CONFIG.getClientId())).willReturn(true);
         Lock lock = Lock.acquire(lockingMechanism, LOCK_CONFIG);
 
         //when
@@ -116,5 +120,43 @@ public class LockTest {
 
         //then
         verify(lockingMechanism).release(LOCK_CONFIG.getClientId());
+    }
+
+    @Test
+    public void retriesToReleaseLockAfterIntervalIfFailedTheFirstTime() throws Throwable {
+        //given
+        given(lockingMechanism.acquire(LOCK_CONFIG.getClientId())).willReturn(true);
+        given(lockingMechanism.release(LOCK_CONFIG.getClientId())).willReturn(false, true);
+        Lock lock = Lock.acquire(lockingMechanism, LOCK_CONFIG);
+
+        //when
+        long startTime = System.currentTimeMillis();
+        lock.release();
+        long duration = System.currentTimeMillis() - startTime;
+
+        //then
+        assertThat(duration).isGreaterThan(POLLING_MILLIS);
+        verify(lockingMechanism, times(2)).release(LOCK_CONFIG.getClientId());
+    }
+
+    @Test
+    public void throwsExceptionIfFailedToReleaseLockBeforeTimeout() throws Throwable {
+        //given
+        given(lockingMechanism.acquire(LOCK_CONFIG.getClientId())).willReturn(true);
+        given(lockingMechanism.release(LOCK_CONFIG.getClientId())).willReturn(false);
+        Lock lock = Lock.acquire(lockingMechanism, LOCK_CONFIG);
+
+        //when
+        long startTime = System.currentTimeMillis();
+        try {
+            lock.release();
+            fail("Expected Exception");
+        } catch (CannotReleaseLockException e) {
+            // nada
+        }
+        long duration = System.currentTimeMillis() - startTime;
+
+        //then
+        assertThat(duration).isLessThanOrEqualTo(TIMEOUT_MILLIS * 2);
     }
 }

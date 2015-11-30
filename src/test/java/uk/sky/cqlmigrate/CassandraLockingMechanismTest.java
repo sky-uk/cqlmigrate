@@ -12,9 +12,6 @@ import uk.sky.cqlmigrate.exception.CannotReleaseLockException;
 import uk.sky.cqlmigrate.util.PortScavenger;
 
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
@@ -254,18 +251,15 @@ public class CassandraLockingMechanismTest {
                 .hasMessage("Query failed to execute");
     }
 
-    @Test(timeout = 2000)
+    @Test
     public void shouldSuccessfullyReleaseLockWhenRetryingAfterWriteTimeOutButDoesNotHoldLockNow() throws InterruptedException {
         //given
-        ExecutorService executorService = Executors.newSingleThreadExecutor();
-
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
                 .withQuery("DELETE FROM cqlmigrate_locks.locks WHERE name = ? IF client = ?")
                 .withThen(then().withResult(PrimingRequest.Result.write_request_timeout))
                 .build());
 
-        //given
-        executorService.submit(() -> lockingMechanism.release(CLIENT_ID));
+        lockingMechanism.release(CLIENT_ID);
 
 
         //then prime a success
@@ -273,15 +267,18 @@ public class CassandraLockingMechanismTest {
                 .withQuery("DELETE FROM cqlmigrate_locks.locks WHERE name = ? IF client = ?")
                 .withThen(then()
                         .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
-                        .withColumnTypes(column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("[applied]", true)))
+                        .withColumnTypes(column("client", PrimitiveType.TEXT), column("[applied]", PrimitiveType.BOOLEAN))
+                        .withRows(ImmutableMap.of("client", "new lock holder", "[applied]", false)))
                 .build()
         );
 
-        executorService.shutdown();
-        executorService.awaitTermination(3, TimeUnit.SECONDS);
+        //when
+        boolean result = lockingMechanism.release(CLIENT_ID);
 
-        assertThat(activityClient.retrievePreparedStatementExecutions()).contains(deleteLockPreparedStatement, deleteLockPreparedStatement);
+
+        //then
+        assertThat(result).isTrue();
+        assertThat(activityClient.retrievePreparedStatementExecutions()).containsExactly(deleteLockPreparedStatement, deleteLockPreparedStatement);
     }
 
     @Test
@@ -306,5 +303,25 @@ public class CassandraLockingMechanismTest {
                 .isNotNull()
                 .isInstanceOf(CannotReleaseLockException.class)
                 .hasMessage(String.format("Lock %s.schema_migration attempted to be released by a non lock holder (%s). Current lock holder: %s", LOCK_KEYSPACE, CLIENT_ID, newLockHolder));
+    }
+
+    @Test
+    public void shouldReturnFalseIfDeleteNotAppliedButClientIsUs() throws InterruptedException {
+        //given
+
+        primingClient.prime(PrimingRequest.preparedStatementBuilder()
+                .withQuery("DELETE FROM cqlmigrate_locks.locks WHERE name = ? IF client = ?")
+                .withThen(then()
+                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
+                        .withColumnTypes(column("client", PrimitiveType.TEXT), column("[applied]", PrimitiveType.BOOLEAN))
+                        .withRows(ImmutableMap.of("client", CLIENT_ID, "[applied]", false)))
+                .build()
+        );
+
+        //when
+        boolean released = lockingMechanism.release(CLIENT_ID);
+
+        //then
+        assertThat(released).isFalse();
     }
 }
