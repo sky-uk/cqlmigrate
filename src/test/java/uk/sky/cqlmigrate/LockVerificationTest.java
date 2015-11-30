@@ -1,144 +1,189 @@
 package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.*;
-import com.google.common.base.Optional;
 import com.google.common.util.concurrent.Uninterruptibles;
-import org.hamcrest.Matchers;
-import org.junit.*;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import uk.sky.cqlmigrate.CassandraLockConfig.CassandraLockConfigBuilder;
 
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
-import static com.google.common.collect.Lists.newArrayList;
 import static java.util.Collections.singletonList;
 import static java.util.concurrent.Executors.newFixedThreadPool;
-import static org.junit.Assert.assertThat;
+import static junit.framework.TestCase.fail;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Ignore("Ignored till we can move it out of pipeline build")
 public class LockVerificationTest {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(LockVerificationTest.class);
-    private static final BlockingQueue<Optional<Integer>> RESULTS_STORE = new ArrayBlockingQueue<>(25);
     private static final String CASSANDRA_HOST = "localhost";
 
     private static final int CASSANDRA_PORT = 9042;
     private static final String KEYSPACE = "locker";
-    private static String TABLE_NAME = KEYSPACE + "." + "lock_testing";
+    private static String TABLE_NAME = KEYSPACE + ".lock_testing";
 
     private Cluster cluster;
     private Session session;
+    private CassandraLockConfigBuilder configBuilder;
+
 
     @Before
     public void setUp() {
+        configBuilder = CassandraLockConfig.builder()
+                .withPollingInterval(Duration.ofMillis(30));
+
         cluster = createCluster();
         session = cluster.connect();
 
-        session.execute(String.format("DROP KEYSPACE IF EXISTS %s;", KEYSPACE));
+        session.execute(String.format("DROP KEYSPACE IF EXISTS %s", KEYSPACE));
         session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_locks");
+        session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test");
 
         session.execute("CREATE KEYSPACE IF NOT EXISTS cqlmigrate_locks WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
-        session.execute("CREATE TABLE IF NOT EXISTS cqlmigrate_locks.locks (name text PRIMARY KEY, client text)");
+        Uninterruptibles.sleepUninterruptibly(800, TimeUnit.MILLISECONDS);
 
-        session.execute(String.format("CREATE KEYSPACE %s WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 3};", KEYSPACE));
-        Uninterruptibles.sleepUninterruptibly(300, TimeUnit.MILLISECONDS);
+        session.execute("CREATE TABLE IF NOT EXISTS cqlmigrate_locks.locks (name text PRIMARY KEY, client text);");
+        Uninterruptibles.sleepUninterruptibly(800, TimeUnit.MILLISECONDS);
+
+        session.execute(String.format("CREATE KEYSPACE %s WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};", KEYSPACE));
+        Uninterruptibles.sleepUninterruptibly(800, TimeUnit.MILLISECONDS);
+
         session.execute(String.format("CREATE TABLE %s (id text PRIMARY KEY, counter int);", TABLE_NAME));
         Uninterruptibles.sleepUninterruptibly(800, TimeUnit.MILLISECONDS);
-        session.execute(new SimpleStatement(String.format("INSERT INTO %s (id, counter) VALUES (?, ?);", TABLE_NAME), "lock-tester", 1).setConsistencyLevel(ConsistencyLevel.QUORUM));
+
+        session.execute(new SimpleStatement(String.format("INSERT INTO %s (id, counter) VALUES (?, ?);", TABLE_NAME), "lock-tester", 0).setConsistencyLevel(ConsistencyLevel.QUORUM));
     }
 
     @After
     public void cleanUp() {
-        final String dropKeyspaceQuery = String.format("DROP KEYSPACE IF EXISTS %s;", KEYSPACE);
-        session.execute(dropKeyspaceQuery);
+        session.execute(String.format("DROP KEYSPACE IF EXISTS %s", KEYSPACE));
+        session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_locks");
+        session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test");
         session.close();
         cluster.close();
     }
 
     @Test
     public void shouldManageContentionsForSchemaMigrate() throws InterruptedException, URISyntaxException {
+        final Collection<Path> cqlPaths = singletonList(Paths.get(ClassLoader.getSystemResource("cql_migrate_multithreads").toURI()));
+        final Callable<String> cqlMigrate = () -> {
+            Cluster cluster = createCluster();
+            Session session = cluster.connect();
 
-        final Path cql_bootstrap = Paths.get(ClassLoader.getSystemResource("cql_migrate_multithreads").toURI());
-        final CqlMigrator cqlMigrator = CqlMigratorFactory.create(CassandraLockConfig.builder().build());
+            CqlMigratorImpl cqlMigrator = new CqlMigratorImpl(CassandraLockConfig.builder().build());
+            cqlMigrator.migrate(session, "cqlmigrate_test", cqlPaths);
 
-        final Collection<Path> cqlPaths = singletonList(cql_bootstrap);
-        final ExecutorService cqlMigratorManager = newFixedThreadPool(25);
-        final Callable<String> cqlMigrate = () ->  { cqlMigrator.migrate(session, "cqlmigrate_test", cqlPaths); return "Done"; };
-        final List<Callable<String>> workers = newArrayList();
+            session.close();
+            cluster.close();
+            return "Done";
+        };
 
         session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test;");
 
-        for(int i=0; i< 20; i++){
-            workers.add(cqlMigrate);
-        }
+        List<Callable<String>> workers = IntStream.range(0, 25)
+                .mapToObj(i -> cqlMigrate)
+                .collect(Collectors.toList());
 
-        long startTime = System.currentTimeMillis();
-        final List<Future<String>> futures = cqlMigratorManager.invokeAll(workers);
-
-        System.out.println(futures.size());
+        final ExecutorService threadPool = newFixedThreadPool(25);
+        final List<Future<String>> futures = threadPool.invokeAll(workers);
 
         futures.forEach(future -> {
             try {
                 future.get();
             } catch (Exception e) {
                 e.printStackTrace();
-                Assert.fail(e.getMessage());
+                fail(e.getMessage());
             }
         });
 
-        cqlMigratorManager.shutdown();
-
-        long elapsed = (System.currentTimeMillis() - startTime) / 1000;
-        assertThat("Schema migration took longer than 25s", elapsed, Matchers.lessThanOrEqualTo(25L));
+        threadPool.shutdown();
     }
 
     @Test
     public void shouldObtainLockToInsertRecord() throws InterruptedException {
-        final CassandraLockConfig config = CassandraLockConfig.builder()
-                .withPollingInterval(Duration.ofMillis(30)).build();
+        final int maximumCounter = 1000;
+        final int maximumWorkers = 25;
+        final Callable<Set<Integer>> worker = () -> {
+            Cluster cluster = createCluster();
+            Session session = cluster.connect();
 
-        final Callable<Optional<Integer>> worker = () -> {
-            Integer counter = null;
-            try {
-                UUID clientId = UUID.randomUUID();
-                CassandraLockingMechanism lockingMechanism = new CassandraLockingMechanism(session, KEYSPACE);
-                Lock lock = new Lock(lockingMechanism, config);
+            CassandraLockingMechanism lockingMechanism = new CassandraLockingMechanism(session, KEYSPACE);
+            CassandraLockConfig lockConfig = configBuilder.withClientId(UUID.randomUUID().toString()).build();
+
+            Lock lock = new Lock(lockingMechanism, lockConfig);
+
+            boolean done = false;
+            Set<Integer> counters = new HashSet<>();
+            do {
                 lock.lock();
-                counter = readAndIncrementCounter();
-                LOGGER.info("Client {} registered counter {}", clientId, counter);
-                lock.unlock();
 
-            } catch (Exception e) {
-                LOGGER.error("Unexpected exception:", e);
-            } finally {
-                RESULTS_STORE.put(Optional.fromNullable(counter));
-            }
-            return Optional.fromNullable(counter);
+                int currentCounter = readCurrentCounter();
+                done = currentCounter >= maximumCounter;
+                if (!done) {
+                    int updatedCounter = currentCounter + 1;
+                    updateCounter(updatedCounter);
+                    counters.add(updatedCounter);
+                    LOGGER.info("Client {} registered counter {}", lockConfig.getClientId(), updatedCounter);
+                }
+
+                lock.unlock();
+            } while(!done);
+
+            session.close();
+            cluster.close();
+            return counters;
         };
 
-        final LockVerifier lockVerifier = new LockVerifier(worker)
-                .withMaximumParallelWorkers(4)
-                .withExpectedIterations(100);
-        lockVerifier.start();
-        lockVerifier.validateProgressAndWaitUntilDone();
+        List<Callable<Set<Integer>>> workers = IntStream.range(0, maximumWorkers)
+                .mapToObj(i -> worker)
+                .collect(Collectors.toList());
 
+        final ExecutorService threadPool = newFixedThreadPool(maximumWorkers);
+        final List<Future<Set<Integer>>> futures = threadPool.invokeAll(workers);
+
+        Set<Integer> allCounters = new HashSet<>();
+
+        futures.forEach(future -> {
+            try {
+                Set<Integer> workerCounters = future.get();
+                for (int counter : workerCounters) {
+                    assertThat(allCounters.add(counter)).as("Locking failed: duplicate counter was found: " + counter).isTrue();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                fail(e.getMessage());
+            }
+        });
+
+        assertThat(allCounters.size()).isEqualTo(maximumCounter);
+
+        threadPool.shutdown();
     }
 
-    private int readAndIncrementCounter() {
-        final int currentCounter = readCurrentCounter();
-        final int updatedCounter = currentCounter + 1;
-        session.execute(new SimpleStatement(String.format("UPDATE %s SET counter = %d WHERE id = 'lock-tester'", TABLE_NAME, updatedCounter)).setConsistencyLevel(ConsistencyLevel.QUORUM));
+    private void updateCounter(int updatedCounter) {
+        Statement updateCounterQuery = new SimpleStatement(String.format("UPDATE %s SET counter = %d WHERE id = 'lock-tester'", TABLE_NAME, updatedCounter)).setConsistencyLevel(ConsistencyLevel.QUORUM);
+        session.execute(updateCounterQuery);
 
-        return updatedCounter;
     }
 
     private int readCurrentCounter() {
-        final ResultSet currentRecord = session.execute(new SimpleStatement(String.format("SELECT counter from %s WHERE id = 'lock-tester'", TABLE_NAME)).setConsistencyLevel(ConsistencyLevel.QUORUM));
+        Statement readCounterQuery = new SimpleStatement(String.format("SELECT counter from %s WHERE id = 'lock-tester'", TABLE_NAME)).setConsistencyLevel(ConsistencyLevel.QUORUM);
+        final ResultSet currentRecord = session.execute(readCounterQuery);
         return currentRecord.one().getInt("counter");
     }
 
@@ -146,61 +191,15 @@ public class LockVerificationTest {
         QueryOptions queryOptions = new QueryOptions();
         queryOptions.setConsistencyLevel(ConsistencyLevel.LOCAL_QUORUM);
 
+        SocketOptions socketOptions = new SocketOptions();
+        socketOptions.setReadTimeoutMillis(1000);
+
         return Cluster.builder()
                 .addContactPoints(CASSANDRA_HOST)
                 .withPort(CASSANDRA_PORT)
                 .withQueryOptions(queryOptions)
+                .withSocketOptions(socketOptions)
                 .build();
     }
 
-    private static class LockVerifier {
-        private final ExecutorService executorService;
-        private int maximumConcurrentThreads;
-        private int maximumIterations;
-        private final Callable<Optional<Integer>> worker;
-        private final Set<Integer> results;
-
-        private LockVerifier(Callable<Optional<Integer>> worker) {
-            this.maximumConcurrentThreads = 4;
-            this.maximumIterations = 10_000_000;
-            this.worker = worker;
-
-            this.executorService = newFixedThreadPool(25);
-            this.results = new HashSet<>();
-        }
-
-        public LockVerifier withMaximumParallelWorkers(int maximumParallelWorkers) {
-            this.maximumConcurrentThreads = maximumParallelWorkers;
-            return this;
-        }
-
-        public LockVerifier withExpectedIterations(int maximumIterations) {
-            this.maximumIterations = maximumIterations;
-            return this;
-        }
-
-        public void start() {
-            for (int i = 0; i < maximumConcurrentThreads; i++) {
-                executorService.submit(worker);
-            }
-        }
-
-        public void validateProgressAndWaitUntilDone() throws InterruptedException {
-            int counter = 1;
-            while (counter < maximumIterations) {
-                final Optional<Integer> polledValue = RESULTS_STORE.take();
-                counter = polledValue.or(counter);
-
-                if (polledValue.isPresent()) {
-                    if (!results.add(polledValue.get())) {
-                        Assert.fail("Lock allowed a duplicate counter: " + polledValue);
-                    }
-                    LOGGER.info("Current counter {}", counter);
-                    executorService.submit(worker);
-                }
-            }
-            executorService.shutdown();
-            executorService.awaitTermination(5, TimeUnit.MINUTES);
-        }
-    }
 }
