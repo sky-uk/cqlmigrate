@@ -87,7 +87,8 @@ class CassandraLockingMechanism extends LockingMechanism {
             ResultSet resultSet = session.execute(deleteLockQuery.bind(lockName, clientId));
             Row result = resultSet.one();
 
-            if (result.getBool("[applied]") || !result.getColumnDefinitions().contains("client")) {
+            boolean noLockExists = !result.getColumnDefinitions().contains("client");
+            if (result.getBool("[applied]") || noLockExists) {
                 log.info("Lock released for {} by client {} at: {}", lockName, clientId, System.currentTimeMillis());
                 return true;
             }
