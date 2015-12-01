@@ -4,34 +4,54 @@ import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.exceptions.AlreadyExistsException;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import com.google.common.util.concurrent.Uninterruptibles;
+import org.apache.cassandra.exceptions.ConfigurationException;
+import org.apache.thrift.transport.TTransportException;
+import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
+import org.junit.*;
 
-import java.util.Collection;
-import java.util.Collections;
+import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
 
 public class SchemaUpdatesTest {
 
+    private static final String[] CASSANDRA_HOSTS = {"localhost"};
+    private static int binaryPort;
+    private static Cluster cluster;
+    private static Session session;
+    private static final String TEST_KEYSPACE = "cqlmigrate_test";
+
     private static final String SCHEMA_UPDATES_TABLE = "schema_updates";
-    private final Collection<String> CASSANDRA_HOSTS = Collections.singletonList("localhost");
-    private final String TEST_KEYSPACE = "cqlmigrate_test";
-    private final Cluster cluster = Cluster.builder().addContactPoints(CASSANDRA_HOSTS.toArray(new String[CASSANDRA_HOSTS.size()])).build();
+
+    @BeforeClass
+    public static void setupCassandra() throws ConfigurationException, IOException, TTransportException, InterruptedException {
+        EmbeddedCassandraServerHelper.startEmbeddedCassandra(EmbeddedCassandraServerHelper.CASSANDRA_RNDPORT_YML_FILE);
+        binaryPort = EmbeddedCassandraServerHelper.getNativeTransportPort();
+
+        cluster = Cluster.builder().addContactPoints(CASSANDRA_HOSTS).withPort(binaryPort).build();
+        session = cluster.connect();
+    }
 
     @Before
     public void setUp() throws Exception {
-        cluster.connect().execute("drop keyspace if exists cqlmigrate_test");
+        session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test");
     }
 
     @After
     public void tearDown() {
-        cluster.closeAsync();
         System.clearProperty("hosts");
         System.clearProperty("keyspace");
         System.clearProperty("directories");
+    }
+
+    @AfterClass
+    public static void tearDownClass() throws Exception {
+        cluster.close();
+        EmbeddedCassandraServerHelper.cleanEmbeddedCassandra();
+        Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
     }
 
     @Test
