@@ -115,7 +115,7 @@ public class LockVerificationTest {
 
         final int maximumCounter = 1000;
         final int maximumWorkers = 25;
-        final Callable<Set<Integer>> worker = () -> {
+        final Callable<List<Integer>> worker = () -> {
             Cluster cluster = createCluster();
             Session session = cluster.connect();
 
@@ -125,7 +125,7 @@ public class LockVerificationTest {
             Lock lock = new Lock(lockingMechanism, lockConfig);
 
             boolean done = false;
-            Set<Integer> counters = new HashSet<>();
+            List<Integer> counters = new ArrayList<>();
             do {
                 lock.lock();
 
@@ -146,18 +146,18 @@ public class LockVerificationTest {
             return counters;
         };
 
-        List<Callable<Set<Integer>>> workers = IntStream.range(0, maximumWorkers)
+        List<Callable<List<Integer>>> workers = IntStream.range(0, maximumWorkers)
                 .mapToObj(i -> worker)
                 .collect(Collectors.toList());
 
         final ExecutorService threadPool = newFixedThreadPool(maximumWorkers);
-        final List<Future<Set<Integer>>> futures = threadPool.invokeAll(workers);
+        final List<Future<List<Integer>>> futures = threadPool.invokeAll(workers);
 
         Set<Integer> allCounters = new HashSet<>();
 
         futures.forEach(future -> {
             try {
-                Set<Integer> workerCounters = future.get();
+                List<Integer> workerCounters = future.get();
                 for (int counter : workerCounters) {
                     assertThat(allCounters.add(counter)).as("Locking failed: duplicate counter was found: " + counter).isTrue();
                 }

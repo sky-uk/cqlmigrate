@@ -58,6 +58,7 @@ class CassandraLockingMechanism extends LockingMechanism {
         try {
             ResultSet resultSet = session.execute(insertLockQuery.bind(lockName, clientId));
             Row currentLock = resultSet.one();
+            // we could already hold the lock and not be aware if a previous acquire had a writetimeout as a timeout is not a failure in cassandra
             if (currentLock.getBool("[applied]") || clientId.equals(currentLock.getString("client"))) {
                 return true;
             } else {
@@ -87,6 +88,7 @@ class CassandraLockingMechanism extends LockingMechanism {
             ResultSet resultSet = session.execute(deleteLockQuery.bind(lockName, clientId));
             Row result = resultSet.one();
 
+            // if a row doesn't exist then cassandra doesn't send back any columns
             boolean noLockExists = !result.getColumnDefinitions().contains("client");
             if (result.getBool("[applied]") || noLockExists) {
                 log.info("Lock released for {} by client {} at: {}", lockName, clientId, System.currentTimeMillis());
