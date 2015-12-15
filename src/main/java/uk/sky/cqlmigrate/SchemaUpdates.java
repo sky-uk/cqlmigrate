@@ -1,4 +1,4 @@
-package uk.sky.cirrus;
+package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
@@ -23,28 +23,27 @@ class SchemaUpdates {
     private final Session session;
     private final String keyspace;
 
-    public SchemaUpdates(Session session, String keyspace) {
+    SchemaUpdates(Session session, String keyspace) {
         this.session = session;
         this.keyspace = keyspace;
     }
 
-    public void initialise() {
+    void initialise() {
         session.execute("USE " + keyspace + ";");
         session.execute("CREATE TABLE IF NOT EXISTS " + SCHEMA_UPDATES_TABLE + " (filename text primary key, " + CHECKSUM_COLUMN + " text, applied_on timestamp);");
     }
 
-    public boolean alreadyApplied(String filename) {
+    boolean alreadyApplied(String filename) {
         Row row = getSchemaUpdate(session, filename);
         return row != null;
     }
 
     @Nullable
-    private com.datastax.driver.core.Row getSchemaUpdate(Session session, String filename) {
-        return session.execute("SELECT * FROM " + SCHEMA_UPDATES_TABLE + " where filename = ?", filename)
-                      .one();
+    private Row getSchemaUpdate(Session session, String filename) {
+        return session.execute("SELECT * FROM " + SCHEMA_UPDATES_TABLE + " where filename = ?", filename).one();
     }
 
-    public boolean contentsAreDifferent(String filename, Path path) {
+    boolean contentsAreDifferent(String filename, Path path) {
         Row row = checkNotNull(getSchemaUpdate(session, filename));
         String previousSha1 = row.getString(CHECKSUM_COLUMN);
 
@@ -56,13 +55,12 @@ class SchemaUpdates {
         }
     }
 
-    public void add(String filename, Path path) {
+    void add(String filename, Path path) {
 
         String query = "INSERT INTO " + SCHEMA_UPDATES_TABLE + " (filename, " + CHECKSUM_COLUMN + ", applied_on)" +
                 " VALUES (?, ?, dateof(now()));";
         LOGGER.debug("Applying schema cql: {} path: {}", query, path);
-        session.execute(query,
-                        filename, calculateChecksum(path));
+        session.execute(query, filename, calculateChecksum(path));
     }
 
     private String calculateChecksum(Path path) {

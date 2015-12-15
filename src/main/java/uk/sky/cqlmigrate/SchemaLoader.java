@@ -1,4 +1,4 @@
-package uk.sky.cirrus;
+package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.Session;
 import org.slf4j.Logger;
@@ -13,21 +13,21 @@ class SchemaLoader {
     private final Session session;
     private final String keyspace;
     private final SchemaUpdates schemaUpdates;
-    private final Paths paths;
+    private final CqlPaths paths;
 
-    public SchemaLoader(Session session, String keyspace, SchemaUpdates schemaUpdates, Paths paths) {
+    SchemaLoader(Session session, String keyspace, SchemaUpdates schemaUpdates, CqlPaths paths) {
         this.session = session;
         this.keyspace = keyspace;
         this.schemaUpdates = schemaUpdates;
         this.paths = paths;
     }
 
-    public void load() {
+    void load() {
         session.execute("USE " + keyspace + ";");
         paths.applyInSortedOrder(new Loader());
     }
 
-    private class Loader implements Paths.Function {
+    private class Loader implements CqlPaths.Function {
         @Override
         public void apply(String filename, Path path) {
             if (schemaUpdates.alreadyApplied(filename)) {
@@ -40,14 +40,13 @@ class SchemaLoader {
             } else {
                 String lowercasePath = path.toString().toLowerCase();
                 if (lowercasePath.endsWith(".cql")) {
-                    FileLoader.loadCql(session, path);
+                    CqlLoader.load(session, path);
                 } else {
                     throw new IllegalArgumentException("Unrecognised file type: " + path);
                 }
 
                 schemaUpdates.add(filename, path);
                 LOGGER.info("Applied: {}", path.getFileName());
-
             }
         }
     }

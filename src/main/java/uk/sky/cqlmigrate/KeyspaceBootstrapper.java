@@ -1,11 +1,9 @@
-package uk.sky.cirrus;
+package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.Session;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.nio.file.Path;
 
 class KeyspaceBootstrapper {
 
@@ -13,26 +11,21 @@ class KeyspaceBootstrapper {
 
     private final Session session;
     private final String keyspace;
-    private final Paths paths;
+    private final CqlPaths paths;
 
-    public KeyspaceBootstrapper(Session session, String keyspace, Paths paths) {
+    KeyspaceBootstrapper(Session session, String keyspace, CqlPaths paths) {
         this.session = session;
         this.keyspace = keyspace;
         this.paths = paths;
     }
 
-    public void bootstrap() {
+    void bootstrap() {
         KeyspaceMetadata keyspaceMetadata = session.getCluster().getMetadata().getKeyspace(keyspace);
         if (keyspaceMetadata == null) {
-            paths.applyBootstrap(new Paths.Function() {
-                @Override
-                public void apply(String filename, Path path) {
-                    LOGGER.info("Keyspace not found, applying {}", path);
-
-                    FileLoader.loadCql(session, path);
-
-                    LOGGER.info("Applied: bootstrap.cql");
-                }
+            paths.applyBootstrap((filename, path) -> {
+                LOGGER.info("Keyspace not found, applying {}", path);
+                CqlLoader.load(session, path);
+                LOGGER.info("Applied: bootstrap.cql");
             });
         } else {
             LOGGER.info("Keyspace found, not applying bootstrap.cql");

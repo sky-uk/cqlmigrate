@@ -7,13 +7,38 @@ cqlmigrate is a library for performing schema migrations on a cassandra cluster.
 It is best used as a dependency in your application, but can also be used
 standalone.
 
+## Prerequisites
+
+The locks keyspace and table needs to be created before running the migration.
+
+    CREATE KEYSPACE IF NOT EXISTS cqlmigrate_locks WITH replication = {'class': 'REPLICATION_CLASS', 'replication_factor': REPLICATION_FACTOR };
+    CREATE TABLE IF NOT EXISTS cqlmigrate_locks.locks (name text PRIMARY KEY, client text);
+
 ## Library usage
 
 The API is contained in `CqlMigrator`, and works on directories of files ending with `.cql`.
 
 For example, to apply all `.cql` files located in `/cql` in the classpath:
 
-    CqlMigrator migrator = new CqlMigrator();
+Configure the lock:
+
+    CassandraLockConfig lockConfig = CassandraLockConfig.builder()
+                    .withTimeout(Duration.standardSeconds(3))
+                    .withPollingInterval(Duration.millis(500))
+                    .withClientId("127.0.0.1")
+                    .build();
+                    
+Or
+
+    CassandraLockConfig lockConfig = CassandraLockConfig.builder()
+                    .withTimeout(Duration.standardSeconds(3))
+                    .withPollingInterval(Duration.millis(500))
+                    .withClientId("127.0.0.1")
+                    .build();
+
+Then:                    
+
+    CqlMigrator migrator = new CqlMigrator(lockConfig);
     Path schemas = Paths.get(ClassLoader.getSystemResource("/cql").toURI());
     migrator.migrate(asList("localhost"), "my_keyspace", asList(schemas));
 
@@ -27,7 +52,12 @@ $ java -Dhosts=localhost,192.168.1.1 -Dkeyspace=my_keyspace -Ddirectories=cql-co
 
 ## What it does
 
-1. Looks for a `bootstrap.cql` file and runs it first. This file should contain your keyspace definition.
+1. Checks all nodes are up and their schema's are in agreement.
+
+2. Tries to acquire a lock for the keyspace you are migrating.
+   If it can't initially be acquired it will continue to retry at a set polling time until the timeout is reached.  
+
+3. Looks for a `bootstrap.cql` file and runs it first. This file should contain your keyspace definition.
 
    For example:
    ```
@@ -35,7 +65,7 @@ $ java -Dhosts=localhost,192.168.1.1 -Dkeyspace=my_keyspace -Ddirectories=cql-co
      WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };
    ```        
 
-2. Applies `.cql` files one by one, sorted by filename in descending order. It is suggested you prefix
+4. Applies `.cql` files one by one, sorted by filename in ascending order. It is suggested you prefix
    your files with a datetime to order them.
 
    For example:
@@ -45,6 +75,8 @@ $ java -Dhosts=localhost,192.168.1.1 -Dkeyspace=my_keyspace -Ddirectories=cql-co
    ```
 
    Any previously applied files will be skipped.
+   
+5. Releases the lock.
 
 ### schema_updates table
 
@@ -62,14 +94,33 @@ This table is used to determine what has been previously applied.
 
 It also maintains a checksum to ensure the script hasn't changed since it was last applied.
 
+### locks keyspace and table
+
+The locks keyspace replication class and factor can be configured using the LocksConfig.
+This table is used to keep track of what locks are currently in place.
+
+    SELECT * FROM locks;
+    
+     name                                | client
+    -------------------------------------+--------------------------------------
+     airplanes_keyspace.schema_migration | 2a4ec2ae-d3d1-4b33-86a9-eb844e35eeeb
+    
+    (1 rows)
+
+Each lock will be deleted by Cql Migrate once the migration is complete.
+
+## Supported Cassandra versions
+
+This project has been tested against the following versions:
+* 2.1.7
+* DSE 4.7.3 (2.1.8)
+* 2.2.2
+* 2.2.3
+
 ## Caveats
 
 Cassandra is an eventually consistent, AP database, and so applying schema updates are not as simple
 as a strongly consistent database.
-
-* Schema migrations should only be run from a single client at a time. If you embed your migrations as
-  part of application startup, you will need some sort of coordination system to prevent concurrent
-  migrations. Consider using rolling updates, or a service such as zookeeper or etcd. 
 
 * Certain schema changes can cause data corruption on cassandra. Be very careful changing a schema for a
   table that is being actively written to. Generally, adding columns is safe (but be careful with
@@ -91,3 +142,5 @@ Originally developed by the Cirrus team at Sky.
 - Ashutosh Gawande
 - Dominic Mullings
 - Yoseph Sultan
+- David Sale
+- Supreeth Rao
