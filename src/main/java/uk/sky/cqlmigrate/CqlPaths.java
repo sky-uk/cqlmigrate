@@ -1,19 +1,21 @@
 package uk.sky.cqlmigrate;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSortedMap;
 
-import java.io.File;
-import java.io.FilenameFilter;
+import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.StreamSupport;
 
 class CqlPaths {
 
     private static final String BOOTSTRAP_CQL = "bootstrap.cql";
-    private static final FilenameFilter CQL_FILE_NAMES = (file, name) -> name.endsWith(".cql");
+    private static final String CQL_FILE_FILTER = "*.cql";
 
     private final ImmutableSortedMap<String, Path> sortedCqlPaths;
 
@@ -22,16 +24,23 @@ class CqlPaths {
     }
 
     static CqlPaths create(Collection<Path> directories) {
-        Map<String, Path> paths = new HashMap<>();
+        Map<String, Path> cqlPathsMap = new HashMap<>();
 
         directories.stream()
-                .map(path -> path.toFile().listFiles(CQL_FILE_NAMES))
-                .map(Arrays::asList)
-                .flatMap(Collection::stream)
-                .map(File::toPath)
-                .forEach(path -> addPathToMap(paths, path));
+                .map(CqlPaths::directoryStreamFromPath)
+                .flatMap(directoryStream -> StreamSupport.stream(directoryStream.spliterator(), false))
+                .forEach(path -> addPathToMap(cqlPathsMap, path));
 
-        return new CqlPaths(paths);
+        return new CqlPaths(cqlPathsMap);
+    }
+
+    private static DirectoryStream<Path> directoryStreamFromPath(Path path) {
+        try {
+            return Files.newDirectoryStream(path, CQL_FILE_FILTER);
+        }
+        catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
     }
 
     public void applyInSortedOrder(Function function) {
