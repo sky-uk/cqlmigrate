@@ -15,6 +15,12 @@ task wrapper(type: Wrapper) {
     gradleVersion = '2.7'
 }
 
+configurations {
+    testCompileAndFunctional
+    functional.extendsFrom testCompileAndFunctional
+    testCompile.extendsFrom testCompileAndFunctional
+}
+
 dependencies {
     compile 'com.datastax.cassandra:cassandra-driver-core:2.1.8'
     compile 'org.slf4j:slf4j-api:1.7.12'
@@ -24,8 +30,10 @@ dependencies {
     testCompile 'junit:junit:4.12'
     testCompile 'org.assertj:assertj-core:2.0.0'
     testCompile 'org.scassandra:java-client:0.10.0'
-    testCompile 'org.cassandraunit:cassandra-unit-shaded:2.1.9.2'
     testCompile 'org.mockito:mockito-all:1.10.19'
+
+    testCompileAndFunctional 'org.cassandraunit:cassandra-unit-shaded:2.1.9.2'
+    functional 'org.slf4j:slf4j-simple:1.7.12'
 }
 
 task sourcesJar(type: Jar) {
@@ -43,3 +51,26 @@ artifacts {
     archives sourcesJar
     archives jar
 }
+
+task testJar (type: Jar) {
+    classifier = 'tests'
+    from (sourceSets.main.output, sourceSets.test.output)
+    from {
+        (configurations.runtime + configurations.functional).collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    }
+    manifest {
+        attributes 'Main-Class': 'uk.sky.cqlmigrate.example.CmdLineEntryPoint'
+    }
+}
+
+// Functional test is to run the migrateSchema on a jar containing embedded CQL files and have it return successfully.
+task functional (dependsOn: ['testJar']) << {
+    exec {
+        executable = 'java'
+        args = ['-jar', testJar.archivePath, 'migrateSchema']
+    }
+}
+
+check.dependsOn(functional)
