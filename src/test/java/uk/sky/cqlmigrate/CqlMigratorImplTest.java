@@ -419,4 +419,60 @@ public class CqlMigratorImplTest {
     public void shouldFailSilentlyIfCleaningANonExistingKeyspace() throws Exception {
         MIGRATOR.clean(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE);
     }
+
+    @Test
+    public void shouldCopeWithSemicolonsInStrings() throws Exception {
+        //given
+        System.setProperty("hosts", "localhost");
+        System.setProperty("keyspace", TEST_KEYSPACE);
+        System.setProperty("directories", getResourcePath("cql_rolegraphs_one").toString());
+        System.setProperty("port", String.valueOf(binaryPort));
+
+        //when
+        CqlMigratorImpl.main(new String[]{});
+
+        //then
+        Session session = cluster.connect(TEST_KEYSPACE);
+        ResultSet rs = session.execute("select * from role_graphs where provider = 'SKY'");
+        List<Row> rows = rs.all();
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).getString("graphml")).isEqualTo("some text; some more text");
+    }
+
+    @Test
+    public void shouldCopeWithEscapedSingleQuotes() throws Exception {
+        //given
+        System.setProperty("hosts", "localhost");
+        System.setProperty("keyspace", TEST_KEYSPACE);
+        System.setProperty("directories", getResourcePath("cql_rolegraphs_one").toString() + "," + getResourcePath("cql_rolegraphs_two").toString());
+        System.setProperty("port", String.valueOf(binaryPort));
+
+        //when
+        CqlMigratorImpl.main(new String[]{});
+
+        //then
+        Session session = cluster.connect(TEST_KEYSPACE);
+        ResultSet rs = session.execute("select * from role_graphs where provider = 'SKY'");
+        List<Row> rows = rs.all();
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).getString("graphml")).isEqualTo("some text with something 'quoted', some more text");
+    }
+
+    @Test
+    public void shouldCopeWithLongAndComplexCqlValues() throws Exception {
+        //given
+        System.setProperty("hosts", "localhost");
+        System.setProperty("keyspace", TEST_KEYSPACE);
+        System.setProperty("directories", getResourcePath("cql_rolegraphs_one").toString() + "," + getResourcePath("cql_rolegraphs_three").toString());
+        System.setProperty("port", String.valueOf(binaryPort));
+
+        //when
+        CqlMigratorImpl.main(new String[]{});
+
+        //then
+        Session session = cluster.connect(TEST_KEYSPACE);
+        ResultSet rs = session.execute("select * from role_graphs where provider = 'SKY'");
+        List<Row> rows = rs.all();
+        assertThat(rows).hasSize(1);
+    }
 }
