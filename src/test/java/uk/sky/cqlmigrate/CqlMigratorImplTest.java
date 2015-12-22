@@ -421,25 +421,6 @@ public class CqlMigratorImplTest {
     }
 
     @Test
-    public void shouldCopeWithSemicolonsInStrings() throws Exception {
-        //given
-        System.setProperty("hosts", "localhost");
-        System.setProperty("keyspace", TEST_KEYSPACE);
-        System.setProperty("directories", getResourcePath("cql_rolegraphs_one").toString());
-        System.setProperty("port", String.valueOf(binaryPort));
-
-        //when
-        CqlMigratorImpl.main(new String[]{});
-
-        //then
-        Session session = cluster.connect(TEST_KEYSPACE);
-        ResultSet rs = session.execute("select * from role_graphs where provider = 'SKY'");
-        List<Row> rows = rs.all();
-        assertThat(rows).hasSize(1);
-        assertThat(rows.get(0).getString("graphml")).isEqualTo("some text; some more text");
-    }
-
-    @Test
     public void shouldCopeWithEscapedSingleQuotes() throws Exception {
         //given
         System.setProperty("hosts", "localhost");

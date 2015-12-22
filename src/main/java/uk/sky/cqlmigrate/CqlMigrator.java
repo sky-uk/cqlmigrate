@@ -1,9 +1,9 @@
 package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.Session;
-import uk.sky.cqlmigrate.exception.ClusterUnhealthyException;
 import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
 import uk.sky.cqlmigrate.exception.CannotReleaseLockException;
+import uk.sky.cqlmigrate.exception.ClusterUnhealthyException;
 
 import java.nio.file.Path;
 import java.time.Duration;

@@ -5,6 +5,8 @@ import com.datastax.driver.core.Session;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
+
 class KeyspaceBootstrapper {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(KeyspaceBootstrapper.class);
@@ -24,7 +26,8 @@ class KeyspaceBootstrapper {
         if (keyspaceMetadata == null) {
             paths.applyBootstrap((filename, path) -> {
                 LOGGER.info("Keyspace not found, applying {}", path);
-                CqlLoader.load(session, path);
+                List<String> cqlStatements = CqlFileParser.getCqlStatementsFrom(path);
+                CqlLoader.load(session, cqlStatements);
                 LOGGER.info("Applied: bootstrap.cql");
             });
         } else {

@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
+import java.util.List;
 
 class SchemaLoader {
 
@@ -40,7 +41,8 @@ class SchemaLoader {
             } else {
                 String lowercasePath = path.toString().toLowerCase();
                 if (lowercasePath.endsWith(".cql")) {
-                    CqlLoader.load(session, path);
+                    List<String> cqlStatements = CqlFileParser.getCqlStatementsFrom(path);
+                    CqlLoader.load(session, cqlStatements);
                 } else {
                     throw new IllegalArgumentException("Unrecognised file type: " + path);
                 }
