@@ -1,40 +1,26 @@
 package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.Session;
-import com.google.common.base.Charsets;
-import com.google.common.base.Throwables;
+import com.datastax.driver.core.exceptions.DriverException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Arrays;
-
-import static com.google.common.base.Preconditions.checkState;
+import java.util.List;
 
 class CqlLoader {
     private static final Logger LOGGER = LoggerFactory.getLogger(CqlLoader.class);
 
     private CqlLoader() {}
 
-    static void load(Session session, Path cqlPath) {
-        StringBuilder statementBuilder = new StringBuilder();
-
-        try (BufferedReader cqlReader = Files.newBufferedReader(cqlPath, Charsets.UTF_8)) {
-
-            cqlReader.lines().forEach(statementBuilder::append);
-
-            String cqlStatements = statementBuilder.toString();
-            checkState(cqlStatements.endsWith(";"), "had a non-terminated cql line: %s", cqlStatements);
-
-            Arrays.stream(cqlStatements.split(";")).forEach(statement -> {
+    static void load(Session session, List<String> cqlStatements) {
+        try {
+            cqlStatements.stream().forEach(statement -> {
                 LOGGER.debug("Executing cql statement {}", statement);
                 session.execute(statement);
             });
-        } catch (Throwable t) {
-            LOGGER.error("Failed to execute cql script {}: {}", cqlPath.getFileName(), t.getMessage());
-            throw Throwables.propagate(t);
+        } catch (DriverException e) {
+            LOGGER.error("Failed to execute cql statements {}: {}", cqlStatements, e.getMessage());
+            throw e;
         }
     }
 }
