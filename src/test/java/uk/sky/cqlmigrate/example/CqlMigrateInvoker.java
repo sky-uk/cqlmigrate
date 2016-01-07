@@ -50,16 +50,16 @@ public class CqlMigrateInvoker {
 
     public void setUp() throws Exception {
         session.execute("DROP KEYSPACE IF EXISTS " + TEST_KEYSPACE);
-        session.execute("CREATE KEYSPACE IF NOT EXISTS cqlmigrate_locks WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
-        session.execute("CREATE TABLE IF NOT EXISTS cqlmigrate_locks.locks (name text PRIMARY KEY, client text)");
+        session.execute("CREATE KEYSPACE IF NOT EXISTS cqlmigrate WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
+        session.execute("CREATE TABLE IF NOT EXISTS cqlmigrate.locks (name text PRIMARY KEY, client text)");
     }
 
     public void tearDown() {
-        session.execute("TRUNCATE cqlmigrate_locks.locks");
+        session.execute("TRUNCATE cqlmigrate.locks");
         System.clearProperty("hosts");
         System.clearProperty("keyspace");
         System.clearProperty("directories");
-        session.execute("DROP KEYSPACE cqlmigrate_locks");
+        session.execute("DROP KEYSPACE cqlmigrate");
     }
 
     public static void tearDownCassandra() throws Exception {

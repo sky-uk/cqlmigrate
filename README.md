@@ -11,8 +11,8 @@ standalone.
 
 The locks keyspace and table needs to be created before running the migration.
 
-    CREATE KEYSPACE IF NOT EXISTS cqlmigrate_locks WITH replication = {'class': 'REPLICATION_CLASS', 'replication_factor': REPLICATION_FACTOR };
-    CREATE TABLE IF NOT EXISTS cqlmigrate_locks.locks (name text PRIMARY KEY, client text);
+    CREATE KEYSPACE IF NOT EXISTS cqlmigrate WITH replication = {'class': 'REPLICATION_CLASS', 'replication_factor': REPLICATION_FACTOR };
+    CREATE TABLE IF NOT EXISTS cqlmigrate.locks (name text PRIMARY KEY, client text);
 
 ## Library usage
 

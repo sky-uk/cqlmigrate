@@ -50,17 +50,17 @@ public class LockVerificationTest {
         cluster = createCluster();
         session = cluster.connect();
 
-        session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_locks");
-        session.execute("CREATE KEYSPACE IF NOT EXISTS cqlmigrate_locks WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
+        session.execute("DROP KEYSPACE IF EXISTS cqlmigrate");
+        session.execute("CREATE KEYSPACE IF NOT EXISTS cqlmigrate WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
         Uninterruptibles.sleepUninterruptibly(800, TimeUnit.MILLISECONDS);
-        session.execute("CREATE TABLE IF NOT EXISTS cqlmigrate_locks.locks (name text PRIMARY KEY, client text);");
+        session.execute("CREATE TABLE IF NOT EXISTS cqlmigrate.locks (name text PRIMARY KEY, client text);");
         Uninterruptibles.sleepUninterruptibly(800, TimeUnit.MILLISECONDS);
     }
 
     @After
     public void cleanUp() {
         session.execute(String.format("DROP KEYSPACE IF EXISTS %s", KEYSPACE));
-        session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_locks");
+        session.execute("DROP KEYSPACE IF EXISTS cqlmigrate");
         session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test");
         session.close();
         cluster.close();

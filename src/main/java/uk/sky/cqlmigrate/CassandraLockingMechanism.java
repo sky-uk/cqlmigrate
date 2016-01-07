@@ -36,8 +36,8 @@ class CassandraLockingMechanism extends LockingMechanism {
         super.init();
 
         try {
-            insertLockQuery = session.prepare("INSERT INTO cqlmigrate_locks.locks (name, client) VALUES (?, ?) IF NOT EXISTS");
-            deleteLockQuery = session.prepare("DELETE FROM cqlmigrate_locks.locks WHERE name = ? IF client = ?");
+            insertLockQuery = session.prepare("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS");
+            deleteLockQuery = session.prepare("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?");
 
         } catch (DriverException e) {
             throw new CannotAcquireLockException("Query to prepare locks queries failed", e);
