@@ -3,18 +3,20 @@ plugins {
     id 'idea'
     id 'maven'
     id 'maven-publish'
+    id 'com.jfrog.bintray' version '1.5'
     id 'pl.allegro.tech.build.axion-release' version '1.3.3'
 }
 
 scmVersion {
     tag {
-        prefix = 'cqlmigrate'
+        prefix = ''
     }
 }
 
-group = 'uk.sky.cirrus'
+group = 'uk.sky'
 version = scmVersion.version
 sourceCompatibility = '1.8'
+targetCompatibility = '1.8'
 
 if (!project.hasProperty("openSourceRepoUrl")) {
     ext.openSourceRepoUrl = "dummy"
@@ -26,18 +28,25 @@ if (!project.hasProperty("openSourceRepoPass")) {
     ext.openSourceRepoPass = "dummy"
 }
 
-publishing {
-    repositories {
-        maven {
-            url openSourceRepoUrl
-            name 'openSource'
-
-            credentials {
-                username = openSourceRepoUser
-                password = openSourceRepoPass
-            }
+bintray {
+    user = project.property('openSourceRepoUser')
+    key = project.property('openSourceRepoPass')
+    publications = ['artifacts']
+    pkg {
+        userOrg = 'sky-uk'
+        repo = 'oss-maven'
+        name = project.name
+        licenses = ['BSD 3-Clause']
+        vcsUrl = 'https://github.com/sky-uk/cqlmigrate.git'
+        version {
+            name = scmVersion.version
+            released = new Date()
+            vcsTag = scmVersion.version
         }
     }
+}
+
+publishing {
     publications {
         artifacts(MavenPublication) {
             from components.java
