@@ -5,16 +5,16 @@ We use axion-release which relies on semantic versioning and git tags.
 To simply release a bug fix:
 
     ./gradlew check release
-    ./gradlew publishArtifactPublicationToOpenSourceRepository
+    ./gradlew bintrayUpload
 
 To bump the version (when adding functionality or breaking backwards compatibility):
 
     ./gradlew release -Prelease.forceVersion=1.0.0
-    ./gradlew publishArtifactPublicationToOpenSourceRepository
+    ./gradlew bintrayUpload
 
 Get the current version:
 
     ./gradlew currentVersion
 
-Note that none of the above Gradle tasks will work correctly unless the relevant `openSource*` properties have been
-defined in the system gradle.properties.
+Note that the `bintrayUpload` Gradle tasks will fail authentication unless the relevant `openSource*` properties have
+been defined in the system gradle.properties or overridden on the Gradle command line.
