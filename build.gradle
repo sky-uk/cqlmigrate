@@ -18,9 +18,6 @@ version = scmVersion.version
 sourceCompatibility = '1.8'
 targetCompatibility = '1.8'
 
-if (!project.hasProperty("openSourceRepoUrl")) {
-    ext.openSourceRepoUrl = "dummy"
-}
 if (!project.hasProperty("openSourceRepoUser")) {
     ext.openSourceRepoUser = "dummy"
 }
