@@ -2,9 +2,7 @@ package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.Session;
-import lombok.Data;
 
-@Data
 class ExecutionInfo {
 
     private final Session session;
@@ -18,5 +16,15 @@ class ExecutionInfo {
         this.writeConsistencyLevel = writeConsistencyLevel;
     }
 
+    public Session getSession() {
+        return session;
+    }
 
+    public ConsistencyLevel getReadConsistencyLevel() {
+        return readConsistencyLevel;
+    }
+
+    public ConsistencyLevel getWriteConsistencyLevel() {
+        return writeConsistencyLevel;
+    }
 }

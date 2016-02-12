@@ -46,9 +46,9 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
 
     private final CqlMigratorImpl migrator = new CqlMigratorImpl(
             CqlMigratorConfig.builder()
-                    .cassandraLockConfig(lockConfig)
-                    .readConsistencyLevel(EXPECTED_READ_CONSISTENCY_LEVEL)
-                    .writeConsistencyLevel(EXPECTED_WRITE_CONSISTENCY_LEVEL)
+                    .withCassandraLockConfig(lockConfig)
+                    .withReadConsistencyLevel(EXPECTED_READ_CONSISTENCY_LEVEL)
+                    .withWriteConsistencyLevel(EXPECTED_WRITE_CONSISTENCY_LEVEL)
                     .build()
     );
 

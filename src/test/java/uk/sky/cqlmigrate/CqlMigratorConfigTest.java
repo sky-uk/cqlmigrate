@@ -31,7 +31,7 @@ public class CqlMigratorConfigTest {
     public void shouldThrowIllegalArgumentExceptionWhenAnyPararmeterPassedIntoBuilderIsNul(CassandraLockConfig config, ConsistencyLevel readCL, ConsistencyLevel writeCL) {
         Assume.assumeTrue(config == null || readCL == null || writeCL == null);
 
-        expectedException.expect(IllegalArgumentException.class);
-        CqlMigratorConfig.builder().readConsistencyLevel(readCL).writeConsistencyLevel(writeCL).cassandraLockConfig(config).build();
+        expectedException.expect(NullPointerException.class);
+        CqlMigratorConfig.builder().withReadConsistencyLevel(readCL).withWriteConsistencyLevel(writeCL).withCassandraLockConfig(config).build();
     }
 }
