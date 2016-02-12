@@ -76,7 +76,11 @@ public class LockVerificationTest {
             Cluster cluster = createCluster();
             Session session = cluster.connect();
 
-            CqlMigratorImpl cqlMigrator = new CqlMigratorImpl(CassandraLockConfig.builder().build());
+            CqlMigrator cqlMigrator = CqlMigratorFactory.create(CqlMigratorConfig.builder()
+                    .cassandraLockConfig(CassandraLockConfig.builder().build())
+                    .readConsistencyLevel(ConsistencyLevel.ALL)
+                    .writeConsistencyLevel(ConsistencyLevel.ALL)
+                    .build());
             cqlMigrator.migrate(session, "cqlmigrate_test", cqlPaths);
 
             session.close();

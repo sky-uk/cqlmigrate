@@ -1,6 +1,6 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.Session;
+import com.datastax.driver.core.SimpleStatement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,20 +11,20 @@ class SchemaLoader {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SchemaLoader.class);
 
-    private final Session session;
+    private final ExecutionInfo executionInfo;
     private final String keyspace;
     private final SchemaUpdates schemaUpdates;
     private final CqlPaths paths;
 
-    SchemaLoader(Session session, String keyspace, SchemaUpdates schemaUpdates, CqlPaths paths) {
-        this.session = session;
+    SchemaLoader(ExecutionInfo executionInfo, String keyspace, SchemaUpdates schemaUpdates, CqlPaths paths) {
+        this.executionInfo = executionInfo;
         this.keyspace = keyspace;
         this.schemaUpdates = schemaUpdates;
         this.paths = paths;
     }
 
     void load() {
-        session.execute("USE " + keyspace + ";");
+        executionInfo.getSession().execute(new SimpleStatement("USE " + keyspace + ";").setConsistencyLevel(executionInfo.getReadConsistencyLevel()));
         paths.applyInSortedOrder(new Loader());
     }
 
@@ -42,7 +42,7 @@ class SchemaLoader {
                 String lowercasePath = path.toString().toLowerCase();
                 if (lowercasePath.endsWith(".cql")) {
                     List<String> cqlStatements = CqlFileParser.getCqlStatementsFrom(path);
-                    CqlLoader.load(session, cqlStatements);
+                    CqlLoader.load(executionInfo.getSession(), cqlStatements, executionInfo.getWriteConsistencyLevel());
                 } else {
                     throw new IllegalArgumentException("Unrecognised file type: " + path);
                 }

@@ -1,6 +1,7 @@
 package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.exceptions.AlreadyExistsException;
@@ -59,7 +60,8 @@ public class SchemaUpdatesTest {
         //given
         cluster.connect("system").execute("CREATE KEYSPACE " + TEST_KEYSPACE + " WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
         Session session = cluster.connect(TEST_KEYSPACE);
-        SchemaUpdates schemaUpdates = new SchemaUpdates(session, TEST_KEYSPACE);
+        ExecutionInfo executionInfo = new ExecutionInfo(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL);
+        SchemaUpdates schemaUpdates = new SchemaUpdates(executionInfo, TEST_KEYSPACE);
 
         //when
         schemaUpdates.initialise();
@@ -74,7 +76,8 @@ public class SchemaUpdatesTest {
         //given
         cluster.connect("system").execute("CREATE KEYSPACE " + TEST_KEYSPACE + " WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
         Session session = cluster.connect(TEST_KEYSPACE);
-        SchemaUpdates schemaUpdates = new SchemaUpdates(session, TEST_KEYSPACE);
+        ExecutionInfo executionInfo = new ExecutionInfo(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL);
+        SchemaUpdates schemaUpdates = new SchemaUpdates(executionInfo, TEST_KEYSPACE);
 
         //when
         schemaUpdates.initialise();

@@ -31,7 +31,11 @@ public class CqlMigratorImplTest {
     private static final String TEST_KEYSPACE = "cqlmigrate_test";
     private static final String LOCK_NAME = TEST_KEYSPACE + ".schema_migration";
 
-    private static final CqlMigratorImpl MIGRATOR = new CqlMigratorImpl(CassandraLockConfig.builder().build());
+    private static final CqlMigratorImpl MIGRATOR = new CqlMigratorImpl(CqlMigratorConfig.builder()
+            .cassandraLockConfig(CassandraLockConfig.builder().build())
+            .readConsistencyLevel(ConsistencyLevel.ALL)
+            .writeConsistencyLevel(ConsistencyLevel.ALL)
+            .build());
 
     private ExecutorService executorService;
 
@@ -92,7 +96,11 @@ public class CqlMigratorImplTest {
     @Test(timeout = 1000)
     public void shouldThrowCannotAcquireLockExceptionIfLockCannotBeAcquiredAfterTimeout() throws Exception {
         //given
-        CqlMigrator migrator = new CqlMigratorImpl(CassandraLockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build());
+        CqlMigrator migrator = new CqlMigratorImpl(CqlMigratorConfig.builder()
+                .cassandraLockConfig(CassandraLockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build())
+                .readConsistencyLevel(ConsistencyLevel.ALL)
+                .writeConsistencyLevel(ConsistencyLevel.ALL)
+                .build());
 
         String client = UUID.randomUUID().toString();
         session.execute("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?)", LOCK_NAME, client);
@@ -243,6 +251,7 @@ public class CqlMigratorImplTest {
         //when
         MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths);
 
+
         //then
         ResultSet rs = session.execute("select * from schema_updates");
         for (Row row : rs) {
@@ -343,7 +352,7 @@ public class CqlMigratorImplTest {
         System.setProperty("port", String.valueOf(binaryPort));
 
         //when
-        CqlMigratorImpl.main(new String[]{});
+        CommandLine.main(new String[]{});
 
         //then
         Session session = cluster.connect(TEST_KEYSPACE);
@@ -360,7 +369,7 @@ public class CqlMigratorImplTest {
         System.setProperty("directories", getResourcePath("cql_valid_one").toString() + "," + getResourcePath("cql_valid_two").toString());
 
         //when
-        Throwable throwable = catchThrowable(() -> CqlMigratorImpl.main(new String[]{}));
+        Throwable throwable = catchThrowable(() -> CommandLine.main(new String[]{}));
         assertThat(throwable).isNotNull().isInstanceOf(NullPointerException.class);
         assertThat(throwable.getMessage()).isEqualTo("'hosts' property should be provided having value of a comma separated list of cassandra hosts");
     }
@@ -372,7 +381,7 @@ public class CqlMigratorImplTest {
         System.setProperty("directories", getResourcePath("cql_valid_one").toString() + "," + getResourcePath("cql_valid_two").toString());
 
         //when
-        Throwable throwable = catchThrowable(() -> CqlMigratorImpl.main(new String[]{}));
+        Throwable throwable = catchThrowable(() -> CommandLine.main(new String[]{}));
         assertThat(throwable).isNotNull().isInstanceOf(NullPointerException.class);
         assertThat(throwable.getMessage()).isEqualTo("'keyspace' property should be provided having value of the cassandra keyspace");
     }
@@ -384,7 +393,7 @@ public class CqlMigratorImplTest {
         System.setProperty("keyspace", TEST_KEYSPACE);
 
         //when
-        Throwable throwable = catchThrowable(() -> CqlMigratorImpl.main(new String[]{}));
+        Throwable throwable = catchThrowable(() -> CommandLine.main(new String[]{}));
         assertThat(throwable).isNotNull().isInstanceOf(NullPointerException.class);
         assertThat(throwable.getMessage()).isEqualTo("'directories' property should be provided having value of the comma separated list of paths to cql files");
     }
@@ -429,7 +438,7 @@ public class CqlMigratorImplTest {
         System.setProperty("port", String.valueOf(binaryPort));
 
         //when
-        CqlMigratorImpl.main(new String[]{});
+        CommandLine.main(new String[]{});
 
         //then
         Session session = cluster.connect(TEST_KEYSPACE);
@@ -448,7 +457,7 @@ public class CqlMigratorImplTest {
         System.setProperty("port", String.valueOf(binaryPort));
 
         //when
-        CqlMigratorImpl.main(new String[]{});
+        CommandLine.main(new String[]{});
 
         //then
         Session session = cluster.connect(TEST_KEYSPACE);

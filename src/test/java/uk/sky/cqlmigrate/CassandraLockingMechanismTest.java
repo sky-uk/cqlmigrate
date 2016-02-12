@@ -172,7 +172,7 @@ public class CassandraLockingMechanismTest {
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
                 .withQuery("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
                 .withThen(then()
-                        .withResult(PrimingRequest.Result.write_request_timeout))
+                        .withResult(Result.write_request_timeout))
                 .build()
         );
 
@@ -189,7 +189,7 @@ public class CassandraLockingMechanismTest {
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
                         .withQuery("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
                         .withThen(then()
-                                .withResult(PrimingRequest.Result.unavailable))
+                                .withResult(Result.unavailable))
                         .build()
         );
         //when
@@ -236,7 +236,7 @@ public class CassandraLockingMechanismTest {
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
                         .withQuery("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
                         .withThen(then()
-                                .withResult(PrimingRequest.Result.unavailable))
+                                .withResult(Result.unavailable))
                         .build()
         );
 
@@ -256,7 +256,7 @@ public class CassandraLockingMechanismTest {
         //given
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
                 .withQuery("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
-                .withThen(then().withResult(PrimingRequest.Result.write_request_timeout))
+                .withThen(then().withResult(Result.write_request_timeout))
                 .build());
 
         lockingMechanism.release(CLIENT_ID);

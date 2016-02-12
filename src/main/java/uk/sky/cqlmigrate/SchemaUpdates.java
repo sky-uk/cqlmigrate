@@ -2,6 +2,8 @@ package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
+import com.datastax.driver.core.SimpleStatement;
+import com.datastax.driver.core.Statement;
 import com.google.common.base.Throwables;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteSource;
@@ -20,31 +22,36 @@ class SchemaUpdates {
     private static final String SCHEMA_UPDATES_TABLE = "schema_updates";
     private static final String CHECKSUM_COLUMN = "checksum";
 
-    private final Session session;
+    private final ExecutionInfo executionInfo;
     private final String keyspace;
 
-    SchemaUpdates(Session session, String keyspace) {
-        this.session = session;
+    SchemaUpdates(ExecutionInfo executionInfo, String keyspace) {
+        this.executionInfo = executionInfo;
         this.keyspace = keyspace;
     }
 
     void initialise() {
-        session.execute("USE " + keyspace + ";");
-        session.execute("CREATE TABLE IF NOT EXISTS " + SCHEMA_UPDATES_TABLE + " (filename text primary key, " + CHECKSUM_COLUMN + " text, applied_on timestamp);");
+        Session session = executionInfo.getSession();
+        session.execute(new SimpleStatement("USE " + keyspace + ";").setConsistencyLevel(executionInfo.getReadConsistencyLevel()));
+        session.execute(new SimpleStatement("CREATE TABLE IF NOT EXISTS " + SCHEMA_UPDATES_TABLE + " (filename text primary key, " + CHECKSUM_COLUMN + " text, applied_on timestamp);")
+                .setConsistencyLevel(executionInfo.getWriteConsistencyLevel()));
     }
 
     boolean alreadyApplied(String filename) {
-        Row row = getSchemaUpdate(session, filename);
+        Row row = getSchemaUpdate(executionInfo.getSession(), filename);
         return row != null;
     }
 
     @Nullable
     private Row getSchemaUpdate(Session session, String filename) {
-        return session.execute("SELECT * FROM " + SCHEMA_UPDATES_TABLE + " where filename = ?", filename).one();
+        return session.execute(
+                new SimpleStatement("SELECT * FROM " + SCHEMA_UPDATES_TABLE + " where filename = ?", filename)
+                        .setConsistencyLevel(executionInfo.getReadConsistencyLevel()))
+                .one();
     }
 
     boolean contentsAreDifferent(String filename, Path path) {
-        Row row = checkNotNull(getSchemaUpdate(session, filename));
+        Row row = checkNotNull(getSchemaUpdate(executionInfo.getSession(), filename));
         String previousSha1 = row.getString(CHECKSUM_COLUMN);
 
         try {
@@ -59,8 +66,11 @@ class SchemaUpdates {
 
         String query = "INSERT INTO " + SCHEMA_UPDATES_TABLE + " (filename, " + CHECKSUM_COLUMN + ", applied_on)" +
                 " VALUES (?, ?, dateof(now()));";
+
+        Statement statement = new SimpleStatement(query, filename, calculateChecksum(path)).setConsistencyLevel(executionInfo.getWriteConsistencyLevel());
+
         LOGGER.debug("Applying schema cql: {} path: {}", query, path);
-        session.execute(query, filename, calculateChecksum(path));
+        executionInfo.getSession().execute(statement);
     }
 
     private String calculateChecksum(Path path) {
