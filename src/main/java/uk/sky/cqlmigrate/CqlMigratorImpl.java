@@ -29,7 +29,6 @@ final class CqlMigratorImpl implements CqlMigrator {
         this.cqlMigratorConfig = cqlMigratorConfig;
     }
 
-
     /**
      * Allows cql migrate to be run on the command line.
      * Set hosts, keyspace and directories using system properties.
@@ -51,7 +50,6 @@ final class CqlMigratorImpl implements CqlMigrator {
         CqlMigratorFactory.create(CassandraLockConfig.builder().build())
                 .migrate(hosts.split(","), port == null ? 9042 : Integer.parseInt(port), keyspace, directories);
     }
-
 
     /**
      * {@inheritDoc}

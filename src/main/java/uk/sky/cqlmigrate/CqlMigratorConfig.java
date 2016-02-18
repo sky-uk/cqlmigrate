@@ -8,7 +8,6 @@ class CqlMigratorConfig {
     private final ConsistencyLevel readConsistencyLevel;
     private final ConsistencyLevel writeConsistencyLevel;
 
-
     private CqlMigratorConfig(CassandraLockConfig cassandraLockConfig, ConsistencyLevel readConsistencyLevel, ConsistencyLevel writeConsistencyLevel) {
         Preconditions.checkNotNull(cassandraLockConfig);
         Preconditions.checkNotNull(readConsistencyLevel);

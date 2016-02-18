@@ -251,7 +251,6 @@ public class CqlMigratorImplTest {
         //when
         MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, cqlPaths);
 
-
         //then
         ResultSet rs = session.execute("select * from schema_updates");
         for (Row row : rs) {

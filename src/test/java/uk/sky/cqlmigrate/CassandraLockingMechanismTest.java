@@ -275,7 +275,6 @@ public class CassandraLockingMechanismTest {
         //when
         boolean result = lockingMechanism.release(CLIENT_ID);
 
-
         //then
         assertThat(result).isTrue();
         assertThat(activityClient.retrievePreparedStatementExecutions()).containsExactly(deleteLockPreparedStatement, deleteLockPreparedStatement);

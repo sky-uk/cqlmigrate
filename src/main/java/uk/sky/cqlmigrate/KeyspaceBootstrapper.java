@@ -28,7 +28,7 @@ class KeyspaceBootstrapper {
         if (keyspaceMetadata == null) {
             ConsistencyLevel writeConsistencyLevel = executionInfo.getWriteConsistencyLevel();
             paths.applyBootstrap((filename, path) -> {
-                LOGGER.info("Keyspace not found, applying {} at consistenct level {}", path, writeConsistencyLevel);
+                LOGGER.info("Keyspace not found, applying {} at consistency level {}", path, writeConsistencyLevel);
                 List<String> cqlStatements = CqlFileParser.getCqlStatementsFrom(path);
                 CqlLoader.load(session, cqlStatements, writeConsistencyLevel);
                 LOGGER.info("Applied: bootstrap.cql");

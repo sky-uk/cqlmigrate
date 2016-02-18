@@ -9,7 +9,6 @@ class ExecutionInfo {
     private final ConsistencyLevel readConsistencyLevel;
     private final ConsistencyLevel writeConsistencyLevel;
 
-
     ExecutionInfo(Session session, ConsistencyLevel readConsistencyLevel, ConsistencyLevel writeConsistencyLevel) {
         this.session = session;
         this.readConsistencyLevel = readConsistencyLevel;

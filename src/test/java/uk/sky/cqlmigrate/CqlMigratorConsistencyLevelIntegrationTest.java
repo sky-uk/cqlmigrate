@@ -52,7 +52,6 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
                     .build()
     );
 
-
     private PrimingClient primingClient = scassandra.primingClient();
     private ActivityClient activityClient = scassandra.activityClient();
     private static Session session;
