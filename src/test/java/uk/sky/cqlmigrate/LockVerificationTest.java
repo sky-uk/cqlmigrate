@@ -41,7 +41,6 @@ public class LockVerificationTest {
     private Session session;
     private CassandraLockConfigBuilder configBuilder;
 
-
     @Before
     public void setUp() {
         configBuilder = CassandraLockConfig.builder()
@@ -76,7 +75,7 @@ public class LockVerificationTest {
             Cluster cluster = createCluster();
             Session session = cluster.connect();
 
-            CqlMigratorImpl cqlMigrator = new CqlMigratorImpl(CassandraLockConfig.builder().build());
+            CqlMigrator cqlMigrator = CqlMigratorFactory.create(CassandraLockConfig.builder().build());
             cqlMigrator.migrate(session, "cqlmigrate_test", cqlPaths);
 
             session.close();
@@ -111,7 +110,6 @@ public class LockVerificationTest {
         session.execute(String.format("CREATE TABLE %s (id text PRIMARY KEY, counter int);", TABLE_NAME));
         Uninterruptibles.sleepUninterruptibly(800, TimeUnit.MILLISECONDS);
         session.execute(new SimpleStatement(String.format("INSERT INTO %s (id, counter) VALUES (?, ?);", TABLE_NAME), "lock-tester", 0).setConsistencyLevel(ConsistencyLevel.QUORUM));
-
 
         final int maximumCounter = 1000;
         final int maximumWorkers = 25;

@@ -11,23 +11,24 @@ class KeyspaceBootstrapper {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(KeyspaceBootstrapper.class);
 
-    private final Session session;
+    private final SessionContext sessionContext;
     private final String keyspace;
     private final CqlPaths paths;
 
-    KeyspaceBootstrapper(Session session, String keyspace, CqlPaths paths) {
-        this.session = session;
+    KeyspaceBootstrapper(SessionContext sessionContext, String keyspace, CqlPaths paths) {
+        this.sessionContext = sessionContext;
         this.keyspace = keyspace;
         this.paths = paths;
     }
 
     void bootstrap() {
+        Session session = sessionContext.getSession();
         KeyspaceMetadata keyspaceMetadata = session.getCluster().getMetadata().getKeyspace(keyspace);
         if (keyspaceMetadata == null) {
             paths.applyBootstrap((filename, path) -> {
-                LOGGER.info("Keyspace not found, applying {}", path);
+                LOGGER.info("Keyspace not found, applying {} at consistency level {}", path, sessionContext.getWriteConsistencyLevel());
                 List<String> cqlStatements = CqlFileParser.getCqlStatementsFrom(path);
-                CqlLoader.load(session, cqlStatements);
+                CqlLoader.load(sessionContext, cqlStatements);
                 LOGGER.info("Applied: bootstrap.cql");
             });
         } else {

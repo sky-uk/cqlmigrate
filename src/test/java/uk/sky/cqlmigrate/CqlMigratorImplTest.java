@@ -31,7 +31,11 @@ public class CqlMigratorImplTest {
     private static final String TEST_KEYSPACE = "cqlmigrate_test";
     private static final String LOCK_NAME = TEST_KEYSPACE + ".schema_migration";
 
-    private static final CqlMigratorImpl MIGRATOR = new CqlMigratorImpl(CassandraLockConfig.builder().build());
+    private static final CqlMigratorImpl MIGRATOR = new CqlMigratorImpl(CqlMigratorConfig.builder()
+            .withCassandraLockConfig(CassandraLockConfig.builder().build())
+            .withReadConsistencyLevel(ConsistencyLevel.ALL)
+            .withWriteConsistencyLevel(ConsistencyLevel.ALL)
+            .build());
 
     private ExecutorService executorService;
 
@@ -92,7 +96,11 @@ public class CqlMigratorImplTest {
     @Test(timeout = 1000)
     public void shouldThrowCannotAcquireLockExceptionIfLockCannotBeAcquiredAfterTimeout() throws Exception {
         //given
-        CqlMigrator migrator = new CqlMigratorImpl(CassandraLockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build());
+        CqlMigrator migrator = new CqlMigratorImpl(CqlMigratorConfig.builder()
+                .withCassandraLockConfig(CassandraLockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build())
+                .withReadConsistencyLevel(ConsistencyLevel.ALL)
+                .withWriteConsistencyLevel(ConsistencyLevel.ALL)
+                .build());
 
         String client = UUID.randomUUID().toString();
         session.execute("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?)", LOCK_NAME, client);

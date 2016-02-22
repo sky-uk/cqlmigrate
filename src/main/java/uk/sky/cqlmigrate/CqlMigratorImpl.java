@@ -1,9 +1,6 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.QueryOptions;
-import com.datastax.driver.core.Session;
+import com.datastax.driver.core.*;
 import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,15 +19,14 @@ import java.util.stream.Collectors;
  * The inserted record will be deleted once the client releases the lock it holds, hence making way for a subsequent client thread to acquire the lock.
  * Locking is done per client per keyspace. A client can obtain a lock on a different keyspace if no other client is holding a lock for that keyspace.
  */
-
-public final class CqlMigratorImpl implements CqlMigrator {
+final class CqlMigratorImpl implements CqlMigrator {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(CqlMigratorImpl.class);
 
-    private final CassandraLockConfig lockConfig;
+    private final CqlMigratorConfig cqlMigratorConfig;
 
-    CqlMigratorImpl(CassandraLockConfig lockConfig) {
-        this.lockConfig = lockConfig;
+    CqlMigratorImpl(CqlMigratorConfig cqlMigratorConfig) {
+        this.cqlMigratorConfig = cqlMigratorConfig;
     }
 
     /**
@@ -51,7 +47,7 @@ public final class CqlMigratorImpl implements CqlMigrator {
                 .map(Paths::get)
                 .collect(Collectors.toList());
 
-        new CqlMigratorImpl(CassandraLockConfig.builder().build())
+        CqlMigratorFactory.create(CassandraLockConfig.builder().build())
                 .migrate(hosts.split(","), port == null ? 9042 : Integer.parseInt(port), keyspace, directories);
     }
 
@@ -59,7 +55,6 @@ public final class CqlMigratorImpl implements CqlMigrator {
      * {@inheritDoc}
      */
     public void migrate(String[] hosts, int port, String keyspace, Collection<Path> directories) {
-
         try (Cluster cluster = createCluster(hosts, port);
              Session session = cluster.connect()) {
             this.migrate(session, keyspace, directories);
@@ -74,16 +69,18 @@ public final class CqlMigratorImpl implements CqlMigrator {
         ClusterHealth clusterHealth = new ClusterHealth(cluster);
         clusterHealth.check();
 
-
         CassandraLockingMechanism cassandraLockingMechanism = new CassandraLockingMechanism(session, keyspace);
-        Lock lock = new Lock(cassandraLockingMechanism, lockConfig);
+        Lock lock = new Lock(cassandraLockingMechanism, cqlMigratorConfig.getCassandraLockConfig());
         lock.lock();
 
         LOGGER.info("Loading cql files from {}", directories);
         CqlPaths paths = CqlPaths.create(directories);
-        KeyspaceBootstrapper keyspaceBootstrapper = new KeyspaceBootstrapper(session, keyspace, paths);
-        SchemaUpdates schemaUpdates = new SchemaUpdates(session, keyspace);
-        SchemaLoader schemaLoader = new SchemaLoader(session, keyspace, schemaUpdates, paths);
+
+        SessionContext sessionContext = new SessionContext(session, cqlMigratorConfig.getReadConsistencyLevel(), cqlMigratorConfig.getWriteConsistencyLevel());
+
+        KeyspaceBootstrapper keyspaceBootstrapper = new KeyspaceBootstrapper(sessionContext, keyspace, paths);
+        SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, keyspace);
+        SchemaLoader schemaLoader = new SchemaLoader(sessionContext, keyspace, schemaUpdates, paths);
 
         keyspaceBootstrapper.bootstrap();
         schemaUpdates.initialise();
@@ -105,18 +102,16 @@ public final class CqlMigratorImpl implements CqlMigrator {
      * {@inheritDoc}
      */
     public void clean(Session session, String keyspace) {
-        session.execute("DROP KEYSPACE IF EXISTS " + keyspace);
+        Statement clean = new SimpleStatement("DROP KEYSPACE IF EXISTS " + keyspace)
+                .setConsistencyLevel(cqlMigratorConfig.getWriteConsistencyLevel());
+        session.execute(clean);
         LOGGER.info("Cleaned {}", keyspace);
     }
 
     private Cluster createCluster(String[] hosts, int port) {
-        QueryOptions queryOptions = new QueryOptions();
-        queryOptions.setConsistencyLevel(ConsistencyLevel.ALL);
-
         return Cluster.builder()
                 .addContactPoints(hosts)
                 .withPort(port)
-                .withQueryOptions(queryOptions)
                 .build();
     }
 }
