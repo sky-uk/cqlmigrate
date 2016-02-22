@@ -60,8 +60,8 @@ public class SchemaUpdatesTest {
         //given
         cluster.connect("system").execute("CREATE KEYSPACE " + TEST_KEYSPACE + " WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
         Session session = cluster.connect(TEST_KEYSPACE);
-        ExecutionInfo executionInfo = new ExecutionInfo(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL);
-        SchemaUpdates schemaUpdates = new SchemaUpdates(executionInfo, TEST_KEYSPACE);
+        SessionContext sessionContext = new SessionContext(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL);
+        SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, TEST_KEYSPACE);
 
         //when
         schemaUpdates.initialise();
@@ -76,8 +76,8 @@ public class SchemaUpdatesTest {
         //given
         cluster.connect("system").execute("CREATE KEYSPACE " + TEST_KEYSPACE + " WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
         Session session = cluster.connect(TEST_KEYSPACE);
-        ExecutionInfo executionInfo = new ExecutionInfo(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL);
-        SchemaUpdates schemaUpdates = new SchemaUpdates(executionInfo, TEST_KEYSPACE);
+        SessionContext sessionContext = new SessionContext(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL);
+        SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, TEST_KEYSPACE);
 
         //when
         schemaUpdates.initialise();

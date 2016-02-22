@@ -76,11 +76,11 @@ final class CqlMigratorImpl implements CqlMigrator {
         LOGGER.info("Loading cql files from {}", directories);
         CqlPaths paths = CqlPaths.create(directories);
 
-        ExecutionInfo executionInfo = new ExecutionInfo(session, cqlMigratorConfig.getReadConsistencyLevel(), cqlMigratorConfig.getWriteConsistencyLevel());
+        SessionContext sessionContext = new SessionContext(session, cqlMigratorConfig.getReadConsistencyLevel(), cqlMigratorConfig.getWriteConsistencyLevel());
 
-        KeyspaceBootstrapper keyspaceBootstrapper = new KeyspaceBootstrapper(executionInfo, keyspace, paths);
-        SchemaUpdates schemaUpdates = new SchemaUpdates(executionInfo, keyspace);
-        SchemaLoader schemaLoader = new SchemaLoader(executionInfo, keyspace, schemaUpdates, paths);
+        KeyspaceBootstrapper keyspaceBootstrapper = new KeyspaceBootstrapper(sessionContext, keyspace, paths);
+        SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, keyspace);
+        SchemaLoader schemaLoader = new SchemaLoader(sessionContext, keyspace, schemaUpdates, paths);
 
         keyspaceBootstrapper.bootstrap();
         schemaUpdates.initialise();

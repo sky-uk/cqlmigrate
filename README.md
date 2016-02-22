@@ -22,19 +22,15 @@ For example, to apply all `.cql` files located in `/cql` in the classpath:
 
 Configure the lock:
 
-    CqlMigratorConfig cqlMigratorConfig = CqlMigratorConfig.builder()
-            .cassandraLockConfig(CassandraLockConfig.builder()
-                    .withTimeout(Duration.standardSeconds(3))
-                    .withPollingInterval(Duration.millis(500))
-                    .withClientId("127.0.0.1")
-                    .build())
-            .readConsistencyLevel(ConsistencyLevel.LOCAL_ONE)
-            .writeConsistencyLevel(ConsistencyLevel.ALL)
-            .build();
+    CassandraLockConfig lockConfig = CassandraLockConfig.builder()
+            .withTimeout(Duration.standardSeconds(3))
+            .withPollingInterval(Duration.millis(500))
+            .withClientId("127.0.0.1")
+            .build())
 
 Then:                    
 
-    CqlMigrator migrator = new CqlMigrator(cqlMigratorConfig);
+    CqlMigrator migrator = CqlMigratorFactory.create(lockConfig)
     Path schemas = Paths.get(ClassLoader.getSystemResource("/cql").toURI());
     migrator.migrate(asList("localhost"), "my_keyspace", asList(schemas));
 

@@ -11,20 +11,20 @@ class SchemaLoader {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SchemaLoader.class);
 
-    private final ExecutionInfo executionInfo;
+    private final SessionContext sessionContext;
     private final String keyspace;
     private final SchemaUpdates schemaUpdates;
     private final CqlPaths paths;
 
-    SchemaLoader(ExecutionInfo executionInfo, String keyspace, SchemaUpdates schemaUpdates, CqlPaths paths) {
-        this.executionInfo = executionInfo;
+    SchemaLoader(SessionContext sessionContext, String keyspace, SchemaUpdates schemaUpdates, CqlPaths paths) {
+        this.sessionContext = sessionContext;
         this.keyspace = keyspace;
         this.schemaUpdates = schemaUpdates;
         this.paths = paths;
     }
 
     void load() {
-        executionInfo.getSession().execute(new SimpleStatement("USE " + keyspace + ";").setConsistencyLevel(executionInfo.getReadConsistencyLevel()));
+        sessionContext.getSession().execute(new SimpleStatement("USE " + keyspace + ";").setConsistencyLevel(sessionContext.getReadConsistencyLevel()));
         paths.applyInSortedOrder(new Loader());
     }
 
@@ -42,7 +42,7 @@ class SchemaLoader {
                 String lowercasePath = path.toString().toLowerCase();
                 if (lowercasePath.endsWith(".cql")) {
                     List<String> cqlStatements = CqlFileParser.getCqlStatementsFrom(path);
-                    CqlLoader.load(executionInfo.getSession(), cqlStatements, executionInfo.getWriteConsistencyLevel());
+                    CqlLoader.load(sessionContext, cqlStatements);
                 } else {
                     throw new IllegalArgumentException("Unrecognised file type: " + path);
                 }

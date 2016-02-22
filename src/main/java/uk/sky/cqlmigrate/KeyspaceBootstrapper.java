@@ -1,6 +1,5 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.KeyspaceMetadata;
 import com.datastax.driver.core.Session;
 import org.slf4j.Logger;
@@ -12,25 +11,24 @@ class KeyspaceBootstrapper {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(KeyspaceBootstrapper.class);
 
-    private final ExecutionInfo executionInfo;
+    private final SessionContext sessionContext;
     private final String keyspace;
     private final CqlPaths paths;
 
-    KeyspaceBootstrapper(ExecutionInfo executionInfo, String keyspace, CqlPaths paths) {
-        this.executionInfo = executionInfo;
+    KeyspaceBootstrapper(SessionContext sessionContext, String keyspace, CqlPaths paths) {
+        this.sessionContext = sessionContext;
         this.keyspace = keyspace;
         this.paths = paths;
     }
 
     void bootstrap() {
-        Session session = executionInfo.getSession();
+        Session session = sessionContext.getSession();
         KeyspaceMetadata keyspaceMetadata = session.getCluster().getMetadata().getKeyspace(keyspace);
         if (keyspaceMetadata == null) {
-            ConsistencyLevel writeConsistencyLevel = executionInfo.getWriteConsistencyLevel();
             paths.applyBootstrap((filename, path) -> {
-                LOGGER.info("Keyspace not found, applying {} at consistency level {}", path, writeConsistencyLevel);
+                LOGGER.info("Keyspace not found, applying {} at consistency level {}", path, sessionContext.getWriteConsistencyLevel());
                 List<String> cqlStatements = CqlFileParser.getCqlStatementsFrom(path);
-                CqlLoader.load(session, cqlStatements, writeConsistencyLevel);
+                CqlLoader.load(sessionContext, cqlStatements);
                 LOGGER.info("Applied: bootstrap.cql");
             });
         } else {
