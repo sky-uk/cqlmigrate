@@ -4,21 +4,32 @@ cqlmigrate is a library for performing schema migrations on a cassandra cluster.
 
 It is best used as an application dependency, but can also be used standalone.
 
+## Adding as a Gradle dependency
+
+```groovy
+repositories {
+    jcenter()
+}
+
+compile 'uk.sky:cqlmigrate:0.9.1'
+```
+
 ## Adding as a Maven dependency
 
 ```xml
+<repositories>
+    <repository>
+        <id>jcenter</id>
+        <name>jcenter</name>
+        <url>http://jcenter.bintray.com</url>
+    </repository>
+</repositories>
+
 <dependency>
   <groupId>uk.sky</groupId>
   <artifactId>cqlmigrate</artifactId>
   <version>0.9.1</version>
-  <type>pom</type>
 </dependency>
-```
-
-## Adding as a Gradle dependency
-
-```groovy
-compile 'uk.sky:cqlmigrate:0.9.1'
 ```
 
 ## Cassandra Prerequisites
