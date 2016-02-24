@@ -1,42 +1,65 @@
-**This is currently under development and not quite ready for production usage. It is derived from an internal tool that we use in production, but is missing a few things right now.**
-
 # Cassandra CQL migration tool
 
 cqlmigrate is a library for performing schema migrations on a cassandra cluster.
 
-It is best used as a dependency in your application, but can also be used
-standalone.
+It is best used as an application dependency, but can also be used standalone.
 
-## Prerequisites
+## Adding as a Gradle dependency
 
-The locks keyspace and table needs to be created before running the migration.
+```groovy
+repositories {
+    jcenter()
+}
+
+compile 'uk.sky:cqlmigrate:0.9.1'
+```
+
+## Adding as a Maven dependency
+
+```xml
+<repositories>
+    <repository>
+        <id>jcenter</id>
+        <name>jcenter</name>
+        <url>http://jcenter.bintray.com</url>
+    </repository>
+</repositories>
+
+<dependency>
+  <groupId>uk.sky</groupId>
+  <artifactId>cqlmigrate</artifactId>
+  <version>0.9.1</version>
+</dependency>
+```
+
+## Cassandra Prerequisites
+
+The locks keyspace and table needs to be created before running any migrations.
 
     CREATE KEYSPACE IF NOT EXISTS cqlmigrate WITH replication = {'class': 'REPLICATION_CLASS', 'replication_factor': REPLICATION_FACTOR };
     CREATE TABLE IF NOT EXISTS cqlmigrate.locks (name text PRIMARY KEY, client text);
 
 ## Library usage
 
-The API is contained in `CqlMigrator`, and works on directories of files ending with `.cql`.
+To apply all `.cql` files located in `/cql` in the classpath:
 
-For example, to apply all `.cql` files located in `/cql` in the classpath:
+```java
+// Configure locking for coordination of multiple nodes
+CassandraLockConfig lockConfig = CassandraLockConfig.builder()
+        .withTimeout(Duration.standardSeconds(3))
+        .withPollingInterval(Duration.millis(500))
+        .withClientId("node-uuid")
+        .build())
 
-Configure the lock:
+// Create a migrator and run it
+CqlMigrator migrator = CqlMigratorFactory.create(lockConfig)
+Path schemas = Paths.get(ClassLoader.getSystemResource("/cql").toURI());
+migrator.migrate(asList("localhost"), "my_keyspace", asList(schemas));
+```
 
-    CassandraLockConfig lockConfig = CassandraLockConfig.builder()
-            .withTimeout(Duration.standardSeconds(3))
-            .withPollingInterval(Duration.millis(500))
-            .withClientId("127.0.0.1")
-            .build())
+The migrator will look for a `bootstrap.cql` file for setting up the keyspace.
 
-Then:                    
-
-    CqlMigrator migrator = CqlMigratorFactory.create(lockConfig)
-    Path schemas = Paths.get(ClassLoader.getSystemResource("/cql").toURI());
-    migrator.migrate(asList("localhost"), "my_keyspace", asList(schemas));
-
-Examples of cql files can be seen in `src/test/resources`.
-
-## Standalone usage 
+## Standalone usage
 
 ```sh
 $ java -Dhosts=localhost,192.168.1.1 -Dkeyspace=my_keyspace -Ddirectories=cql-common,cql-local -jar cqlmigrate.jar
@@ -44,23 +67,20 @@ $ java -Dhosts=localhost,192.168.1.1 -Dkeyspace=my_keyspace -Ddirectories=cql-co
 
 ## What it does
 
-1. Checks all nodes are up and their schema's are in agreement.
+1. Checks all nodes are up and their schemas are in agreement.
 
-2. Tries to acquire a lock for the keyspace you are migrating.
-   If it can't initially be acquired it will continue to retry at a set polling time until the timeout is reached.  
+2. Tries to acquire a lock for the keyspace. If it can't initially be acquired it will continue to retry at a set polling time until the timeout is reached.  
 
-3. Looks for a `bootstrap.cql` file and runs it first. This file should contain your keyspace definition.
+3. Looks for a `bootstrap.cql` file and runs it first. This file should contain the keyspace definition:
 
-   For example:
-   ```
-   CREATE KEYSPACE my_keyspace
+    ```
+    CREATE KEYSPACE my_keyspace
      WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };
-   ```        
+    ```        
 
-4. Applies `.cql` files one by one, sorted by filename in ascending order. It is suggested you prefix
-   your files with a datetime to order them.
+4. Applies `.cql` files one by one, sorted by filename in ascending order. It is suggested to prefix
+   the files with a datetime to order them:
 
-   For example:
    ```
    /cql/2015-05-02-19:20-create-airplanes-table.cql
    /cql/2015-05-03-14:19-add-manufacturer-column.cql
@@ -89,7 +109,8 @@ It also maintains a checksum to ensure the script hasn't changed since it was la
 ### locks keyspace and table
 
 The locks keyspace replication class and factor can be configured using the LocksConfig.
-This table is used to keep track of what locks are currently in place.
+This table is used to keep track of what locks are currently in place, and relies on
+Cassandra's [lightweight transactions](https://docs.datastax.com/en/cassandra/2.0/cassandra/dml/dml_ltwt_transaction_c.html).
 
     SELECT * FROM locks;
     
@@ -99,7 +120,7 @@ This table is used to keep track of what locks are currently in place.
     
     (1 rows)
 
-Each lock will be deleted by Cql Migrate once the migration is complete.
+Each lock will be deleted by `cqlmigrate` once the migration is complete.
 
 ## Supported Cassandra versions
 
@@ -112,15 +133,15 @@ This project has been tested against the following versions:
 ## Caveats
 
 Cassandra is an eventually consistent, AP database, and so applying schema updates are not as simple
-as a strongly consistent database.
+as a traditional relational database.
 
 * Certain schema changes can cause data corruption on cassandra. Be very careful changing a schema for a
   table that is being actively written to. Generally, adding columns is safe (but be careful with
-  collection types). Test your migration before rolling out to production.
+  collection types). Test the migration before rolling out to production.
 
-* AP properties of Cassandra also apply to schema updates - so it is possible for your cluster to have an
-  inconsistent schema across nodes in case of split brain or other situation. We use `ConsistencyLevel.ALL`
-  to try and alleviate this.
+* AP properties of Cassandra also apply to schema updates - so it is possible for a cluster to have an
+  inconsistent schema across nodes in case of split brain or other situation. `cqlmigrate` tries to
+  alleviate this with appropriate consistency levels.
  
 # Contributors
 
