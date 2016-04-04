@@ -44,13 +44,7 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
             .withClientId(CLIENT_ID)
             .build();
 
-    private final CqlMigratorImpl migrator = new CqlMigratorImpl(
-            CqlMigratorConfig.builder()
-                    .withCassandraLockConfig(lockConfig)
-                    .withReadConsistencyLevel(EXPECTED_READ_CONSISTENCY_LEVEL)
-                    .withWriteConsistencyLevel(EXPECTED_WRITE_CONSISTENCY_LEVEL)
-                    .build()
-    );
+    private final CqlMigrator migrator = CqlMigratorFactory.create(lockConfig);
 
     private PrimingClient primingClient = scassandra.primingClient();
     private ActivityClient activityClient = scassandra.activityClient();

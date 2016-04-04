@@ -13,8 +13,8 @@ public class CqlMigratorFactory {
     public static CqlMigrator create(CassandraLockConfig lockConfig) {
         return new CqlMigratorImpl(CqlMigratorConfig.builder()
                 .withCassandraLockConfig(lockConfig)
-                .withReadConsistencyLevel(ConsistencyLevel.ALL)
-                .withWriteConsistencyLevel(ConsistencyLevel.LOCAL_ONE)
+                .withReadConsistencyLevel(ConsistencyLevel.LOCAL_ONE)
+                .withWriteConsistencyLevel(ConsistencyLevel.ALL)
                 .build());
     }
 }
