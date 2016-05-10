@@ -1,3 +1,5 @@
+![travis](https://travis-ci.org/sky-uk/cqlmigrate.svg?branch=master)
+
 # Cassandra CQL migration tool
 
 cqlmigrate is a library for performing schema migrations on a cassandra cluster.
