@@ -21,6 +21,8 @@ public class SchemaUpdatesTest {
 
     private static final String[] CASSANDRA_HOSTS = {"localhost"};
     private static int binaryPort;
+    private static String username = "cassandra";
+    private static String password = "cassandra";
     private static Cluster cluster;
     private static Session session;
     private static final String TEST_KEYSPACE = "cqlmigrate_test";
@@ -32,7 +34,7 @@ public class SchemaUpdatesTest {
         EmbeddedCassandraServerHelper.startEmbeddedCassandra(EmbeddedCassandraServerHelper.CASSANDRA_RNDPORT_YML_FILE);
         binaryPort = EmbeddedCassandraServerHelper.getNativeTransportPort();
 
-        cluster = Cluster.builder().addContactPoints(CASSANDRA_HOSTS).withPort(binaryPort).build();
+        cluster = Cluster.builder().addContactPoints(CASSANDRA_HOSTS).withPort(binaryPort).withCredentials(username, password).build();
         session = cluster.connect();
     }
 

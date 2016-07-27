@@ -24,6 +24,10 @@ public interface CqlMigrator {
      *
      * @param hosts       Comma separated list of cassandra hosts
      * @param port        Native transport port for the above cassandra nodes
+     * @param username    Username for Cassandra's internal authentication using PasswordAuthenticator
+     *                    (if using AllowAllAuthenticator, can be set to any value)
+     * @param password    Password for Cassandra's internal authentication using PasswordAuthenticator
+     *                    (if using AllowAllAuthenticator, can be set to any value)
      * @param keyspace    Keyspace name for which the schema migration needs to be applied
      * @param directories Comma separated list of directory paths containing the cql statements for the schema change
      * @throws ClusterUnhealthyException                           if any nodes are down or the schema is not in agreement before running migration
@@ -35,7 +39,7 @@ public interface CqlMigrator {
      * @throws IllegalStateException                               if cql file has changed after migration has been run
      * @throws com.datastax.driver.core.exceptions.DriverException if any of the migration queries fails
      */
-    void migrate(String[] hosts, int port, String keyspace, Collection<Path> directories);
+    void migrate(String[] hosts, int port, String username, String password, String keyspace, Collection<Path> directories);
 
     /**
      * If all nodes are up and a lock can be acquired this runs migration
@@ -63,10 +67,14 @@ public interface CqlMigrator {
      *
      * @param hosts    Comma separated list of cassandra hosts
      * @param port     Native transport port for the above cassandra nodes
+     * @param username Username for Cassandra's internal authentication using PasswordAuthenticator
+     *                 (if using AllowAllAuthenticator, can be set to any value)
+     * @param password Password for Cassandra's internal authentication using PasswordAuthenticator
+     *                 (if using AllowAllAuthenticator, can be set to any value)
      * @param keyspace Keyspace name for which the schema migration needs to be applied
      * @throws com.datastax.driver.core.exceptions.DriverException if query fails
      */
-    void clean(String[] hosts, int port, String keyspace);
+    void clean(String[] hosts, int port, String username, String password, String keyspace);
 
     /**
      * Drops keyspace if it exists

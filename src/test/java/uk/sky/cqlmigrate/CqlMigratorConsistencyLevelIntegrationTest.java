@@ -33,6 +33,8 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
     public final ScassandraServerRule scassandra = new ScassandraServerRule(FREE_PORT, 1235);
 
     private static final String[] CASSANDRA_HOSTS = {"localhost"};
+    private static String username = "cassandra";
+    private static String password = "cassandra";
     public static final int FREE_PORT = PortScavenger.getFreePort();
     private static final String CLIENT_ID = UUID.randomUUID().toString();
     private static final String TEST_KEYSPACE = "cqlmigrate_test";
@@ -55,6 +57,7 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
         session = Cluster.builder()
                 .addContactPoints(CASSANDRA_HOSTS)
                 .withPort(FREE_PORT)
+                .withCredentials(username, password)
                 .build()
                 .connect();
 
@@ -93,7 +96,7 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
         Collection<Path> cqlPaths = asList(getResourcePath("cql_bootstrap"), getResourcePath("cql_consistency_level"));
 
         //act
-        migrator.migrate(CASSANDRA_HOSTS, FREE_PORT, TEST_KEYSPACE, cqlPaths);
+        migrator.migrate(CASSANDRA_HOSTS, FREE_PORT, username, password, TEST_KEYSPACE, cqlPaths);
 
         //assert
 

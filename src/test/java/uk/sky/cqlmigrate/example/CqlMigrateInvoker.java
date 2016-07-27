@@ -27,6 +27,8 @@ public class CqlMigrateInvoker {
 
     private static final String[] CASSANDRA_HOSTS = {"localhost"};
     private static int binaryPort;
+    private static String username = "cassandra";
+    private static String password = "cassandra";
     private static Cluster cluster;
     private static Session session;
     private static final String TEST_KEYSPACE = "cqlmigrate_test";
@@ -37,14 +39,14 @@ public class CqlMigrateInvoker {
         URL resource = this.getClass().getResource("");
         try (FileSystem fs = FileSystems.newFileSystem(resource.toURI(), ImmutableMap.of("create", "true"))) {
             List<Path> resourcePaths = Lists.newArrayList(fs.getPath("cql_bootstrap"));
-            cqlMigrator.migrate(CASSANDRA_HOSTS, binaryPort, TEST_KEYSPACE, resourcePaths);
+            cqlMigrator.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, resourcePaths);
         }
     }
 
     public static void setupCassandra() throws ConfigurationException, IOException, TTransportException, InterruptedException {
         EmbeddedCassandraServerHelper.startEmbeddedCassandra(EmbeddedCassandraServerHelper.CASSANDRA_RNDPORT_YML_FILE);
         binaryPort = EmbeddedCassandraServerHelper.getNativeTransportPort();
-        cluster = Cluster.builder().addContactPoints(CASSANDRA_HOSTS).withPort(binaryPort).build();
+        cluster = Cluster.builder().addContactPoints(CASSANDRA_HOSTS).withPort(binaryPort).withCredentials(username, password).build();
         session = cluster.connect();
     }
 
