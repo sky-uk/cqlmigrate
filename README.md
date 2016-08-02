@@ -67,6 +67,8 @@ The migrator will look for a `bootstrap.cql` file for setting up the keyspace.
 $ java -Dhosts=localhost,192.168.1.1 -Dkeyspace=my_keyspace -Ddirectories=cql-common,cql-local -jar cqlmigrate.jar
 ```
 
+Specify credentials, if required, using `-Dusername=<username>` and `-Dpassword=<password>`.
+
 ## What it does
 
 1. Checks all nodes are up and their schemas are in agreement.

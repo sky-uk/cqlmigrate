@@ -21,6 +21,8 @@ public class ClusterHealthTest {
 
     private static final int BINARY_PORT = PortScavenger.getFreePort();
     private static final int ADMIN_PORT = PortScavenger.getFreePort();
+    private static String username = "cassandra";
+    private static String password = "cassandra";
     private static final Collection<String> CASSANDRA_HOSTS = singletonList("localhost");
 
     private static final Scassandra scassandra = ScassandraFactory.createServer(BINARY_PORT, ADMIN_PORT);
@@ -38,6 +40,7 @@ public class ClusterHealthTest {
         cluster = Cluster.builder()
                 .addContactPoints(CASSANDRA_HOSTS.toArray(new String[CASSANDRA_HOSTS.size()]))
                 .withPort(BINARY_PORT)
+                .withCredentials(username, password)
                 .build();
 
         cluster.connect();

@@ -38,6 +38,8 @@ final class CqlMigratorImpl implements CqlMigrator {
         String keyspace = System.getProperty("keyspace");
         String directoriesProperty = System.getProperty("directories");
         String port = System.getProperty("port");
+        String username = System.getProperty("username");
+        String password = System.getProperty("password");
 
         Preconditions.checkNotNull(hosts, "'hosts' property should be provided having value of a comma separated list of cassandra hosts");
         Preconditions.checkNotNull(keyspace, "'keyspace' property should be provided having value of the cassandra keyspace");
@@ -48,14 +50,14 @@ final class CqlMigratorImpl implements CqlMigrator {
                 .collect(Collectors.toList());
 
         CqlMigratorFactory.create(CassandraLockConfig.builder().build())
-                .migrate(hosts.split(","), port == null ? 9042 : Integer.parseInt(port), keyspace, directories);
+                .migrate(hosts.split(","), port == null ? 9042 : Integer.parseInt(port), username, password, keyspace, directories);
     }
 
     /**
      * {@inheritDoc}
      */
-    public void migrate(String[] hosts, int port, String keyspace, Collection<Path> directories) {
-        try (Cluster cluster = createCluster(hosts, port);
+    public void migrate(String[] hosts, int port, String username, String password, String keyspace, Collection<Path> directories) {
+        try (Cluster cluster = CassandraClusterFactory.createCluster(hosts, port, username, password);
              Session session = cluster.connect()) {
             this.migrate(session, keyspace, directories);
         }
@@ -91,8 +93,8 @@ final class CqlMigratorImpl implements CqlMigrator {
     /**
      * {@inheritDoc}
      */
-    public void clean(String[] hosts, int port, String keyspace) {
-        try (Cluster cluster = createCluster(hosts, port);
+    public void clean(String[] hosts, int port, String username, String password, String keyspace) {
+        try (Cluster cluster = CassandraClusterFactory.createCluster(hosts, port, username, password);
              Session session = cluster.connect()) {
             this.clean(session, keyspace);
         }
@@ -106,12 +108,5 @@ final class CqlMigratorImpl implements CqlMigrator {
                 .setConsistencyLevel(cqlMigratorConfig.getWriteConsistencyLevel());
         session.execute(clean);
         LOGGER.info("Cleaned {}", keyspace);
-    }
-
-    private Cluster createCluster(String[] hosts, int port) {
-        return Cluster.builder()
-                .addContactPoints(hosts)
-                .withPort(port)
-                .build();
     }
 }
