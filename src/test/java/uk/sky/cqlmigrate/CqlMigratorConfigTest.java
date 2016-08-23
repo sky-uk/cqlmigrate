@@ -28,7 +28,7 @@ public class CqlMigratorConfigTest {
     public static CassandraLockConfig CASSANDRA_LOCK_CONFIG_BAD = null;
 
     @Theory
-    public void shouldThrowIllegalArgumentExceptionWhenAnyParameterPassedIntoBuilderIsNull(CassandraLockConfig config, ConsistencyLevel readCL, ConsistencyLevel writeCL) {
+    public void shouldThrowNullPointerExceptionWhenAnyParameterPassedIntoBuilderIsNull(CassandraLockConfig config, ConsistencyLevel readCL, ConsistencyLevel writeCL) {
         Assume.assumeTrue(config == null || readCL == null || writeCL == null);
 
         expectedException.expect(NullPointerException.class);
