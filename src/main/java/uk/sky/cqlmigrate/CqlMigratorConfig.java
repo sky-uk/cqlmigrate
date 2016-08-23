@@ -1,17 +1,20 @@
 package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.ConsistencyLevel;
-import static com.google.common.base.Preconditions.*;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 public class CqlMigratorConfig {
     private final CassandraLockConfig cassandraLockConfig;
     private final ConsistencyLevel readConsistencyLevel;
     private final ConsistencyLevel writeConsistencyLevel;
+    private final boolean checkAllNodesHealthy;
 
-    private CqlMigratorConfig(CassandraLockConfig cassandraLockConfig, ConsistencyLevel readConsistencyLevel, ConsistencyLevel writeConsistencyLevel) {
+    private CqlMigratorConfig(CassandraLockConfig cassandraLockConfig, ConsistencyLevel readConsistencyLevel, ConsistencyLevel writeConsistencyLevel, boolean checkAllNodesHealthy) {
         this.cassandraLockConfig = checkNotNull(cassandraLockConfig);
         this.readConsistencyLevel = checkNotNull(readConsistencyLevel);
         this.writeConsistencyLevel = checkNotNull(writeConsistencyLevel);
+        this.checkAllNodesHealthy = checkAllNodesHealthy;
     }
 
     public static CassandraConfigBuilder builder() {
@@ -30,11 +33,16 @@ public class CqlMigratorConfig {
         return writeConsistencyLevel;
     }
 
+    public boolean checkAllNodesHealthy() {
+        return checkAllNodesHealthy;
+    }
+
     public static class CassandraConfigBuilder {
 
         private CassandraLockConfig cassandraLockConfig;
         private ConsistencyLevel readConsistencyLevel;
         private ConsistencyLevel writeConsistencyLevel;
+        private boolean checkAllNodesHealthy = true;
 
         private CassandraConfigBuilder() {}
 
@@ -53,8 +61,13 @@ public class CqlMigratorConfig {
             return this;
         }
 
+        public CassandraConfigBuilder withCheckAllNodesHealthy(boolean checkAllNodesHealthy) {
+            this.checkAllNodesHealthy = checkAllNodesHealthy;
+            return this;
+        }
+
         public CqlMigratorConfig build() {
-            return new CqlMigratorConfig(cassandraLockConfig, readConsistencyLevel, writeConsistencyLevel);
+            return new CqlMigratorConfig(cassandraLockConfig, readConsistencyLevel, writeConsistencyLevel, checkAllNodesHealthy);
         }
     }
 }

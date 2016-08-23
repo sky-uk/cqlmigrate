@@ -67,9 +67,13 @@ final class CqlMigratorImpl implements CqlMigrator {
      * {@inheritDoc}
      */
     public void migrate(Session session, String keyspace, Collection<Path> directories) {
-        Cluster cluster = session.getCluster();
-        ClusterHealth clusterHealth = new ClusterHealth(cluster);
-        clusterHealth.check();
+        if(cqlMigratorConfig.checkAllNodesHealthy()) {
+            LOGGER.info("Performing cluster health check.");
+            Cluster cluster = session.getCluster();
+            ClusterHealth clusterHealth = new ClusterHealth(cluster);
+            clusterHealth.check();
+            LOGGER.info("All nodes in cluster are reporting they are up.");
+        }
 
         CassandraLockingMechanism cassandraLockingMechanism = new CassandraLockingMechanism(session, keyspace);
         Lock lock = new Lock(cassandraLockingMechanism, cqlMigratorConfig.getCassandraLockConfig());
