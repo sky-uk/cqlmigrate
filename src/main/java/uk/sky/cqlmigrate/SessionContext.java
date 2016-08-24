@@ -8,11 +8,14 @@ class SessionContext {
     private final Session session;
     private final ConsistencyLevel readConsistencyLevel;
     private final ConsistencyLevel writeConsistencyLevel;
+    private final ClusterHealth clusterHealth;
+    private boolean clusterHealthChecked = false;
 
-    SessionContext(Session session, ConsistencyLevel readConsistencyLevel, ConsistencyLevel writeConsistencyLevel) {
+    SessionContext(Session session, ConsistencyLevel readConsistencyLevel, ConsistencyLevel writeConsistencyLevel, ClusterHealth clusterHealth) {
         this.session = session;
         this.readConsistencyLevel = readConsistencyLevel;
         this.writeConsistencyLevel = writeConsistencyLevel;
+        this.clusterHealth = clusterHealth;
     }
 
     public Session getSession() {
@@ -25,5 +28,12 @@ class SessionContext {
 
     public ConsistencyLevel getWriteConsistencyLevel() {
         return writeConsistencyLevel;
+    }
+
+    public void checkClusterHealth() {
+        if (!clusterHealthChecked) {
+            clusterHealth.check();
+            clusterHealthChecked = true;
+        }
     }
 }

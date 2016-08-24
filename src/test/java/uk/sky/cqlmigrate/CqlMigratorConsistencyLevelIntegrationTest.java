@@ -27,6 +27,7 @@ import java.util.UUID;
 
 import static java.util.Arrays.asList;
 import static org.scassandra.http.client.PrimingRequest.preparedStatementBuilder;
+import static org.scassandra.http.client.PrimingRequest.queryBuilder;
 import static org.scassandra.http.client.PrimingRequest.then;
 import static org.scassandra.http.client.types.ColumnMetadata.column;
 import static org.scassandra.matchers.Matchers.containsQuery;
@@ -64,6 +65,14 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
                 .withCredentials(username, password)
                 .build()
                 .connect();
+
+        primingClient.prime(queryBuilder()
+            .withQuery("SELECT * FROM system.schema_keyspaces")
+            .withThen(
+                    then()
+                    .withColumnTypes(column("keyspace_name", PrimitiveType.TEXT), column("durable_writes", PrimitiveType.BOOLEAN), column("strategy_class", PrimitiveType.VARCHAR), column("strategy_options", PrimitiveType.TEXT))
+                    .withRows(ImmutableMap.of("keyspace_name", "cqlmigrate_test", "durable_writes", true, "strategy_class", "org.apache.cassandra.locator.SimpleStrategy", "strategy_options", "{\"replication_factor\":\"1\"}"))
+            ));
 
         primingClient.prime(preparedStatementBuilder()
                 .withQuery("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
@@ -137,12 +146,7 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
     }
 
     private void assertStatementsExecuteWithExpectedConsistencyLevels(ConsistencyLevel expectedReadConsistencyLevel, ConsistencyLevel expectedWriteConsistencyLevel) {
-        //ensure bootstrap.cql is applied with configured write consistency level
-        Assert.assertThat(activityClient.retrieveQueries(), containsQuery(Query
-                .builder()
-                .withQuery("CREATE KEYSPACE cqlmigrate_test  WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 }")
-                .withConsistency(expectedWriteConsistencyLevel.toString())
-                .build()));
+        //bootstrap.cql is already "applied" as we are priming cassandra to pretend it already has the keyspace
 
         //ensure that schema updates are applied at configured consistency level
         Assert.assertThat(activityClient.retrieveQueries(), containsQuery(Query
@@ -175,7 +179,7 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
         //ensure that create schema_updates table is done at the configured consistency level
         Assert.assertThat(activityClient.retrieveQueries(), containsQuery(Query
                 .builder()
-                .withQuery("CREATE TABLE IF NOT EXISTS schema_updates (filename text primary key, checksum text, applied_on timestamp);")
+                .withQuery("CREATE TABLE schema_updates (filename text primary key, checksum text, applied_on timestamp);")
                 .withConsistency(expectedWriteConsistencyLevel.toString())
                 .build()));
     }

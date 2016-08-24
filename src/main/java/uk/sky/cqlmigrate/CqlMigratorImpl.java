@@ -1,6 +1,9 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.*;
+import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.Session;
+import com.datastax.driver.core.SimpleStatement;
+import com.datastax.driver.core.Statement;
 import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,9 +27,11 @@ final class CqlMigratorImpl implements CqlMigrator {
     private static final Logger LOGGER = LoggerFactory.getLogger(CqlMigratorImpl.class);
 
     private final CqlMigratorConfig cqlMigratorConfig;
+    private final SessionContextFactory sessionContextFactory;
 
-    CqlMigratorImpl(CqlMigratorConfig cqlMigratorConfig) {
+    CqlMigratorImpl(CqlMigratorConfig cqlMigratorConfig, SessionContextFactory sessionContextFactory) {
         this.cqlMigratorConfig = cqlMigratorConfig;
+        this.sessionContextFactory = sessionContextFactory;
     }
 
     /**
@@ -67,10 +72,6 @@ final class CqlMigratorImpl implements CqlMigrator {
      * {@inheritDoc}
      */
     public void migrate(Session session, String keyspace, Collection<Path> directories) {
-        Cluster cluster = session.getCluster();
-        ClusterHealth clusterHealth = new ClusterHealth(cluster);
-        clusterHealth.check();
-
         CassandraLockingMechanism cassandraLockingMechanism = new CassandraLockingMechanism(session, keyspace);
         Lock lock = new Lock(cassandraLockingMechanism, cqlMigratorConfig.getCassandraLockConfig());
         lock.lock();
@@ -78,7 +79,7 @@ final class CqlMigratorImpl implements CqlMigrator {
         LOGGER.info("Loading cql files from {}", directories);
         CqlPaths paths = CqlPaths.create(directories);
 
-        SessionContext sessionContext = new SessionContext(session, cqlMigratorConfig.getReadConsistencyLevel(), cqlMigratorConfig.getWriteConsistencyLevel());
+        SessionContext sessionContext = sessionContextFactory.getInstance(session, cqlMigratorConfig);
 
         KeyspaceBootstrapper keyspaceBootstrapper = new KeyspaceBootstrapper(sessionContext, keyspace, paths);
         SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, keyspace);

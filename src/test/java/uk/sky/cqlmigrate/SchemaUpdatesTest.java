@@ -20,14 +20,16 @@ import static org.assertj.core.api.Assertions.fail;
 public class SchemaUpdatesTest {
 
     private static final String[] CASSANDRA_HOSTS = {"localhost"};
+    private static final String TEST_KEYSPACE = "cqlmigrate_test";
+    private static final String SCHEMA_UPDATES_TABLE = "schema_updates";
+
     private static int binaryPort;
     private static String username = "cassandra";
     private static String password = "cassandra";
     private static Cluster cluster;
     private static Session session;
-    private static final String TEST_KEYSPACE = "cqlmigrate_test";
+    private static ClusterHealth clusterHealth;
 
-    private static final String SCHEMA_UPDATES_TABLE = "schema_updates";
 
     @BeforeClass
     public static void setupCassandra() throws ConfigurationException, IOException, TTransportException, InterruptedException {
@@ -35,6 +37,7 @@ public class SchemaUpdatesTest {
         binaryPort = EmbeddedCassandraServerHelper.getNativeTransportPort();
 
         cluster = Cluster.builder().addContactPoints(CASSANDRA_HOSTS).withPort(binaryPort).withCredentials(username, password).build();
+        clusterHealth = new ClusterHealth(cluster);
         session = cluster.connect();
     }
 
@@ -62,7 +65,7 @@ public class SchemaUpdatesTest {
         //given
         cluster.connect("system").execute("CREATE KEYSPACE " + TEST_KEYSPACE + " WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
         Session session = cluster.connect(TEST_KEYSPACE);
-        SessionContext sessionContext = new SessionContext(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL);
+        SessionContext sessionContext = new SessionContext(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL, clusterHealth);
         SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, TEST_KEYSPACE);
 
         //when
@@ -78,7 +81,7 @@ public class SchemaUpdatesTest {
         //given
         cluster.connect("system").execute("CREATE KEYSPACE " + TEST_KEYSPACE + " WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
         Session session = cluster.connect(TEST_KEYSPACE);
-        SessionContext sessionContext = new SessionContext(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL);
+        SessionContext sessionContext = new SessionContext(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL, clusterHealth);
         SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, TEST_KEYSPACE);
 
         //when

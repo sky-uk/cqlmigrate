@@ -37,7 +37,7 @@ public class CqlMigratorImplTest {
             .withCassandraLockConfig(CassandraLockConfig.builder().build())
             .withReadConsistencyLevel(ConsistencyLevel.ALL)
             .withWriteConsistencyLevel(ConsistencyLevel.ALL)
-            .build());
+            .build(), new SessionContextFactory());
 
     private ExecutorService executorService;
 
@@ -102,7 +102,7 @@ public class CqlMigratorImplTest {
                 .withCassandraLockConfig(CassandraLockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build())
                 .withReadConsistencyLevel(ConsistencyLevel.ALL)
                 .withWriteConsistencyLevel(ConsistencyLevel.ALL)
-                .build());
+                .build(), new SessionContextFactory());
 
         String client = UUID.randomUUID().toString();
         session.execute("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?)", LOCK_NAME, client);

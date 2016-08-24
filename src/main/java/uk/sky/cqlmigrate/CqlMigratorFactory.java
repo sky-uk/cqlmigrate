@@ -27,6 +27,6 @@ public class CqlMigratorFactory {
      * @since 0.9.4
      */
     public static CqlMigrator create(CqlMigratorConfig cqlMigratorConfig) {
-        return new CqlMigratorImpl(cqlMigratorConfig);
+        return new CqlMigratorImpl(cqlMigratorConfig, new SessionContextFactory());
     }
 }

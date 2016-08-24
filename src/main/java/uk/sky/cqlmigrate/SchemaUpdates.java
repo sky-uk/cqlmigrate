@@ -4,6 +4,7 @@ import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.SimpleStatement;
 import com.datastax.driver.core.Statement;
+import com.datastax.driver.core.TableMetadata;
 import com.google.common.base.Throwables;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteSource;
@@ -14,6 +15,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.util.Collections;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -33,8 +35,10 @@ class SchemaUpdates {
     void initialise() {
         Session session = sessionContext.getSession();
         session.execute(new SimpleStatement("USE " + keyspace + ";").setConsistencyLevel(sessionContext.getReadConsistencyLevel()));
-        session.execute(new SimpleStatement("CREATE TABLE IF NOT EXISTS " + SCHEMA_UPDATES_TABLE + " (filename text primary key, " + CHECKSUM_COLUMN + " text, applied_on timestamp);")
-                .setConsistencyLevel(sessionContext.getWriteConsistencyLevel()));
+        TableMetadata schemaUpdateTableMetadata = session.getCluster().getMetadata().getKeyspace(keyspace).getTable(SCHEMA_UPDATES_TABLE);
+        if (schemaUpdateTableMetadata == null) {
+            CqlLoader.load(sessionContext, Collections.singletonList("CREATE TABLE " + SCHEMA_UPDATES_TABLE + " (filename text primary key, " + CHECKSUM_COLUMN + " text, applied_on timestamp);"));
+        }
     }
 
     boolean alreadyApplied(String filename) {
