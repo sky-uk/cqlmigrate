@@ -1,0 +1,1 @@
+CREATE TABLE second (name text primary key);

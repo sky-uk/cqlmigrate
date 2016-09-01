@@ -14,6 +14,9 @@ class CqlLoader {
     private CqlLoader() {}
 
     static void load(SessionContext sessionContext, List<String> cqlStatements) {
+        if (!cqlStatements.isEmpty()) {
+            sessionContext.checkClusterHealth();
+        }
         try {
             cqlStatements.stream()
                     .map(stringStatement -> new SimpleStatement(stringStatement).setConsistencyLevel(sessionContext.getWriteConsistencyLevel()))
