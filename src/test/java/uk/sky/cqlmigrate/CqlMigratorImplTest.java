@@ -5,6 +5,7 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.thrift.transport.TTransportException;
 import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
+import org.joda.time.DateTime;
 import org.junit.*;
 import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
 
@@ -12,6 +13,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -95,7 +97,7 @@ public class CqlMigratorImplTest {
         }
     }
 
-    @Test(timeout = 1000)
+    @Test(timeout = 5000)
     public void shouldThrowCannotAcquireLockExceptionIfLockCannotBeAcquiredAfterTimeout() throws Exception {
         //given
         CqlMigrator migrator = new CqlMigratorImpl(CqlMigratorConfig.builder()
@@ -249,7 +251,7 @@ public class CqlMigratorImplTest {
     @Test
     public void schemaUpdatesTableShouldContainTheDateEachFileWasApplied() throws Exception {
         //given
-        Date now = new Date();
+        DateTime now = new DateTime();
         Collection<Path> cqlPaths = asList(getResourcePath("cql_valid_one"), getResourcePath("cql_valid_two"));
 
         //when
@@ -258,14 +260,16 @@ public class CqlMigratorImplTest {
         //then
         ResultSet rs = session.execute("select * from schema_updates");
         for (Row row : rs) {
-            assertThat(row.getDate("applied_on")).as("applied_on").isNotNull().isAfter(now);
+            Date applied_on = row.getTimestamp("applied_on");
+            DateTime date = new DateTime(applied_on);
+            org.assertj.jodatime.api.Assertions.assertThat(date).as("applied_on").isNotNull().isAfter(now);
         }
     }
 
     @Test
     public void schemaUpdatesTableByPassingCassandraSession() throws Exception {
         //given
-        Date now = new Date();
+        DateTime now = new DateTime();
         Collection<Path> cqlPaths = asList(getResourcePath("cql_valid_one"), getResourcePath("cql_valid_two"));
 
         //when
@@ -274,7 +278,9 @@ public class CqlMigratorImplTest {
         //then
         ResultSet rs = session.execute("select * from schema_updates");
         for (Row row : rs) {
-            assertThat(row.getDate("applied_on")).as("applied_on").isNotNull().isAfter(now);
+            Date applied_on = row.getTimestamp("applied_on");
+            DateTime date = new DateTime(applied_on);
+            org.assertj.jodatime.api.Assertions.assertThat(date).as("applied_on").isNotNull().isAfter(now);
         }
     }
 

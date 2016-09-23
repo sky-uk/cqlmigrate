@@ -13,7 +13,7 @@ repositories {
     jcenter()
 }
 
-compile 'uk.sky:cqlmigrate:0.9.1'
+compile 'uk.sky:cqlmigrate:0.9.6'
 ```
 
 ## Adding as a Maven dependency
@@ -30,7 +30,7 @@ compile 'uk.sky:cqlmigrate:0.9.1'
 <dependency>
   <groupId>uk.sky</groupId>
   <artifactId>cqlmigrate</artifactId>
-  <version>0.9.1</version>
+  <version>0.9.6</version>
 </dependency>
 ```
 
@@ -129,6 +129,7 @@ Each lock will be deleted by `cqlmigrate` once the migration is complete.
 ## Supported Cassandra versions
 
 This project has been tested against the following versions:
+* DSE 5.0.2 (3.0.8)
 * 2.1.7
 * DSE 4.7.3 (2.1.8)
 * 2.2.2
@@ -161,3 +162,4 @@ Originally developed by the Cirrus team at Sky.
 - Yoseph Sultan
 - David Sale
 - Supreeth Rao
+- Jose Taboada

@@ -36,11 +36,13 @@ public class CassandraLockingMechanismTest {
 
     private final PreparedStatementExecution deleteLockPreparedStatement = PreparedStatementExecution.builder()
             .withPreparedStatementText("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
+            .withConsistency("LOCAL_ONE")
             .withVariables(LOCK_KEYSPACE + ".schema_migration", CLIENT_ID)
             .build();
 
     private final PreparedStatementExecution insertLockPreparedStatement = PreparedStatementExecution.builder()
             .withPreparedStatementText("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+            .withConsistency("LOCAL_ONE")
             .withVariables(LOCK_KEYSPACE + ".schema_migration", CLIENT_ID)
             .build();
 

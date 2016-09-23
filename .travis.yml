@@ -3,4 +3,4 @@ jdk:
   - oraclejdk8
 
 script:
-  - ./gradlew clean check
+  - ./gradlew clean check -Dcassandra.storagedir=/tmp/cassandra

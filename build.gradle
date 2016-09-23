@@ -74,13 +74,15 @@ configurations {
 }
 
 dependencies {
-    compile 'com.datastax.cassandra:cassandra-driver-core:2.1.8'
+    compile 'com.datastax.cassandra:cassandra-driver-core:3.1.0'
     compile 'org.slf4j:slf4j-api:1.7.12'
     compile 'com.google.code.findbugs:jsr305:3.0.0'
 
     testCompile 'org.apache.logging.log4j:log4j-core:2.2'
     testCompile 'junit:junit:4.12'
     testCompile 'org.assertj:assertj-core:2.0.0'
+    testCompile 'org.assertj:assertj-joda-time:2.0.0'
+    testCompile 'joda-time:joda-time:2.9.4'
     testCompile 'org.hamcrest:hamcrest-all:1.3'
     testCompile 'org.mockito:mockito-core:1.10.19'
     testCompile 'org.powermock:powermock-api-mockito:1.6.5'
@@ -88,7 +90,8 @@ dependencies {
 
     testCompile 'org.scassandra:java-client:1.0.3'
 
-    testCompileAndFunctional 'org.cassandraunit:cassandra-unit-shaded:2.1.9.2'
+//    testCompileAndFunctional 'org.cassandraunit:cassandra-unit-shaded:2.1.9.2'
+    testCompileAndFunctional 'org.cassandraunit:cassandra-unit:3.0.0.1'
     functional 'org.slf4j:slf4j-simple:1.7.12'
 }
 
@@ -131,8 +134,13 @@ jar {
 task functional (dependsOn: ['testJar']) << {
     exec {
         executable = 'java'
-        args = ['-jar', testJar.archivePath, 'migrateSchema']
+        args = ['-jar', '-Dcassandra.storagedir=/tmp/cassandra', testJar.archivePath, 'migrateSchema']
+
     }
 }
 
 check.dependsOn(functional)
+
+test {
+    jvmArgs '-Dcassandra.storagedir=/tmp/cassandra'
+}
