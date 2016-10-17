@@ -1,4 +1,4 @@
-![travis](https://travis-ci.org/sky-uk/cqlmigrate.svg?branch=master)
+[![Build Status](https://travis-ci.org/sky-uk/cqlmigrate.svg?branch=master)](https://travis-ci.org/sky-uk/cqlmigrate)
 
 # Cassandra CQL migration tool
 
@@ -13,7 +13,7 @@ repositories {
     jcenter()
 }
 
-compile 'uk.sky:cqlmigrate:0.9.1'
+compile 'uk.sky:cqlmigrate:0.9.5'
 ```
 
 ## Adding as a Maven dependency
@@ -30,7 +30,7 @@ compile 'uk.sky:cqlmigrate:0.9.1'
 <dependency>
   <groupId>uk.sky</groupId>
   <artifactId>cqlmigrate</artifactId>
-  <version>0.9.1</version>
+  <version>0.9.5</version>
 </dependency>
 ```
 
