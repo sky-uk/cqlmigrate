@@ -50,7 +50,6 @@ To apply all `.cql` files located in `/cql` in the classpath:
 CassandraLockConfig lockConfig = CassandraLockConfig.builder()
         .withTimeout(Duration.standardSeconds(3))
         .withPollingInterval(Duration.millis(500))
-        .withClientId("node-uuid")
         .build())
 
 // Create a migrator and run it

@@ -6,11 +6,7 @@ import com.datastax.driver.core.Session;
 import com.google.common.collect.ImmutableMap;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.thrift.transport.TTransportException;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.*;
 import org.scassandra.cql.PrimitiveType;
 import org.scassandra.http.client.ActivityClient;
 import org.scassandra.http.client.PrimingClient;
@@ -23,12 +19,9 @@ import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
-import java.util.UUID;
 
 import static java.util.Arrays.asList;
-import static org.scassandra.http.client.PrimingRequest.preparedStatementBuilder;
-import static org.scassandra.http.client.PrimingRequest.queryBuilder;
-import static org.scassandra.http.client.PrimingRequest.then;
+import static org.scassandra.http.client.PrimingRequest.*;
 import static org.scassandra.http.client.types.ColumnMetadata.column;
 import static org.scassandra.matchers.Matchers.containsQuery;
 
@@ -41,11 +34,9 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
     private static String username = "cassandra";
     private static String password = "cassandra";
     public static final int FREE_PORT = PortScavenger.getFreePort();
-    private static final String CLIENT_ID = UUID.randomUUID().toString();
     private static final String TEST_KEYSPACE = "cqlmigrate_test";
 
     private final CassandraLockConfig lockConfig = CassandraLockConfig.builder()
-            .withClientId(CLIENT_ID)
             .build();
 
 
@@ -80,7 +71,7 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
                         then()
                                 .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
                                 .withColumnTypes(column("client", PrimitiveType.TEXT), column("[applied]", PrimitiveType.BOOLEAN))
-                                .withRows(ImmutableMap.of("client", CLIENT_ID, "[applied]", true)))
+                                .withRows(ImmutableMap.of("client", lockConfig.getClientId(), "[applied]", true)))
         );
 
         primingClient.prime(preparedStatementBuilder()
@@ -89,7 +80,7 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
                         then()
                                 .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
                                 .withColumnTypes(column("client", PrimitiveType.TEXT), column("[applied]", PrimitiveType.BOOLEAN))
-                                .withRows(ImmutableMap.of("client", CLIENT_ID, "[applied]", true)))
+                                .withRows(ImmutableMap.of("client", lockConfig.getClientId(), "[applied]", true)))
         );
     }
 
