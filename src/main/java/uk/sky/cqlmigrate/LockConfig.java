@@ -68,17 +68,6 @@ public class LockConfig {
             return this;
         }
 
-        /**
-         * Client id to use to identify lock holder
-         *
-         * @param clientId defaults to a UUID
-         * @return this
-         */
-        public LockConfigBuilder withClientId(String clientId) {
-            this.clientId = clientId;
-            return this;
-        }
-
         public LockConfig build() {
             return new LockConfig(pollingInterval, timeout, clientId);
         }
