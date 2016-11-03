@@ -135,4 +135,4 @@ task functional (dependsOn: ['testJar']) << {
     }
 }
 
-check.dependsOn(functional)
+check.dependsOn(functional, javadoc)
