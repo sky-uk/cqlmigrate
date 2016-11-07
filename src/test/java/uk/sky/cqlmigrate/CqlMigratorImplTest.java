@@ -5,7 +5,6 @@ import com.google.common.util.concurrent.Uninterruptibles;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.thrift.transport.TTransportException;
 import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
-import org.joda.time.DateTime;
 import org.junit.*;
 import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
 
@@ -13,7 +12,6 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.sql.Timestamp;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -251,7 +249,7 @@ public class CqlMigratorImplTest {
     @Test
     public void schemaUpdatesTableShouldContainTheDateEachFileWasApplied() throws Exception {
         //given
-        DateTime now = new DateTime();
+        Date now = new Date();
         Collection<Path> cqlPaths = asList(getResourcePath("cql_valid_one"), getResourcePath("cql_valid_two"));
 
         //when
@@ -260,16 +258,14 @@ public class CqlMigratorImplTest {
         //then
         ResultSet rs = session.execute("select * from schema_updates");
         for (Row row : rs) {
-            Date applied_on = row.getTimestamp("applied_on");
-            DateTime date = new DateTime(applied_on);
-            org.assertj.jodatime.api.Assertions.assertThat(date).as("applied_on").isNotNull().isAfter(now);
+            assertThat(row.getTimestamp("applied_on")).as("applied_on").isNotNull().isAfter(now);
         }
     }
 
     @Test
     public void schemaUpdatesTableByPassingCassandraSession() throws Exception {
         //given
-        DateTime now = new DateTime();
+        Date now = new Date();
         Collection<Path> cqlPaths = asList(getResourcePath("cql_valid_one"), getResourcePath("cql_valid_two"));
 
         //when
@@ -278,9 +274,7 @@ public class CqlMigratorImplTest {
         //then
         ResultSet rs = session.execute("select * from schema_updates");
         for (Row row : rs) {
-            Date applied_on = row.getTimestamp("applied_on");
-            DateTime date = new DateTime(applied_on);
-            org.assertj.jodatime.api.Assertions.assertThat(date).as("applied_on").isNotNull().isAfter(now);
+            assertThat(row.getTimestamp("applied_on")).as("applied_on").isNotNull().isAfter(now);
         }
     }
 
