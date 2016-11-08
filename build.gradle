@@ -89,7 +89,6 @@ dependencies {
 
     testCompile 'org.scassandra:java-client:1.0.3'
 
-//    testCompileAndFunctional 'org.cassandraunit:cassandra-unit-shaded:2.1.9.2'
     testCompileAndFunctional 'org.cassandraunit:cassandra-unit:3.0.0.1'
     functional 'org.slf4j:slf4j-simple:1.7.12'
 }
