@@ -81,7 +81,7 @@ dependencies {
     testCompile 'org.apache.logging.log4j:log4j-core:2.2'
     testCompile 'junit:junit:4.12'
     testCompile 'org.assertj:assertj-core:2.0.0'
-    testCompile 'org.assertj:assertj-joda-time:2.0.0'
+//    testCompile 'org.assertj:assertj-joda-time:2.0.0'
     testCompile 'org.hamcrest:hamcrest-all:1.3'
     testCompile 'org.mockito:mockito-core:1.10.19'
     testCompile 'org.powermock:powermock-api-mockito:1.6.5'
@@ -137,7 +137,7 @@ task functional (dependsOn: ['testJar']) << {
     }
 }
 
-check.dependsOn(functional)
+check.dependsOn(functional, javadoc)
 
 test {
     jvmArgs '-Dcassandra.storagedir=/tmp/cassandra'

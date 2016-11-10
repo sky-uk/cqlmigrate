@@ -1,4 +1,4 @@
-![travis](https://travis-ci.org/sky-uk/cqlmigrate.svg?branch=master)
+[![Build Status](https://travis-ci.org/sky-uk/cqlmigrate.svg?branch=master)](https://travis-ci.org/sky-uk/cqlmigrate)
 
 # Cassandra CQL migration tool
 
@@ -13,7 +13,7 @@ repositories {
     jcenter()
 }
 
-compile 'uk.sky:cqlmigrate:0.9.6'
+compile 'uk.sky:cqlmigrate:0.9.5'
 ```
 
 ## Adding as a Maven dependency
@@ -30,7 +30,7 @@ compile 'uk.sky:cqlmigrate:0.9.6'
 <dependency>
   <groupId>uk.sky</groupId>
   <artifactId>cqlmigrate</artifactId>
-  <version>0.9.6</version>
+  <version>0.9.5</version>
 </dependency>
 ```
 
@@ -50,7 +50,6 @@ To apply all `.cql` files located in `/cql` in the classpath:
 CassandraLockConfig lockConfig = CassandraLockConfig.builder()
         .withTimeout(Duration.standardSeconds(3))
         .withPollingInterval(Duration.millis(500))
-        .withClientId("node-uuid")
         .build())
 
 // Create a migrator and run it
@@ -73,14 +72,14 @@ Specify credentials, if required, using `-Dusername=<username>` and `-Dpassword=
 
 1. Checks all nodes are up and their schemas are in agreement.
 
-2. Tries to acquire a lock for the keyspace. If it can't initially be acquired it will continue to retry at a set polling time until the timeout is reached.  
+2. Tries to acquire a lock for the keyspace. If it can't initially be acquired it will continue to retry at a set polling time until the timeout is reached.
 
 3. Looks for a `bootstrap.cql` file and runs it first. This file should contain the keyspace definition:
 
     ```
     CREATE KEYSPACE my_keyspace
      WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };
-    ```        
+    ```
 
 4. Applies `.cql` files one by one, sorted by filename in ascending order. It is suggested to prefix
    the files with a datetime to order them:
@@ -91,7 +90,7 @@ Specify credentials, if required, using `-Dusername=<username>` and `-Dpassword=
    ```
 
    Any previously applied files will be skipped.
-   
+
 5. Releases the lock.
 
 ### schema_updates table
@@ -117,11 +116,11 @@ This table is used to keep track of what locks are currently in place, and relie
 Cassandra's [lightweight transactions](https://docs.datastax.com/en/cassandra/2.0/cassandra/dml/dml_ltwt_transaction_c.html).
 
     SELECT * FROM locks;
-    
+
      name                                | client
     -------------------------------------+--------------------------------------
      airplanes_keyspace.schema_migration | 2a4ec2ae-d3d1-4b33-86a9-eb844e35eeeb
-    
+
     (1 rows)
 
 Each lock will be deleted by `cqlmigrate` once the migration is complete.
@@ -147,7 +146,7 @@ as a traditional relational database.
 * AP properties of Cassandra also apply to schema updates - so it is possible for a cluster to have an
   inconsistent schema across nodes in case of split brain or other situation. `cqlmigrate` tries to
   alleviate this with appropriate consistency levels.
- 
+
 # Contributors
 
 Originally developed by the Cirrus team at Sky.
