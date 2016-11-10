@@ -28,12 +28,6 @@ public class CassandraLockConfig extends LockConfig {
             return this;
         }
 
-        @Override
-        public CassandraLockConfigBuilder withClientId(String clientId) {
-            super.withClientId(clientId);
-            return this;
-        }
-
         public CassandraLockConfig build() {
             return new CassandraLockConfig(pollingInterval, timeout, clientId);
         }

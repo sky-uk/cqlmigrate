@@ -8,7 +8,6 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import uk.sky.cqlmigrate.CassandraLockConfig.CassandraLockConfigBuilder;
 
 import java.net.URISyntaxException;
 import java.nio.file.Path;
@@ -39,13 +38,9 @@ public class LockVerificationTest {
 
     private Cluster cluster;
     private Session session;
-    private CassandraLockConfigBuilder configBuilder;
 
     @Before
     public void setUp() {
-        configBuilder = CassandraLockConfig.builder()
-                .withPollingInterval(Duration.ofMillis(30));
-
         cluster = createCluster();
         session = cluster.connect();
 
@@ -118,7 +113,7 @@ public class LockVerificationTest {
             Session session = cluster.connect();
 
             CassandraLockingMechanism lockingMechanism = new CassandraLockingMechanism(session, KEYSPACE);
-            CassandraLockConfig lockConfig = configBuilder.withClientId(UUID.randomUUID().toString()).build();
+            CassandraLockConfig lockConfig = createCassandraLockConfig();
 
             Lock lock = new Lock(lockingMechanism, lockConfig);
 
@@ -195,6 +190,11 @@ public class LockVerificationTest {
                 .withQueryOptions(queryOptions)
                 .withSocketOptions(socketOptions)
                 .build();
+    }
+
+    private CassandraLockConfig createCassandraLockConfig() {
+        return CassandraLockConfig.builder()
+                .withPollingInterval(Duration.ofMillis(30)).build();
     }
 
 }
