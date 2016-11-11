@@ -72,14 +72,14 @@ Specify credentials, if required, using `-Dusername=<username>` and `-Dpassword=
 
 1. Checks all nodes are up and their schemas are in agreement.
 
-2. Tries to acquire a lock for the keyspace. If it can't initially be acquired it will continue to retry at a set polling time until the timeout is reached.  
+2. Tries to acquire a lock for the keyspace. If it can't initially be acquired it will continue to retry at a set polling time until the timeout is reached.
 
 3. Looks for a `bootstrap.cql` file and runs it first. This file should contain the keyspace definition:
 
     ```
     CREATE KEYSPACE my_keyspace
      WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };
-    ```        
+    ```
 
 4. Applies `.cql` files one by one, sorted by filename in ascending order. It is suggested to prefix
    the files with a datetime to order them:
@@ -90,7 +90,7 @@ Specify credentials, if required, using `-Dusername=<username>` and `-Dpassword=
    ```
 
    Any previously applied files will be skipped.
-   
+
 5. Releases the lock.
 
 ### schema_updates table
@@ -116,11 +116,11 @@ This table is used to keep track of what locks are currently in place, and relie
 Cassandra's [lightweight transactions](https://docs.datastax.com/en/cassandra/2.0/cassandra/dml/dml_ltwt_transaction_c.html).
 
     SELECT * FROM locks;
-    
+
      name                                | client
     -------------------------------------+--------------------------------------
      airplanes_keyspace.schema_migration | 2a4ec2ae-d3d1-4b33-86a9-eb844e35eeeb
-    
+
     (1 rows)
 
 Each lock will be deleted by `cqlmigrate` once the migration is complete.
@@ -128,6 +128,7 @@ Each lock will be deleted by `cqlmigrate` once the migration is complete.
 ## Supported Cassandra versions
 
 This project has been tested against the following versions:
+* DSE 5.0.2 (3.0.8)
 * 2.1.7
 * DSE 4.7.3 (2.1.8)
 * 2.2.2
@@ -145,7 +146,7 @@ as a traditional relational database.
 * AP properties of Cassandra also apply to schema updates - so it is possible for a cluster to have an
   inconsistent schema across nodes in case of split brain or other situation. `cqlmigrate` tries to
   alleviate this with appropriate consistency levels.
- 
+
 # Contributors
 
 Originally developed by the Cirrus team at Sky.
@@ -160,3 +161,4 @@ Originally developed by the Cirrus team at Sky.
 - Yoseph Sultan
 - David Sale
 - Supreeth Rao
+- Jose Taboada

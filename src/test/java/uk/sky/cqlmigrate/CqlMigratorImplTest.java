@@ -95,7 +95,7 @@ public class CqlMigratorImplTest {
         }
     }
 
-    @Test(timeout = 1000)
+    @Test(timeout = 5000)
     public void shouldThrowCannotAcquireLockExceptionIfLockCannotBeAcquiredAfterTimeout() throws Exception {
         //given
         CqlMigrator migrator = new CqlMigratorImpl(CqlMigratorConfig.builder()
@@ -258,7 +258,7 @@ public class CqlMigratorImplTest {
         //then
         ResultSet rs = session.execute("select * from schema_updates");
         for (Row row : rs) {
-            assertThat(row.getDate("applied_on")).as("applied_on").isNotNull().isAfter(now);
+            assertThat(row.getTimestamp("applied_on")).as("applied_on").isNotNull().isAfter(now);
         }
     }
 
@@ -274,7 +274,7 @@ public class CqlMigratorImplTest {
         //then
         ResultSet rs = session.execute("select * from schema_updates");
         for (Row row : rs) {
-            assertThat(row.getDate("applied_on")).as("applied_on").isNotNull().isAfter(now);
+            assertThat(row.getTimestamp("applied_on")).as("applied_on").isNotNull().isAfter(now);
         }
     }
 
