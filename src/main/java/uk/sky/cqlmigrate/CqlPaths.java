@@ -4,9 +4,11 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSortedMap;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,9 +29,14 @@ class CqlPaths {
         Map<String, Path> cqlPathsMap = new HashMap<>();
 
         directories.stream()
-                .map(CqlPaths::directoryStreamFromPath)
-                .flatMap(directoryStream -> StreamSupport.stream(directoryStream.spliterator(), false))
-                .forEach(path -> addPathToMap(cqlPathsMap, path));
+                .forEach( directory -> {
+                    try( DirectoryStream<Path> directoryStream = directoryStreamFromPath(directory)) {
+                        StreamSupport.stream(directoryStream.spliterator(), false)
+                                .forEach(path -> addPathToMap(cqlPathsMap, path));
+                    } catch(IOException e){
+                        throw new UncheckedIOException(e);
+                    }
+                });
 
         return new CqlPaths(cqlPathsMap);
     }
