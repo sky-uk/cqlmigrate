@@ -4,8 +4,8 @@ import java.time.Duration;
 
 public class CassandraLockConfig extends LockConfig {
 
-    private CassandraLockConfig(Duration pollingInterval, Duration timeout, String clientId) {
-        super(pollingInterval, timeout, clientId);
+    private CassandraLockConfig(Duration pollingInterval, Duration timeout, String clientId, boolean unlockOnFailure) {
+        super(pollingInterval, timeout, clientId, unlockOnFailure);
     }
 
     public static CassandraLockConfigBuilder builder() {
@@ -28,8 +28,14 @@ public class CassandraLockConfig extends LockConfig {
             return this;
         }
 
+        @Override
+        public CassandraLockConfigBuilder unlockOnFailure() {
+            super.unlockOnFailure();
+            return this;
+        }
+
         public CassandraLockConfig build() {
-            return new CassandraLockConfig(pollingInterval, timeout, clientId);
+            return new CassandraLockConfig(pollingInterval, timeout, clientId, unlockOnFailure);
         }
     }
 }
