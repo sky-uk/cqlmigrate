@@ -73,22 +73,32 @@ final class CqlMigratorImpl implements CqlMigrator {
      */
     public void migrate(Session session, String keyspace, Collection<Path> directories) {
         CassandraLockingMechanism cassandraLockingMechanism = new CassandraLockingMechanism(session, keyspace);
-        Lock lock = new Lock(cassandraLockingMechanism, cqlMigratorConfig.getCassandraLockConfig());
+        CassandraLockConfig lockConfig = cqlMigratorConfig.getCassandraLockConfig();
+
+        boolean migrationFailed = false;
+        Lock lock = new Lock(cassandraLockingMechanism, lockConfig);
+
         lock.lock();
 
-        LOGGER.info("Loading cql files from {}", directories);
-        CqlPaths paths = CqlPaths.create(directories);
+        try {
+            LOGGER.info("Loading cql files from {}", directories);
+            CqlPaths paths = CqlPaths.create(directories);
 
-        SessionContext sessionContext = sessionContextFactory.getInstance(session, cqlMigratorConfig);
+            SessionContext sessionContext = sessionContextFactory.getInstance(session, cqlMigratorConfig);
 
-        KeyspaceBootstrapper keyspaceBootstrapper = new KeyspaceBootstrapper(sessionContext, keyspace, paths);
-        SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, keyspace);
-        SchemaLoader schemaLoader = new SchemaLoader(sessionContext, keyspace, schemaUpdates, paths);
+            KeyspaceBootstrapper keyspaceBootstrapper = new KeyspaceBootstrapper(sessionContext, keyspace, paths);
+            SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, keyspace);
+            SchemaLoader schemaLoader = new SchemaLoader(sessionContext, keyspace, schemaUpdates, paths);
 
-        keyspaceBootstrapper.bootstrap();
-        schemaUpdates.initialise();
-        schemaLoader.load();
-        lock.unlock();
+            keyspaceBootstrapper.bootstrap();
+            schemaUpdates.initialise();
+            schemaLoader.load();
+        } catch (Exception e) {
+            migrationFailed = true;
+            throw e;
+        } finally {
+            lock.unlock(migrationFailed);
+        }
     }
 
     /**

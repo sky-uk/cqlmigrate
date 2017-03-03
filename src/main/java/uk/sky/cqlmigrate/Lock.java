@@ -58,10 +58,18 @@ class Lock {
      * Will release the lock using the locking mechanism. If a lock cannot
      * be released within the configured timeout interval, an exception is thrown.
      *
+     * @param migrationFailed true if migration failed, false otherwise
      * @throws CannotReleaseLockException if this cannot release lock within the specified time interval or locking mechanism fails
      */
-    public void unlock() throws CannotReleaseLockException {
+    public void unlock(boolean migrationFailed) throws CannotReleaseLockException {
         String lockName = lockingMechanism.getLockName();
+
+        if (migrationFailed && !lockConfig.unlockOnFailure()) {
+            log.info("Not releasing the lock for name '{}' and client id '{}' due to failure (use LockConfig.unlockOnFailure() to change that behavior)",
+                    lockingMechanism.getLockName(), lockConfig.getClientId());
+            return;
+        }
+
         try {
             log.info("Attempting to release lock for '{}', using client id '{}'", lockName, lockConfig.getClientId());
             RetryTask.attempt(() -> lockingMechanism.release(lockConfig.getClientId()))
@@ -76,6 +84,4 @@ class Lock {
             throw new CannotReleaseLockException(String.format("Polling to release lock %s for client %s was interrupted", lockName, lockConfig.getClientId()), e);
         }
     }
-
-
 }

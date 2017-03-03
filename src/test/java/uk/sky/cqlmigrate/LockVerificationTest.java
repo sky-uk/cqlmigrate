@@ -131,7 +131,7 @@ public class LockVerificationTest {
                     LOGGER.info("Client {} registered counter {}", lockConfig.getClientId(), updatedCounter);
                 }
 
-                lock.unlock();
+                lock.unlock(false);
             } while(!done);
 
             session.close();

@@ -120,10 +120,45 @@ public class LockTest {
         lock.lock();
 
         //when
-        lock.unlock();
+        lock.unlock(false);
 
         //then
         verify(lockingMechanism).release(LOCK_CONFIG.getClientId());
+    }
+
+    @Test
+    public void doesNotReleaseLockIfMigrationFailed() throws Throwable {
+        //given
+        given(lockingMechanism.acquire(LOCK_CONFIG.getClientId())).willReturn(true);
+        lock.lock();
+
+        //when
+        lock.unlock(true);
+
+        //then
+        verify(lockingMechanism, never()).release(LOCK_CONFIG.getClientId());
+    }
+
+    @Test
+    public void releasesLockOnLockIfUnlockOnFailureIsSetToTrue() throws Throwable {
+        //given
+        LockConfig lockConfig = LockConfig.builder()
+                .withPollingInterval(Duration.ofMillis(POLLING_MILLIS))
+                .withTimeout(Duration.ofMillis(TIMEOUT_MILLIS))
+                .unlockOnFailure()
+                .build();
+
+        given(lockingMechanism.acquire(lockConfig.getClientId())).willReturn(true);
+        given(lockingMechanism.release(lockConfig.getClientId())).willReturn(true);
+
+        Lock lock = new Lock(lockingMechanism, lockConfig);
+        lock.lock();
+
+        //when
+        lock.unlock(true);
+
+        //then
+        verify(lockingMechanism).release(lockConfig.getClientId());
     }
 
     @Test
@@ -135,7 +170,7 @@ public class LockTest {
 
         //when
         long startTime = System.currentTimeMillis();
-        lock.unlock();
+        lock.unlock(false);
         long duration = System.currentTimeMillis() - startTime;
 
         //then
@@ -153,7 +188,7 @@ public class LockTest {
         //when
         long startTime = System.currentTimeMillis();
         try {
-            lock.unlock();
+            lock.unlock(false);
             fail("Expected Exception");
         } catch (CannotReleaseLockException e) {
             // nada
