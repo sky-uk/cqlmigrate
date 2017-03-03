@@ -110,11 +110,11 @@ public class CqlMigratorImplTest {
         Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
 
         //when
-        Future<?> future = executorService.submit((Runnable) () -> migrator.migrate(
+        Future<?> future = executorService.submit(() -> migrator.migrate(
                 CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths));
 
         Thread.sleep(310);
-        Throwable throwable = catchThrowable(() -> future.get());
+        Throwable throwable = catchThrowable(future::get);
 
         //then
         assertThat(throwable).isInstanceOf(ExecutionException.class);
@@ -152,13 +152,50 @@ public class CqlMigratorImplTest {
     }
 
     @Test
+    public void shouldNotRemoveLockAfterMigrationFailed() throws Exception {
+        //given
+        Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap_missing_semicolon"));
+
+        //when
+        try {
+            MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
+        } catch (RuntimeException ignore) {
+        }
+
+        //then
+        ResultSet resultSet = session.execute("SELECT * FROM cqlmigrate.locks WHERE name = ?", LOCK_NAME);
+        assertThat(resultSet.isExhausted()).as("Is lock released").isFalse();
+    }
+
+    @Test
+    public void shouldRemoveLockAfterMigrationFailedIfUnlockOnFailureIsSetToTrue() throws Exception {
+        //given
+        CqlMigrator migrator = new CqlMigratorImpl(CqlMigratorConfig.builder()
+            .withCassandraLockConfig(CassandraLockConfig.builder().unlockOnFailure().build())
+            .withReadConsistencyLevel(ConsistencyLevel.ALL)
+            .withWriteConsistencyLevel(ConsistencyLevel.ALL)
+            .build(), new SessionContextFactory());
+        Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap_missing_semicolon"));
+
+        //when
+        try {
+            migrator.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
+        } catch (RuntimeException ignore) {
+        }
+
+        //then
+        ResultSet resultSet = session.execute("SELECT * FROM cqlmigrate.locks WHERE name = ?", LOCK_NAME);
+        assertThat(resultSet.isExhausted()).as("Is lock released").isTrue();
+    }
+
+    @Test
     public void shouldRetryWhenAcquiringLockIfNotInitiallyAvailable() throws Exception {
         //given
         session.execute("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?)", LOCK_NAME, UUID.randomUUID().toString());
         Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
 
         //when
-        Future<?> future = executorService.submit((Runnable) () -> MIGRATOR.migrate(
+        Future<?> future = executorService.submit(() -> MIGRATOR.migrate(
                 CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths));
         session.execute("TRUNCATE cqlmigrate.locks");
         Thread.sleep(1000);
@@ -188,8 +225,7 @@ public class CqlMigratorImplTest {
     @Test(expected = RuntimeException.class)
     public void shouldThrowExceptionForBootstrapWithMissingSemiColon() throws Exception {
         //given
-        Path cqlPath = getResourcePath("cql_bootstrap_missing_semicolon");
-        Collection<Path> cqlPaths = singletonList(cqlPath);
+        Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap_missing_semicolon"));
 
         //when
         MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);

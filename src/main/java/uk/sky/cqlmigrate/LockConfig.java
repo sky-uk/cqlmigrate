@@ -7,11 +7,13 @@ public class LockConfig {
 
     protected final Duration pollingInterval, timeout;
     protected final String clientId;
+    protected final boolean unlockOnFailure;
 
-    protected LockConfig(Duration pollingInterval, Duration timeout, String clientId) {
+    protected LockConfig(Duration pollingInterval, Duration timeout, String clientId, boolean unlockOnFailure) {
         this.pollingInterval = pollingInterval;
         this.timeout = timeout;
         this.clientId = clientId;
+        this.unlockOnFailure = unlockOnFailure;
     }
 
     Duration getPollingInterval() {
@@ -26,6 +28,10 @@ public class LockConfig {
         return clientId;
     }
 
+    boolean unlockOnFailure() {
+        return unlockOnFailure;
+    }
+
     public static LockConfigBuilder builder() {
         return new LockConfigBuilder();
     }
@@ -35,6 +41,7 @@ public class LockConfig {
         protected Duration pollingInterval = Duration.ofMillis(500);
         protected Duration timeout = Duration.ofMinutes(1);
         protected String clientId = UUID.randomUUID().toString();
+        protected boolean unlockOnFailure;
 
         protected LockConfigBuilder() {}
 
@@ -68,8 +75,23 @@ public class LockConfig {
             return this;
         }
 
+        /**
+         * Release the lock in case of failure.
+         *
+         * Note: default behavior is to leave the lock behind if any failures occurred during migration.
+         * This was done to prevent accidental data corruption and bring manual attention to the problem.
+         *
+         * Use 'unlockOnFailure' to override the default behavior and force cqlmigrate to release the lock.
+         *
+         * @return this
+         */
+        public LockConfigBuilder unlockOnFailure() {
+            this.unlockOnFailure = true;
+            return this;
+        }
+
         public LockConfig build() {
-            return new LockConfig(pollingInterval, timeout, clientId);
+            return new LockConfig(pollingInterval, timeout, clientId, unlockOnFailure);
         }
     }
 }
