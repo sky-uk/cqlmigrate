@@ -11,6 +11,7 @@ import static org.hamcrest.Matchers.equalToIgnoringWhiteSpace;
 import static org.hamcrest.Matchers.hasSize;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.fail;
 
 public class CqlFileParserTest {
 
@@ -72,4 +73,16 @@ public class CqlFileParserTest {
 
         assertEquals(cqlStatements.get(3), expectedStatement);
     }
+
+    @Test
+    public void shouldExceptionOnMissingSemicolon() throws Exception {
+        Path cqlPath = getResourcePath("cql_bootstrap_missing_semicolon/bootstrap.cql");
+        try {
+            List<String> cqlStatements = CqlFileParser.getCqlStatementsFrom(cqlPath);
+            fail();
+        } catch (IllegalStateException e) {
+            //ok
+        }
+    }
+
 }

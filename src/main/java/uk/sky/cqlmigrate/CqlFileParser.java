@@ -150,7 +150,7 @@ class CqlFileParser {
         }
 
         private void check() {
-            checkState(curState != IS_CLOSE_STMT, "File had a non-terminated cql line");
+            checkState(curState == IS_CLOSE_STMT || curState == INIT, "File had a non-terminated cql line");
         }
         
         String[] getResult() {
