@@ -67,7 +67,7 @@ public class CqlFileParserTest {
         
         assertEquals(cqlStatements.get(2), expectedStatement);
 
-        expectedStatement = "INSERT into role_graphs_sql (provider, graphml)" +
+        expectedStatement = "INSERT into role_graphs_sql (provider, graphml, settings)" +
                 " VALUES ('EARTH', '', '   the end ')";
 
         assertEquals(cqlStatements.get(3), expectedStatement);

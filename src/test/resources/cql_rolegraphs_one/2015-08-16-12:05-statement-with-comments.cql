@@ -19,10 +19,10 @@ INSERT into role_graphs_sql (provider, graphml)
 ;
 
 /* /* Multi-line comment */
-INSERT into role_graphs_sql (provider, graphml)
+INSERT into role_graphs_sql (provider, graphml, settings)
     VALUES ('EARTH', '', '<empty />');
   */ 
 
-INSERT into role_graphs_sql (provider, graphml)
+INSERT into role_graphs_sql (provider, graphml, settings)
     VALUES ('EARTH', '',
 '   the end ');
