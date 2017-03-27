@@ -85,4 +85,13 @@ public class CqlFileParserTest {
         }
     }
 
+    @Test
+    public void shouldCopeWithSingleLineStatement() throws Exception {
+        Path cqlPath = getResourcePath("cql_consistency_level/2016-02-12-11_30-create-table.cql");
+
+        List<String> cqlStatements = CqlFileParser.getCqlStatementsFrom(cqlPath);
+        String expectedStatement = "CREATE TABLE consistency_test (column1 text primary key, column2 text)";
+        assertThat(cqlStatements, hasSize(1));
+        assertEquals(cqlStatements.get(0), expectedStatement);
+    }
 }

@@ -90,7 +90,7 @@ class CqlFileParser {
 
                     if (line.endsWith(CQL_STATEMENT_TERMINATOR)) {
                         curStmt.append(" ").append(line.substring(0, line.length() - 1));
-                        statements[index] = CharMatcher.WHITESPACE.trimTrailingFrom(curStmt.toString());
+                        statements[index] = CharMatcher.WHITESPACE.trimFrom(curStmt.toString());
                         curState = IS_CLOSE_STMT;
                         process(statements[index]);
                         return;
