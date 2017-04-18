@@ -121,7 +121,7 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
         ConsistencyLevel expectedWriteConsistencyLevel = ConsistencyLevel.EACH_QUORUM;
 
         CqlMigrator migrator = CqlMigratorFactory.create(CqlMigratorConfig.builder()
-                .withCassandraLockConfig(lockConfig)
+                .withLockConfig(lockConfig)
                 .withReadConsistencyLevel(expectedReadConsistencyLevel)
                 .withWriteConsistencyLevel(expectedWriteConsistencyLevel)
                 .build()

@@ -4,11 +4,11 @@ import com.datastax.driver.core.ConsistencyLevel;
 import static com.google.common.base.Preconditions.*;
 
 public class CqlMigratorConfig {
-    private final CassandraLockConfig cassandraLockConfig;
+    private final LockConfig cassandraLockConfig;
     private final ConsistencyLevel readConsistencyLevel;
     private final ConsistencyLevel writeConsistencyLevel;
 
-    private CqlMigratorConfig(CassandraLockConfig cassandraLockConfig, ConsistencyLevel readConsistencyLevel, ConsistencyLevel writeConsistencyLevel) {
+    private CqlMigratorConfig(LockConfig cassandraLockConfig, ConsistencyLevel readConsistencyLevel, ConsistencyLevel writeConsistencyLevel) {
         this.cassandraLockConfig = checkNotNull(cassandraLockConfig);
         this.readConsistencyLevel = checkNotNull(readConsistencyLevel);
         this.writeConsistencyLevel = checkNotNull(writeConsistencyLevel);
@@ -18,7 +18,7 @@ public class CqlMigratorConfig {
         return new CassandraConfigBuilder();
     }
 
-    public CassandraLockConfig getCassandraLockConfig() {
+    public LockConfig getCassandraLockConfig() {
         return cassandraLockConfig;
     }
 
@@ -32,14 +32,14 @@ public class CqlMigratorConfig {
 
     public static class CassandraConfigBuilder {
 
-        private CassandraLockConfig cassandraLockConfig;
+        private LockConfig lockConfig;
         private ConsistencyLevel readConsistencyLevel;
         private ConsistencyLevel writeConsistencyLevel;
 
         private CassandraConfigBuilder() {}
 
-        public CassandraConfigBuilder withCassandraLockConfig(CassandraLockConfig cassandraLockConfig) {
-            this.cassandraLockConfig = cassandraLockConfig;
+        public CassandraConfigBuilder withLockConfig(LockConfig cassandraLockConfig) {
+            this.lockConfig = cassandraLockConfig;
             return this;
         }
 
@@ -54,7 +54,7 @@ public class CqlMigratorConfig {
         }
 
         public CqlMigratorConfig build() {
-            return new CqlMigratorConfig(cassandraLockConfig, readConsistencyLevel, writeConsistencyLevel);
+            return new CqlMigratorConfig(lockConfig, readConsistencyLevel, writeConsistencyLevel);
         }
     }
 }
