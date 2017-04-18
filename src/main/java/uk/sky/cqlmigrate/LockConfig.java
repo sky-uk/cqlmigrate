@@ -1,5 +1,8 @@
 package uk.sky.cqlmigrate;
 
+import com.datastax.driver.core.Session;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+
 import java.time.Duration;
 import java.util.UUID;
 
@@ -30,6 +33,10 @@ public class LockConfig {
 
     boolean unlockOnFailure() {
         return unlockOnFailure;
+    }
+
+    public LockingMechanism getLockingMechanism(Session session, String keySpace) {
+        throw new NotImplementedException();
     }
 
     public static LockConfigBuilder builder() {

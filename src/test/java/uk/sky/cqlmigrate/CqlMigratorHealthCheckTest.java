@@ -44,7 +44,7 @@ public class CqlMigratorHealthCheckTest {
     };
 
     private final CqlMigratorImpl migrator = new CqlMigratorImpl(CqlMigratorConfig.builder()
-            .withCassandraLockConfig(CassandraLockConfig.builder().build())
+            .withLockConfig(CassandraLockConfig.builder().build())
             .withReadConsistencyLevel(ConsistencyLevel.ALL)
             .withWriteConsistencyLevel(ConsistencyLevel.ALL)
             .build(), sessionContextFactory);

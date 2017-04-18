@@ -32,6 +32,6 @@ public class CqlMigratorConfigTest {
         Assume.assumeTrue(config == null || readCL == null || writeCL == null);
 
         expectedException.expect(NullPointerException.class);
-        CqlMigratorConfig.builder().withReadConsistencyLevel(readCL).withWriteConsistencyLevel(writeCL).withCassandraLockConfig(config).build();
+        CqlMigratorConfig.builder().withReadConsistencyLevel(readCL).withWriteConsistencyLevel(writeCL).withLockConfig(config).build();
     }
 }

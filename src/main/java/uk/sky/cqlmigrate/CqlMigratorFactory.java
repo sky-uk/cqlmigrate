@@ -10,9 +10,9 @@ public class CqlMigratorFactory {
      * @return an instance of the CqlMigrator
      * @since 0.9.0
      */
-    public static CqlMigrator create(CassandraLockConfig lockConfig) {
+    public static CqlMigrator create(LockConfig lockConfig) {
         return create(CqlMigratorConfig.builder()
-                .withCassandraLockConfig(lockConfig)
+                .withLockConfig(lockConfig)
                 .withReadConsistencyLevel(ConsistencyLevel.LOCAL_ONE)
                 .withWriteConsistencyLevel(ConsistencyLevel.ALL)
                 .build()
