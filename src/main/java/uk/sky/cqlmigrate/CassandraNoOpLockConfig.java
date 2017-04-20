@@ -14,35 +14,4 @@ public class CassandraNoOpLockConfig extends LockConfig {
     public LockingMechanism getLockingMechanism(Session session, String keySpace) {
         return  new CassandraNoOpLockingMechanism();
     }
-
-    public static CassandraNoOpLockConfigBuilder builder() {
-        return new CassandraNoOpLockConfigBuilder();
-    }
-
-    public static class CassandraNoOpLockConfigBuilder extends LockConfigBuilder {
-
-        private CassandraNoOpLockConfigBuilder() {}
-
-        @Override
-        public CassandraNoOpLockConfigBuilder withPollingInterval(Duration pollingInterval) {
-            super.withPollingInterval(pollingInterval);
-            return this;
-        }
-
-        @Override
-        public CassandraNoOpLockConfigBuilder withTimeout(Duration timeout) {
-            super.withTimeout(timeout);
-            return this;
-        }
-
-        @Override
-        public CassandraNoOpLockConfigBuilder unlockOnFailure() {
-            super.unlockOnFailure();
-            return this;
-        }
-
-        public CassandraNoOpLockConfig build() {
-            return new CassandraNoOpLockConfig(pollingInterval, timeout, clientId, unlockOnFailure);
-        }
-    }
 }
