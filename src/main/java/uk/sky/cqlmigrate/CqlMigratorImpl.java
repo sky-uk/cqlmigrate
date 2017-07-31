@@ -72,11 +72,11 @@ final class CqlMigratorImpl implements CqlMigrator {
      * {@inheritDoc}
      */
     public void migrate(Session session, String keyspace, Collection<Path> directories) {
-        CassandraLockingMechanism cassandraLockingMechanism = new CassandraLockingMechanism(session, keyspace);
-        CassandraLockConfig lockConfig = cqlMigratorConfig.getCassandraLockConfig();
+        LockingMechanism lockingMechanism = cqlMigratorConfig.getCassandraLockConfig().getLockingMechanism(session, keyspace);
+        LockConfig lockConfig = cqlMigratorConfig.getCassandraLockConfig();
 
         boolean migrationFailed = false;
-        Lock lock = new Lock(cassandraLockingMechanism, lockConfig);
+        Lock lock = new Lock(lockingMechanism, lockConfig);
 
         lock.lock();
 

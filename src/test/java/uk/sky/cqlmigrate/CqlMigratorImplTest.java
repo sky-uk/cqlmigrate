@@ -34,7 +34,7 @@ public class CqlMigratorImplTest {
     private static final String LOCK_NAME = TEST_KEYSPACE + ".schema_migration";
 
     private static final CqlMigratorImpl MIGRATOR = new CqlMigratorImpl(CqlMigratorConfig.builder()
-            .withCassandraLockConfig(CassandraLockConfig.builder().build())
+            .withLockConfig(CassandraLockConfig.builder().build())
             .withReadConsistencyLevel(ConsistencyLevel.ALL)
             .withWriteConsistencyLevel(ConsistencyLevel.ALL)
             .build(), new SessionContextFactory());
@@ -99,7 +99,7 @@ public class CqlMigratorImplTest {
     public void shouldThrowCannotAcquireLockExceptionIfLockCannotBeAcquiredAfterTimeout() throws Exception {
         //given
         CqlMigrator migrator = new CqlMigratorImpl(CqlMigratorConfig.builder()
-                .withCassandraLockConfig(CassandraLockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build())
+                .withLockConfig(CassandraLockConfig.builder().withPollingInterval(ofMillis(50)).withTimeout(ofMillis(300)).build())
                 .withReadConsistencyLevel(ConsistencyLevel.ALL)
                 .withWriteConsistencyLevel(ConsistencyLevel.ALL)
                 .build(), new SessionContextFactory());
@@ -171,7 +171,7 @@ public class CqlMigratorImplTest {
     public void shouldRemoveLockAfterMigrationFailedIfUnlockOnFailureIsSetToTrue() throws Exception {
         //given
         CqlMigrator migrator = new CqlMigratorImpl(CqlMigratorConfig.builder()
-            .withCassandraLockConfig(CassandraLockConfig.builder().unlockOnFailure().build())
+            .withLockConfig(CassandraLockConfig.builder().unlockOnFailure().build())
             .withReadConsistencyLevel(ConsistencyLevel.ALL)
             .withWriteConsistencyLevel(ConsistencyLevel.ALL)
             .build(), new SessionContextFactory());
