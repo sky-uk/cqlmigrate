@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 import java.util.regex.Matcher;
@@ -17,23 +17,15 @@ import static com.google.common.base.Preconditions.checkState;
 
 class CqlFileParser {
     private static final Logger LOGGER = LoggerFactory.getLogger(CqlFileParser.class);
+    private static final Pattern EOL = Pattern.compile(".*\\R|.+\\z");
 
     private CqlFileParser() {}
 
-    private static final char CQL_STATEMENT_STRING_DELIMITER = '\'';
-    private static final String CQL_STATEMENT_TERMINATOR = ";";
-    private static final String CQL_COMMENT_DOUBLE_HYPEN = "--"; //Double hypen
-    private static final String CQL_MULTI_LINE_COMMENT_OPEN = "/*"; //Forward slash asterisk
-    private static final String CQL_MULTI_LINE_COMMENT_CLOSE = "*/"; //Asterisk forward slash
-    private static final Pattern CQL_MULTI_LINE_COMMENT_PATTERN = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);
-    private static final Pattern EOL = Pattern.compile(".*\\R|.+\\z");
-    private static final String EMPTY_STR = "";
-
     static List<String> getCqlStatementsFrom(Path cqlPath) {
-        final LineProcessor processor = new LineProcessor();
-        String original;
+        LineProcessor processor = new LineProcessor();
 
-        try (final Scanner in = new Scanner(cqlPath, "UTF-8")) {
+        try (Scanner in = new Scanner(cqlPath, "UTF-8")) {
+            String original;
             while ((original = in.findWithinHorizon(EOL, 0)) != null) {
                 processor.process(original);
             }
@@ -44,116 +36,143 @@ class CqlFileParser {
 
         processor.check();
 
-        return Arrays.asList(processor.getResult());
+        return processor.getResult();
     }
 
-    static class LineProcessor {
-        private static final byte INIT = 0;
-        private static final byte FIND_EOS = 1;
-        private static final byte IS_MULTI_LINE_COMMENT = 2;
-        private static final byte IS_OPEN_STMT = 3;
-        private static final byte IS_OPEN_VALUE_EXP = 4;
-        private static final byte IS_CLOSE_STMT = 5;
+    private static class LineProcessor {
+        private static final char CQL_STATEMENT_STRING_DELIMITER = '\'';
+        private static final String CQL_STATEMENT_TERMINATOR = ";";
+        private static final String CQL_COMMENT_DOUBLE_HYPEN = "--";
+        private static final String CQL_MULTI_LINE_COMMENT_OPEN = "/*";
+        private static final String CQL_MULTI_LINE_COMMENT_CLOSE = "*/";
+        private static final Pattern CQL_MULTI_LINE_COMMENT_PATTERN = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);
+        private static final String EMPTY_STR = "";
 
-        String[] statements;
-        int index;
-        byte curState = INIT;
+        private enum State {
+            INIT,
+            FIND_EOS,
+            IS_MULTI_LINE_COMMENT,
+            IS_OPEN_STMT,
+            IS_OPEN_VALUE_EXP,
+            IS_CLOSE_STMT;
+        }
+
+        List<String> statements;
+        State curState = State.INIT;
         StringBuilder curStmt;
 
         void process(String original) throws IOException {
             switch (curState) {
                 case INIT:
-                    if (statements == null) {
-                        statements = new String[1];
-                    } else {
-                        statements = Arrays.copyOf(statements, statements.length + 1);
-                        index++;
-                        statements[index] = "";
-                    }
-                    curState = FIND_EOS;
-                    curStmt = new StringBuilder();
-                    process(original);
+                    init(original);
+
                     break;
 
                 case FIND_EOS:
                 case IS_OPEN_STMT:
-                    final String line = CharMatcher.WHITESPACE.trimFrom(original);
-
-                    if (line.startsWith(CQL_COMMENT_DOUBLE_HYPEN) || line.isEmpty()) {
-                        return;
-                    }
-
-                    if (line.startsWith(CQL_MULTI_LINE_COMMENT_OPEN)) {
-                        curState = IS_MULTI_LINE_COMMENT;
-                        return;
-                    }
-
-                    if (line.endsWith(CQL_STATEMENT_TERMINATOR)) {
-                        curStmt.append(" ").append(line.substring(0, line.length() - 1));
-                        statements[index] = CharMatcher.WHITESPACE.trimFrom(curStmt.toString());
-                        curState = IS_CLOSE_STMT;
-                        process(statements[index]);
-                        return;
-                    }
-
-                    // A semicolon preceded by an odd number of single quotes must be within a string,
-                    // and therefore is not a statement terminator
-                    if (CharMatcher.is(CQL_STATEMENT_STRING_DELIMITER).countIn(line) % 2 != 0) {
-                        curState = IS_OPEN_VALUE_EXP;
-                        curStmt.append(" ").append(CharMatcher.WHITESPACE.trimLeadingFrom(original));
-                        return;
-                    }
-
-                    final int pos = line.indexOf(CQL_COMMENT_DOUBLE_HYPEN);
-                    if (pos != -1) {
-                        curStmt.append(line.substring(0, pos));
-                        return;
-                    }
-
-                    final Matcher matcher = CQL_MULTI_LINE_COMMENT_PATTERN.matcher(line);
-                    if (matcher.find()) {
-                        curStmt.append(matcher.replaceAll(EMPTY_STR));
-                        return;
-                    }
-
-                    if (curState == IS_OPEN_STMT) {
-                        curStmt.append(" ").append(line);
-                    } else {
-                        curState = IS_OPEN_STMT;
-                        curStmt.append(line);
-                    }
+                    findStatement(original);
 
                     break;
 
                 case IS_OPEN_VALUE_EXP:
-                    if (CharMatcher.is(CQL_STATEMENT_STRING_DELIMITER).countIn(original) % 2 != 0) {
-                        curStmt.append(original);
-                        curState = FIND_EOS;
-                        return;
-                    }
-
-                    curStmt.append(original);
+                    findValueExpression(original);
 
                     break;
 
                 case IS_MULTI_LINE_COMMENT:
-                    if (CharMatcher.WHITESPACE.trimTrailingFrom(original).endsWith(CQL_MULTI_LINE_COMMENT_CLOSE))
-                        curState = FIND_EOS;
+                    findMultilineComment(original);
 
                     break;
 
                 case IS_CLOSE_STMT:
-                    LOGGER.trace("CQL parsed: {}", original);
-                    curState = INIT;
+                    closedStatement(original);
+
                     break;
             }
         }
 
-        private void check() {
-            checkState(curState == IS_CLOSE_STMT || curState == INIT, "File had a non-terminated cql line");
+        private void init(String original) throws IOException {
+            if (statements == null) {
+                statements = new ArrayList<>();
+            }
+            curState = State.FIND_EOS;
+            curStmt = new StringBuilder();
+            process(original);
         }
-        
-        String[] getResult() {
+
+        private void findStatement(String original) throws IOException {
+            String line = CharMatcher.WHITESPACE.trimFrom(original);
+
+            if (line.startsWith(CQL_COMMENT_DOUBLE_HYPEN) || line.isEmpty()) {
+                return;
+            }
+
+            if (line.startsWith(CQL_MULTI_LINE_COMMENT_OPEN)) {
+                curState = State.IS_MULTI_LINE_COMMENT;
+                return;
+            }
+
+            if (line.endsWith(CQL_STATEMENT_TERMINATOR)) {
+                curStmt.append(" ").append(line.substring(0, line.length() - 1));
+                statements.add(CharMatcher.WHITESPACE.trimFrom(curStmt.toString()));
+                curState = State.IS_CLOSE_STMT;
+                process(original);
+                return;
+            }
+
+            // A semicolon preceded by an odd number of single quotes must be within a string,
+            // and therefore is not a statement terminator
+            if (CharMatcher.is(CQL_STATEMENT_STRING_DELIMITER).countIn(line) % 2 != 0) {
+                curState = State.IS_OPEN_VALUE_EXP;
+                curStmt.append(" ").append(CharMatcher.WHITESPACE.trimLeadingFrom(original));
+                return;
+            }
+
+            int pos = line.indexOf(CQL_COMMENT_DOUBLE_HYPEN);
+            if (pos != -1) {
+                curStmt.append(line.substring(0, pos));
+                return;
+            }
+
+            Matcher matcher = CQL_MULTI_LINE_COMMENT_PATTERN.matcher(line);
+            if (matcher.find()) {
+                curStmt.append(matcher.replaceAll(EMPTY_STR));
+                return;
+            }
+
+            if (State.IS_OPEN_STMT.equals(curState)) {
+                curStmt.append(" ").append(line);
+            } else {
+                curState = State.IS_OPEN_STMT;
+                curStmt.append(line);
+            }
+        }
+
+        private void findValueExpression(String original) {
+            if (CharMatcher.is(CQL_STATEMENT_STRING_DELIMITER).countIn(original) % 2 != 0) {
+                curStmt.append(original);
+                curState = State.FIND_EOS;
+                return;
+            }
+
+            curStmt.append(original);
+        }
+
+        private void findMultilineComment(String original) {
+            if (CharMatcher.WHITESPACE.trimTrailingFrom(original).endsWith(CQL_MULTI_LINE_COMMENT_CLOSE))
+                curState = State.FIND_EOS;
+        }
+
+        private void closedStatement(String original) {
+            LOGGER.trace("CQL parsed: {}", original);
+            curState = State.INIT;
+        }
+
+        private void check() {
+            checkState(State.IS_CLOSE_STMT.equals(curState) || State.INIT.equals(curState), "File had a non-terminated cql line");
+        }
+
+        List<String> getResult() {
             return statements;
         }
     }
