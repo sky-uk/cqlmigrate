@@ -147,6 +147,23 @@ as a traditional relational database.
   inconsistent schema across nodes in case of split brain or other situation. `cqlmigrate` tries to
   alleviate this with appropriate consistency levels.
 
+## Cql File Comments
+
+There are a number of ways to add comments to your `cql` files. 
+
+For inline comments prepend `--` to your comment, e.g:
+
+    -- Select Queries
+    SELECT * FROM schema_updates;
+
+For multiline comments wrap them with `/*` and `*/`, e.g:
+
+    /*
+        Added by John Smith
+        19th September 2017
+    */
+    SELECT * FROM schema_updates;
+
 # Contributors
 
 Originally developed by the Cirrus team at Sky.
