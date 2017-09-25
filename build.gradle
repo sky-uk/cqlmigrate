@@ -34,7 +34,7 @@ clean.doFirst {
 bintray {
     user = project.property('openSourceRepoUser')
     key = project.property('openSourceRepoPass')
-    publications = ['artifacts']
+    publications = ['artifacts', 'shadow']
     pkg {
         userOrg = 'sky-uk'
         repo = 'oss-maven'
@@ -56,7 +56,15 @@ publishing {
             artifact sourcesJar
             artifact javadocJar
         }
+        shadow(MavenPublication) {
+            from components.java
+            artifact shadowJar
+        }
     }
+}
+
+shadowJar {
+    classifier = 'with-dependencies'
 }
 
 repositories {
