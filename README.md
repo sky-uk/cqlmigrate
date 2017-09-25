@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/sky-uk/cqlmigrate.svg?branch=master)](https://travis-ci.org/sky-uk/cqlmigrate)
+[![Download](https://api.bintray.com/packages/sky-uk/oss-maven/cqlmigrate/images/download.svg) ](https://bintray.com/sky-uk/oss-maven/cqlmigrate/_latestVersion)
 
 # Cassandra CQL migration tool
 
