@@ -14,15 +14,16 @@ import uk.sky.cqlmigrate.util.PortScavenger;
 import java.util.Collection;
 
 import static java.util.Collections.singletonList;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
+import static org.awaitility.Awaitility.await;
 
 public class ClusterHealthTest {
 
     private static final int BINARY_PORT = PortScavenger.getFreePort();
     private static final int ADMIN_PORT = PortScavenger.getFreePort();
-    private static String username = "cassandra";
-    private static String password = "cassandra";
     private static final Collection<String> CASSANDRA_HOSTS = singletonList("localhost");
 
     private static final Scassandra scassandra = ScassandraFactory.createServer(BINARY_PORT, ADMIN_PORT);
@@ -34,9 +35,11 @@ public class ClusterHealthTest {
     private ClusterHealth clusterHealth;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         scassandra.start();
 
+        String username = "cassandra";
+        String password = "cassandra";
         cluster = Cluster.builder()
                 .addContactPoints(CASSANDRA_HOSTS.toArray(new String[CASSANDRA_HOSTS.size()]))
                 .withPort(BINARY_PORT)
@@ -53,23 +56,27 @@ public class ClusterHealthTest {
     }
 
     @After
-    public void tearDown() throws Exception {
+    public void tearDown() {
         scassandra.stop();
         cluster.close();
     }
 
     @Test
-    public void shouldThrowExceptionIfHostIsDown() throws Exception {
+    public void shouldThrowExceptionIfHostIsDown() {
         //given
         scassandra.stop();
 
-        //when
-        Throwable throwable = catchThrowable(clusterHealth::check);
+        await().pollInterval(500, MILLISECONDS)
+                .atMost(5, SECONDS)
+                .untilAsserted(() -> {
+                    //when
+                    Throwable throwable = catchThrowable(clusterHealth::check);
 
-        //then
-        throwable.printStackTrace();
-        assertThat(throwable).isNotNull();
-        assertThat(throwable).isInstanceOf(ClusterUnhealthyException.class);
-        assertThat(throwable).hasMessage("Cluster not healthy, the following hosts are down: [localhost/127.0.0.1]");
+                    //then
+                    assertThat(throwable).isNotNull();
+                    assertThat(throwable).isInstanceOf(ClusterUnhealthyException.class);
+                    assertThat(throwable).hasMessage("Cluster not healthy, the following hosts are down: [localhost/127.0.0.1]");
+                    throwable.printStackTrace();
+                });
     }
 }
