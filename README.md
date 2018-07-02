@@ -56,8 +56,8 @@ CassandraLockConfig lockConfig = CassandraLockConfig.builder()
         .build();
 
 // Create a Cassandra session
-Cluster cluster = Cluster.builder.addContactPoint("localhost").build;
-Session session = cluster.connect;
+Cluster cluster = Cluster.builder.addContactPoint("localhost").build();
+Session session = cluster.connect();
 
 // Create a migrator and run it
 CqlMigrator migrator = CqlMigratorFactory.create(lockConfig);
