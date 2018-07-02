@@ -14,7 +14,7 @@ repositories {
     jcenter()
 }
 
-compile 'uk.sky:cqlmigrate:0.9.5'
+compile 'uk.sky:cqlmigrate:0.9.8'
 ```
 
 ## Adding as a Maven dependency
@@ -31,7 +31,7 @@ compile 'uk.sky:cqlmigrate:0.9.5'
 <dependency>
   <groupId>uk.sky</groupId>
   <artifactId>cqlmigrate</artifactId>
-  <version>0.9.5</version>
+  <version>0.9.8</version>
 </dependency>
 ```
 
@@ -47,16 +47,22 @@ The locks keyspace and table needs to be created before running any migrations.
 To apply all `.cql` files located in `/cql` in the classpath:
 
 ```java
+import com.datastax.driver.core.*;
+
 // Configure locking for coordination of multiple nodes
 CassandraLockConfig lockConfig = CassandraLockConfig.builder()
         .withTimeout(Duration.standardSeconds(3))
         .withPollingInterval(Duration.millis(500))
-        .build())
+        .build();
+
+// Create a Cassandra session
+Cluster cluster = Cluster.builder.addContactPoint("localhost").build();
+Session session = cluster.connect();
 
 // Create a migrator and run it
-CqlMigrator migrator = CqlMigratorFactory.create(lockConfig)
+CqlMigrator migrator = CqlMigratorFactory.create(lockConfig);
 Path schemas = Paths.get(ClassLoader.getSystemResource("/cql").toURI());
-migrator.migrate(asList("localhost"), "my_keyspace", asList(schemas));
+migrator.migrate(session, "my_keyspace", asList(schemas));
 ```
 
 The migrator will look for a `bootstrap.cql` file for setting up the keyspace.
