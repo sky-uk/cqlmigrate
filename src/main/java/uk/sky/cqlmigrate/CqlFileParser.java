@@ -43,6 +43,7 @@ class CqlFileParser {
         private static final char CQL_STATEMENT_STRING_DELIMITER = '\'';
         private static final String CQL_STATEMENT_TERMINATOR = ";";
         private static final String CQL_COMMENT_DOUBLE_HYPEN = "--";
+        private static final String CQL_COMMENT_DOUBLE_SLASH = "//";
         private static final String CQL_MULTI_LINE_COMMENT_OPEN = "/*";
         private static final String CQL_MULTI_LINE_COMMENT_CLOSE = "*/";
         private static final Pattern CQL_MULTI_LINE_COMMENT_PATTERN = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);
@@ -100,7 +101,7 @@ class CqlFileParser {
         private void findStatement(String original) throws IOException {
             String line = CharMatcher.WHITESPACE.trimFrom(original);
 
-            if (line.startsWith(CQL_COMMENT_DOUBLE_HYPEN) || line.isEmpty()) {
+            if (line.startsWith(CQL_COMMENT_DOUBLE_HYPEN) || line.startsWith(CQL_COMMENT_DOUBLE_SLASH) || line.isEmpty()) {
                 return;
             }
 
@@ -127,7 +128,7 @@ class CqlFileParser {
 
             int pos = line.indexOf(CQL_COMMENT_DOUBLE_HYPEN);
             if (pos != -1) {
-                curStmt.append(line.substring(0, pos));
+                curStmt.append(line, 0, pos);
                 return;
             }
 
