@@ -14,7 +14,7 @@ repositories {
     jcenter()
 }
 
-compile 'uk.sky:cqlmigrate:0.9.8'
+compile 'uk.sky:cqlmigrate:0.9.9'
 ```
 
 ## Adding as a Maven dependency
