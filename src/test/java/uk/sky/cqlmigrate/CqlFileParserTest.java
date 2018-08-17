@@ -33,7 +33,7 @@ public class CqlFileParserTest {
     }
 
     @Test
-    public void shouldIgnoreCommentsAndNormolizeAndPreserveNewlineInValuesExp() throws Exception {
+    public void shouldIgnoreCommentsAndNormalizeAndPreserveNewlineInValuesExp() throws Exception {
         //given
         Path cqlPath = getResourcePath("cql_rolegraphs_one/2015-08-16-12:05-statement-with-comments.cql");
 
