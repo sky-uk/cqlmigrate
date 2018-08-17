@@ -29,7 +29,7 @@ class CqlFileParser {
             while ((original = in.findWithinHorizon(EOL, 0)) != null) {
                 processor.process(original);
             }
-        } catch (IOException e) {
+        } catch (IOException | IllegalStateException e ) {
             LOGGER.error("Failed to process cql script {}: {}", cqlPath.getFileName(), e.getMessage());
             throw Throwables.propagate(e);
         }
@@ -57,9 +57,9 @@ class CqlFileParser {
             IS_CLOSE_STMT;
         }
 
-        List<String> statements;
-        State curState = State.INIT;
-        StringBuilder curStmt;
+        private final List<String> statements = new ArrayList<>();
+        private State curState = State.INIT;
+        private StringBuilder curStmt;
 
         void process(String original) throws IOException {
             switch (curState) {
@@ -92,9 +92,6 @@ class CqlFileParser {
         }
 
         private void init(String original) throws IOException {
-            if (statements == null) {
-                statements = new ArrayList<>();
-            }
             curState = State.FIND_EOS;
             curStmt = new StringBuilder();
             process(original);
@@ -113,7 +110,7 @@ class CqlFileParser {
             }
 
             if (line.endsWith(CQL_STATEMENT_TERMINATOR)) {
-                curStmt.append(" ").append(line.substring(0, line.length() - 1));
+                curStmt.append(" ").append(line, 0, line.length() - 1);
                 statements.add(CharMatcher.WHITESPACE.trimFrom(curStmt.toString()));
                 curState = State.IS_CLOSE_STMT;
                 process(original);
