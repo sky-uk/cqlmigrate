@@ -1,7 +1,6 @@
 package uk.sky.cqlmigrate;
 
 import com.google.common.base.CharMatcher;
-import com.google.common.base.Throwables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,7 +30,7 @@ class CqlFileParser {
             }
         } catch (IOException | IllegalStateException e ) {
             LOGGER.error("Failed to process cql script {}: {}", cqlPath.getFileName(), e.getMessage());
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
 
         processor.check();
@@ -99,7 +98,7 @@ class CqlFileParser {
         }
 
         private void findStatement(String original) throws IOException {
-            String line = CharMatcher.WHITESPACE.trimFrom(original);
+            String line = CharMatcher.whitespace().trimFrom(original);
 
             if (line.startsWith(CQL_COMMENT_DOUBLE_HYPEN) || line.startsWith(CQL_COMMENT_DOUBLE_SLASH) || line.isEmpty()) {
                 return;
@@ -112,7 +111,7 @@ class CqlFileParser {
 
             if (line.endsWith(CQL_STATEMENT_TERMINATOR)) {
                 curStmt.append(" ").append(line, 0, line.length() - 1);
-                statements.add(CharMatcher.WHITESPACE.trimFrom(curStmt.toString()));
+                statements.add(CharMatcher.whitespace().trimFrom(curStmt.toString()));
                 curState = State.IS_CLOSE_STMT;
                 process(original);
                 return;
@@ -122,7 +121,7 @@ class CqlFileParser {
             // and therefore is not a statement terminator
             if (CharMatcher.is(CQL_STATEMENT_STRING_DELIMITER).countIn(line) % 2 != 0) {
                 curState = State.IS_OPEN_VALUE_EXP;
-                curStmt.append(" ").append(CharMatcher.WHITESPACE.trimLeadingFrom(original));
+                curStmt.append(" ").append(CharMatcher.whitespace().trimLeadingFrom(original));
                 return;
             }
 
@@ -157,7 +156,7 @@ class CqlFileParser {
         }
 
         private void findMultilineComment(String original) {
-            if (CharMatcher.WHITESPACE.trimTrailingFrom(original).endsWith(CQL_MULTI_LINE_COMMENT_CLOSE))
+            if (CharMatcher.whitespace().trimTrailingFrom(original).endsWith(CQL_MULTI_LINE_COMMENT_CLOSE))
                 curState = State.FIND_EOS;
         }
 
