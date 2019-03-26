@@ -46,8 +46,8 @@ public class CqlMigrateInvoker {
     public static void setupCassandra() throws ConfigurationException, IOException, TTransportException, InterruptedException {
         EmbeddedCassandraServerHelper.startEmbeddedCassandra(EmbeddedCassandraServerHelper.CASSANDRA_RNDPORT_YML_FILE);
         binaryPort = EmbeddedCassandraServerHelper.getNativeTransportPort();
-        cluster = Cluster.builder().addContactPoints(CASSANDRA_HOSTS).withPort(binaryPort).withCredentials(username, password).build();
-        session = cluster.connect();
+        cluster = EmbeddedCassandraServerHelper.getCluster();
+        session = EmbeddedCassandraServerHelper.getSession();
     }
 
     public void setUp() throws Exception {
@@ -65,7 +65,6 @@ public class CqlMigrateInvoker {
     }
 
     public static void tearDownCassandra() throws Exception {
-        cluster.close();
         EmbeddedCassandraServerHelper.cleanEmbeddedCassandra();
         Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
     }

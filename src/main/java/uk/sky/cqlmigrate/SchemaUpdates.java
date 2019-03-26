@@ -11,7 +11,6 @@ import com.google.common.io.ByteSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
@@ -46,7 +45,6 @@ class SchemaUpdates {
         return row != null;
     }
 
-    @Nullable
     private Row getSchemaUpdate(Session session, String filename) {
         return session.execute(
                 new SimpleStatement("SELECT * FROM " + SCHEMA_UPDATES_TABLE + " where filename = ?", filename)

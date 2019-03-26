@@ -1,11 +1,10 @@
 plugins {
-    id 'java'
+    id 'java-library'
     id 'idea'
-    id 'maven'
     id 'maven-publish'
-    id 'com.jfrog.bintray' version '1.6'
-    id 'pl.allegro.tech.build.axion-release' version '1.3.4'
-    id 'com.github.johnrengelman.shadow' version '1.2.3'
+    id 'com.jfrog.bintray' version '1.8.4'
+    id 'pl.allegro.tech.build.axion-release' version '1.10.0'
+    id 'com.github.johnrengelman.shadow' version '5.0.0'
 }
 
 scmVersion {
@@ -16,19 +15,17 @@ scmVersion {
 
 group = 'uk.sky'
 version = scmVersion.version
-sourceCompatibility = '1.8'
-targetCompatibility = '1.8'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
 
 if (!project.hasProperty('openSourceRepoUser')) {
     ext.openSourceRepoUser = 'dummy'
 }
 if (!project.hasProperty('openSourceRepoPass')) {
     ext.openSourceRepoPass = 'dummy'
-}
-
-clean.doFirst {
-    // Remove temporary directory for embedded Cassandra
-    delete "${projectDir}/target"
 }
 
 bintray {
@@ -49,20 +46,6 @@ bintray {
     }
 }
 
-publishing {
-    publications {
-        artifacts(MavenPublication) {
-            from components.java
-            artifact sourcesJar
-            artifact javadocJar
-        }
-        shadow(MavenPublication) {
-            from components.java
-            artifact shadowJar
-        }
-    }
-}
-
 shadowJar {
     classifier = 'with-dependencies'
 }
@@ -71,34 +54,29 @@ repositories {
     mavenCentral()
 }
 
-task wrapper(type: Wrapper) {
-    gradleVersion = '2.11'
-}
-
 configurations {
     testCompileAndFunctional
-    functional.extendsFrom testCompileAndFunctional
-    testCompile.extendsFrom testCompileAndFunctional
+    functional.extendsFrom(testCompileAndFunctional)
+    testCompile.extendsFrom(testCompileAndFunctional)
 }
 
 dependencies {
-    compile 'com.datastax.cassandra:cassandra-driver-core:3.1.0'
-    compile 'org.slf4j:slf4j-api:1.7.25'
-    compile 'com.google.code.findbugs:jsr305:3.0.0'
+    api('com.datastax.cassandra:cassandra-driver-core:3.7.1')
+    implementation('org.slf4j:slf4j-api:1.7.25')
 
-    testCompile 'org.apache.logging.log4j:log4j-core:2.2'
-    testCompile 'junit:junit:4.12'
-    testCompile 'org.assertj:assertj-core:2.0.0'
-    testCompile 'org.hamcrest:hamcrest-all:1.3'
-    testCompile 'org.mockito:mockito-core:1.10.19'
-    testCompile 'org.powermock:powermock-api-mockito:1.6.5'
-    testCompile 'org.powermock:powermock-module-junit4:1.6.5'
-    testCompile 'org.awaitility:awaitility:3.0.0'
+    testImplementation('org.apache.logging.log4j:log4j-core:2.11.2')
+    testImplementation('junit:junit:4.12')
+    testImplementation('org.assertj:assertj-core:3.12.2')
+    testImplementation('org.hamcrest:hamcrest-all:1.3')
+    testImplementation('org.mockito:mockito-core:2.25.1')
+    testImplementation('org.powermock:powermock-api-mockito2:2.0.0')
+    testImplementation('org.powermock:powermock-module-junit4:2.0.0')
+    testImplementation('org.awaitility:awaitility:3.1.6')
 
-    testCompile 'org.scassandra:java-client:1.0.3'
+    testImplementation('org.scassandra:java-client:1.1.2')
 
-    testCompileAndFunctional 'org.cassandraunit:cassandra-unit:3.0.0.1'
-    functional 'org.slf4j:slf4j-simple:1.7.25'
+    testCompileAndFunctional('org.cassandraunit:cassandra-unit:3.5.0.1')
+    functional('org.slf4j:slf4j-simple:1.7.25')
 }
 
 idea {
@@ -107,45 +85,104 @@ idea {
     }
 }
 
-task sourcesJar(type: Jar) {
+tasks.wrapper {
+    gradleVersion = '5.3'
+}
+tasks.clean {
+    // Remove temporary directory for embedded Cassandra
+    delete("${projectDir}/target")
+}
+
+final sourcesJar = tasks.register('sourcesJar', Jar) {
+    group = LifecycleBasePlugin.BUILD_GROUP
     classifier = 'sources'
-    from sourceSets.main.allJava
+    from(sourceSets.main.allJava)
 }
 
-task javadocJar(type: Jar, dependsOn: javadoc) {
+final javadocJar = tasks.register('javadocJar', Jar) {
+    group = LifecycleBasePlugin.BUILD_GROUP
+    dependsOn(tasks.javadoc)
     classifier = 'javadoc'
-    from javadoc.destinationDir
+    from(tasks.javadoc.destinationDir)
 }
 
-task testJar (type: Jar) {
+tasks.assemble {
+    dependsOn(sourcesJar, javadocJar)
+}
+
+final testJar = tasks.register('testJar', Jar) {
     classifier = 'tests'
-    from (sourceSets.main.output, sourceSets.test.output)
-    from {
-        (configurations.runtime + configurations.functional).collect {
+    from(sourceSets.main.output, sourceSets.test.output)
+    from({
+        (configurations.runtimeClasspath + configurations.functional).collect {
             it.isDirectory() ? it : zipTree(it)
         }
-    }
+    })
     manifest {
         attributes 'Main-Class': 'uk.sky.cqlmigrate.example.CmdLineEntryPoint'
     }
 }
 
-jar {
+tasks.jar {
     manifest {
         attributes "Main-Class": "uk.sky.cqlmigrate.CqlMigratorImpl"
     }
 }
 
-// Functional test is to run the migrateSchema on a jar containing embedded CQL files and have it return successfully.
-task functional (dependsOn: ['testJar']) << {
-    exec {
-        executable = 'java'
-        args = ['-jar', '-Dcassandra.storagedir=/tmp/cassandra', testJar.archivePath, 'migrateSchema']
+final functional = tasks.register('functional') {
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    description = 'Functional test to run the migrateSchema on a jar containing embedded CQL files and have it return successfully.'
+    mustRunAfter(tasks.test)
+    final testJarOutputArchive = testJar.flatMap { it.archiveFile }
+    final Provider<Directory> functionalOutputDir = project.layout.buildDirectory.dir(name)
+    final Provider<RegularFile> upToDateCheckingFile = project.layout.buildDirectory.file("${name}-up-to-date.txt")
+    // Explicit lambda casting required in Groovy due to https://github.com/gradle/gradle/issues/4238
+    final Provider<Directory> cassandraStorageDir = functionalOutputDir.map((Transformer<Directory, Directory>) { it.dir('cassandra-storage') })
+    inputs.file(testJarOutputArchive)
+    outputs.file(upToDateCheckingFile)
+    doFirst('run migrateSchema command on Jar containg embedded CQL files') {
+        // '-jar' hack taken from https://github.com/gradle/gradle/issues/1346
+        // 'javaexec' is used here instead of 'exec' to ensure that the same version of Gradle running the build
+        // is also used to execute the functional tests.
+        javaexec {
+            main = '-jar'
+            systemProperties += [
+                'cassandra.storagedir': cassandraStorageDir.get()
+            ]
+            args = [
+                testJarOutputArchive.get(),
+                'migrateSchema'
+            ]
+        }
+    }
+    doLast('write file for up-to-date checking') {
+        // Explicit lambda casting required in Groovy due to https://github.com/gradle/gradle/issues/4238
+        final File toWrite = upToDateCheckingFile.map((Transformer<Directory, File>) { it.asFile }).get()
+        toWrite.write('functional test success')
     }
 }
 
-check.dependsOn(functional, javadoc)
-
-test {
-    jvmArgs '-Dcassandra.storagedir=/tmp/cassandra'
+tasks.check {
+    dependsOn(functional, tasks.javadoc)
 }
+
+tasks.test {
+    systemProperties += [
+        'cassandra.storagedir': project.layout.buildDirectory.dir("$name/cassandra-data-dir").get().asFile
+    ]
+}
+
+publishing {
+    publications {
+        artifacts(MavenPublication) {
+            from(components.java)
+            artifact(sourcesJar.get())
+            artifact(javadocJar.get())
+        }
+        shadow(MavenPublication) {
+            from(components.java)
+            artifact(shadowJar)
+        }
+    }
+}
+
