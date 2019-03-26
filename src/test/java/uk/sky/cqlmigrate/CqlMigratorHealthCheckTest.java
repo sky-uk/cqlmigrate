@@ -1,6 +1,5 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.Session;
 import com.google.common.collect.Lists;
@@ -31,7 +30,6 @@ public class CqlMigratorHealthCheckTest {
     private static String username = "cassandra";
     private static String password = "cassandra";
     private static int binaryPort;
-    private static Cluster cluster;
     private static Session session;
     private static final String TEST_KEYSPACE = "cqlmigrate_clusterhealth_test";
 
@@ -54,12 +52,7 @@ public class CqlMigratorHealthCheckTest {
         EmbeddedCassandraServerHelper.startEmbeddedCassandra(EmbeddedCassandraServerHelper.CASSANDRA_RNDPORT_YML_FILE);
         binaryPort = EmbeddedCassandraServerHelper.getNativeTransportPort();
 
-        cluster = Cluster.builder()
-                .addContactPoints(CASSANDRA_HOSTS)
-                .withPort(binaryPort)
-                .withCredentials(username, password)
-                .build();
-        session = cluster.connect();
+        session = EmbeddedCassandraServerHelper.getSession();
     }
 
     @Before
@@ -80,7 +73,6 @@ public class CqlMigratorHealthCheckTest {
     @AfterClass
     public static void tearDownClass() throws Exception {
         session.execute("DROP KEYSPACE cqlmigrate");
-        cluster.close();
         EmbeddedCassandraServerHelper.cleanEmbeddedCassandra();
         Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
     }

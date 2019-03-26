@@ -1,6 +1,5 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.Session;
 import org.junit.Before;
@@ -8,7 +7,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
-import org.mockito.runners.MockitoJUnitRunner;
+import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
 public class SessionContextTest {
@@ -18,13 +17,10 @@ public class SessionContextTest {
     @Mock
     private Session session;
     @Mock
-    private Cluster cluster;
-    @Mock
     private ClusterHealth mockedClusterHealth;
 
     @Before
     public void setUp() throws Exception {
-        Mockito.when(session.getCluster()).thenReturn(cluster);
         sessionContext = new SessionContext(session, ConsistencyLevel.ONE, ConsistencyLevel.TWO, mockedClusterHealth);
     }
 

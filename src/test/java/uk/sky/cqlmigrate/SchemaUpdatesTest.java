@@ -34,11 +34,10 @@ public class SchemaUpdatesTest {
     @BeforeClass
     public static void setupCassandra() throws ConfigurationException, IOException, TTransportException, InterruptedException {
         EmbeddedCassandraServerHelper.startEmbeddedCassandra(EmbeddedCassandraServerHelper.CASSANDRA_RNDPORT_YML_FILE);
-        binaryPort = EmbeddedCassandraServerHelper.getNativeTransportPort();
 
-        cluster = Cluster.builder().addContactPoints(CASSANDRA_HOSTS).withPort(binaryPort).withCredentials(username, password).build();
+        cluster = EmbeddedCassandraServerHelper.getCluster();
         clusterHealth = new ClusterHealth(cluster);
-        session = cluster.connect();
+        session = EmbeddedCassandraServerHelper.getSession();
     }
 
     @Before
@@ -55,7 +54,6 @@ public class SchemaUpdatesTest {
 
     @AfterClass
     public static void tearDownClass() throws Exception {
-        cluster.close();
         EmbeddedCassandraServerHelper.cleanEmbeddedCassandra();
         Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
     }

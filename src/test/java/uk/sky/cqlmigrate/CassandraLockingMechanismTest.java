@@ -3,6 +3,7 @@ package uk.sky.cqlmigrate;
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.exceptions.DriverException;
 import com.google.common.collect.ImmutableMap;
+import org.assertj.core.api.AbstractThrowableAssert;
 import org.junit.*;
 import org.scassandra.cql.PrimitiveType;
 import org.scassandra.http.client.*;
@@ -14,6 +15,7 @@ import uk.sky.cqlmigrate.util.PortScavenger;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.scassandra.http.client.PrimingRequest.then;
 import static org.scassandra.http.client.types.ColumnMetadata.column;
@@ -118,7 +120,13 @@ public class CassandraLockingMechanismTest {
         lockingMechanism.acquire(CLIENT_ID);
 
         //then
-        assertThat(activityClient.retrievePreparedStatementExecutions()).contains(insertLockPreparedStatement);
+        assertThat(activityClient.retrievePreparedStatementExecutions())
+            .hasOnlyOneElementSatisfying(preparedStatementExecution -> {
+                assertThat(preparedStatementExecution)
+                    .usingRecursiveComparison()
+                    .ignoringFields("variableTypes", "timestamp")
+                    .isEqualTo(insertLockPreparedStatement);
+            });
     }
 
     @Test
@@ -127,7 +135,9 @@ public class CassandraLockingMechanismTest {
         boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
 
         //then
-        assertThat(acquiredLock).isTrue();
+        assertThat(acquiredLock)
+            .describedAs("lock was acquired")
+            .isTrue();
     }
 
     @Test
@@ -146,7 +156,9 @@ public class CassandraLockingMechanismTest {
         boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
 
         //then
-        assertThat(acquiredLock).isFalse();
+        assertThat(acquiredLock)
+            .describedAs("lock was not acquired")
+            .isFalse();
     }
 
     @Test
@@ -165,7 +177,9 @@ public class CassandraLockingMechanismTest {
         boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
 
         //then
-        assertThat(acquiredLock).isTrue();
+        assertThat(acquiredLock)
+            .describedAs("lock was acquired")
+            .isTrue();
     }
 
     @Test
@@ -182,7 +196,9 @@ public class CassandraLockingMechanismTest {
         boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
 
         //then
-        assertThat(acquiredLock).isFalse();
+        assertThat(acquiredLock)
+            .describedAs("lock was not acquired")
+            .isFalse();
     }
 
     @Test
@@ -211,7 +227,13 @@ public class CassandraLockingMechanismTest {
         lockingMechanism.release(CLIENT_ID);
 
         //then
-        assertThat(activityClient.retrievePreparedStatementExecutions()).contains(deleteLockPreparedStatement);
+        assertThat(activityClient.retrievePreparedStatementExecutions())
+            .hasOnlyOneElementSatisfying(preparedStatementExecution -> {
+                assertThat(preparedStatementExecution)
+                    .usingRecursiveComparison()
+                    .ignoringFields("variableTypes", "timestamp")
+                    .isEqualTo(deleteLockPreparedStatement);
+            });
     }
 
     @Test
@@ -227,9 +249,12 @@ public class CassandraLockingMechanismTest {
         );
 
         //when
-        lockingMechanism.release(CLIENT_ID);
+        AbstractThrowableAssert<?, ? extends Throwable> execution = assertThatCode(
+            () -> lockingMechanism.release(CLIENT_ID)
+        );
 
-        //no exception thrown
+        // then
+        execution.doesNotThrowAnyException();
     }
 
     @Test
@@ -278,8 +303,16 @@ public class CassandraLockingMechanismTest {
         boolean result = lockingMechanism.release(CLIENT_ID);
 
         //then
-        assertThat(result).isTrue();
-        assertThat(activityClient.retrievePreparedStatementExecutions()).containsExactly(deleteLockPreparedStatement, deleteLockPreparedStatement);
+        assertThat(result)
+            .describedAs("lock was released")
+            .isTrue();
+        assertThat(activityClient.retrievePreparedStatementExecutions())
+            .hasSize(2)
+            .allSatisfy(preparedStatementExecution -> assertThat(preparedStatementExecution)
+                .usingRecursiveComparison()
+                .ignoringFields("variableTypes", "timestamp")
+                .isEqualTo(deleteLockPreparedStatement)
+            );
     }
 
     @Test
@@ -323,6 +356,8 @@ public class CassandraLockingMechanismTest {
         boolean released = lockingMechanism.release(CLIENT_ID);
 
         //then
-        assertThat(released).isFalse();
+        assertThat(released)
+            .describedAs("lock was not released")
+            .isFalse();
     }
 }
