@@ -64,6 +64,7 @@ dependencies {
     api('com.datastax.cassandra:cassandra-driver-core:3.7.1')
     implementation('org.slf4j:slf4j-api:1.7.25')
 
+    testImplementation("com.google.guava:guava:25.1-jre")
     testImplementation('org.apache.logging.log4j:log4j-core:2.11.2')
     testImplementation('junit:junit:4.12')
     testImplementation('org.assertj:assertj-core:3.12.2')

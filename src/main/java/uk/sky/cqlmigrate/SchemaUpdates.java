@@ -1,22 +1,21 @@
 package uk.sky.cqlmigrate;
 
+import static java.util.Objects.requireNonNull;
+
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.SimpleStatement;
 import com.datastax.driver.core.Statement;
 import com.datastax.driver.core.TableMetadata;
-import com.google.common.base.Throwables;
-import com.google.common.hash.Hashing;
-import com.google.common.io.ByteSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
-
-import static com.google.common.base.Preconditions.checkNotNull;
 
 class SchemaUpdates {
     private static final Logger LOGGER = LoggerFactory.getLogger(SchemaUpdates.class);
@@ -53,14 +52,14 @@ class SchemaUpdates {
     }
 
     boolean contentsAreDifferent(String filename, Path path) {
-        Row row = checkNotNull(getSchemaUpdate(sessionContext.getSession(), filename));
+        Row row = requireNonNull(getSchemaUpdate(sessionContext.getSession(), filename));
         String previousSha1 = row.getString(CHECKSUM_COLUMN);
 
         try {
             String checksum = calculateChecksum(path);
             return !previousSha1.equals(checksum);
         } catch (Exception e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -77,22 +76,23 @@ class SchemaUpdates {
 
     private String calculateChecksum(Path path) {
         try {
-            return new PathByteSource(path).hash(Hashing.sha1()).toString();
-        } catch (IOException e) {
-            throw Throwables.propagate(e);
+            final MessageDigest digest = MessageDigest.getInstance("SHA-1");
+            final byte[] hash = digest.digest(Files.readAllBytes(path));
+            return bytesToHex(hash);
+        } catch (IOException | NoSuchAlgorithmException e) {
+            throw new RuntimeException(e);
         }
     }
 
-    private static class PathByteSource extends ByteSource {
-        private final Path path;
-
-        public PathByteSource(Path path) {
-            this.path = path;
+    // see https://stackoverflow.com/a/9855338/627727 for where this comes from
+    private final static char[] hexArray = "0123456789abcdef".toCharArray();
+    private static String bytesToHex(byte[] bytes) {
+        char[] hexChars = new char[bytes.length * 2];
+        for (int j = 0; j < bytes.length; j++) {
+            int v = bytes[j] & 0xFF;
+            hexChars[j * 2] = hexArray[v >>> 4];
+            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
         }
-
-        @Override
-        public InputStream openStream() throws IOException {
-            return java.nio.file.Files.newInputStream(path);
-        }
+        return new String(hexChars);
     }
 }
