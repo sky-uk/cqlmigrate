@@ -11,10 +11,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
 
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assume.assumeTrue;
-
 
 public class CqlPathsTest {
 
@@ -37,7 +35,8 @@ public class CqlPathsTest {
         CqlPaths.create(Collections.singletonList(cql_bootstrap));
 
         // Then
-        assertThat(unix.getOpenFileDescriptorCount(), is(openedFileDescriptors));
+        assertThat(unix.getOpenFileDescriptorCount())
+            .isEqualTo(openedFileDescriptors);
     }
 
     private Path getResourcePath(String resourcePath) throws URISyntaxException {

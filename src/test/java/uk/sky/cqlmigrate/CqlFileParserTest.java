@@ -1,16 +1,13 @@
 package uk.sky.cqlmigrate;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.Test;
 
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-
-import static org.hamcrest.Matchers.equalToIgnoringWhiteSpace;
-import static org.hamcrest.Matchers.hasSize;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
 
 public class CqlFileParserTest {
 
@@ -28,8 +25,11 @@ public class CqlFileParserTest {
 
         //then
         String expectedStatement = "INSERT into role_graphs (provider, graphml) VALUES ('SKY', 'some text; some more text')";
-        assertThat(cqlStatements, hasSize(1));
-        assertThat(cqlStatements.get(0), equalToIgnoringWhiteSpace(expectedStatement));
+        assertThat(cqlStatements)
+            .hasOnlyOneElementSatisfying(cqlStatement ->
+                                             assertThat(cqlStatement)
+                                                 .isEqualToIgnoringCase(expectedStatement)
+            );
     }
 
     @Test
@@ -42,12 +42,13 @@ public class CqlFileParserTest {
 
         //then
         String expectedStatement;
-        assertThat(cqlStatements, hasSize(4));
+        assertThat(cqlStatements)
+            .hasSize(4);
 
         expectedStatement = "INSERT into role_graphs (provider, graphml)\n" +
                 "  VALUES ('SKY', 'some text; some more text')";
-
-        assertThat(cqlStatements.get(0), equalToIgnoringWhiteSpace(expectedStatement));
+        assertThat(cqlStatements.get(0))
+            .isEqualToIgnoringWhitespace(expectedStatement);
 
         expectedStatement = "CREATE TABLE role_graphs_sql(" +
                 "provider text, " +
@@ -56,20 +57,23 @@ public class CqlFileParserTest {
                 "PRIMARY KEY (provider)" +
                 ") WITH comment='test table role_graphs_sql'";
 
-        assertThat(cqlStatements.get(1), equalToIgnoringWhiteSpace(expectedStatement));
+        assertThat(cqlStatements.get(1))
+            .isEqualToIgnoringWhitespace(expectedStatement);
 
         expectedStatement = "INSERT into role_graphs_sql (provider, graphml)" +
                 " VALUES ('SKY', 'some ...  \n" +
                 "-- it''s comment\n" +
                 "-- Created by yEd 3.12.2 /* <key for=\"graphml\" id=\"d0\" yfiles.type=\"resources\"/> */ <test>''</test>\n" +
                 "   the end ')";
-        
-        assertEquals(cqlStatements.get(2), expectedStatement);
+
+        assertThat(cqlStatements.get(2))
+            .isEqualTo(expectedStatement);
 
         expectedStatement = "INSERT into role_graphs_sql (provider, graphml, settings)" +
                 " VALUES ('EARTH', '', '   the end ')";
 
-        assertEquals(cqlStatements.get(3), expectedStatement);
+        assertThat(cqlStatements.get(3))
+            .isEqualTo(expectedStatement);
     }
 
     @Test(expected = IllegalStateException.class)
@@ -84,7 +88,10 @@ public class CqlFileParserTest {
 
         List<String> cqlStatements = CqlFileParser.getCqlStatementsFrom(cqlPath);
         String expectedStatement = "CREATE TABLE consistency_test (column1 text primary key, column2 text)";
-        assertThat(cqlStatements, hasSize(1));
-        assertEquals(cqlStatements.get(0), expectedStatement);
+        assertThat(cqlStatements)
+            .hasOnlyOneElementSatisfying(cqlStatement ->
+                                             assertThat(cqlStatement)
+                                                 .isEqualToIgnoringCase(expectedStatement)
+            );
     }
 }
