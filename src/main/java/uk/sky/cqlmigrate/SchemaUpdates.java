@@ -84,15 +84,13 @@ class SchemaUpdates {
         }
     }
 
-    // see https://stackoverflow.com/a/9855338/627727 for where this comes from
-    private final static char[] hexArray = "0123456789abcdef".toCharArray();
     private static String bytesToHex(byte[] bytes) {
-        char[] hexChars = new char[bytes.length * 2];
-        for (int j = 0; j < bytes.length; j++) {
-            int v = bytes[j] & 0xFF;
-            hexChars[j * 2] = hexArray[v >>> 4];
-            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+        final StringBuilder builder = new StringBuilder(2 * bytes.length);
+        for (byte b : bytes) {
+            final int asUnsigned = Byte.toUnsignedInt(b);
+            builder.append(Character.forDigit(asUnsigned >>> 4, 16))
+                   .append(Character.forDigit(asUnsigned & 0x0F, 16));
         }
-        return new String(hexChars);
+        return builder.toString();
     }
 }

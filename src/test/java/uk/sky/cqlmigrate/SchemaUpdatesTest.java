@@ -102,7 +102,9 @@ public class SchemaUpdatesTest {
     }
 
     /**
-     * Make sure that the hashes that are calculated now are the same as
+     * Make sure that the hashes that are calculated now using JDK builtins to what was previously calculated using
+     * Guava's com.google.common.hash.Hashing library.
+     * @see Hashing
      */
     @Test
     public void rowInsertedWithMessageDigestHashingAlgorithmIsSameAsGuavaSha1HashingAlgorithm() throws Exception {
