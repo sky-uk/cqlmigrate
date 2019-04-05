@@ -1,10 +1,11 @@
 package uk.sky.cqlmigrate;
 
+import static java.util.Objects.requireNonNull;
+
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.SimpleStatement;
 import com.datastax.driver.core.Statement;
-import com.google.common.base.Preconditions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,9 +47,9 @@ final class CqlMigratorImpl implements CqlMigrator {
         String username = System.getProperty("username");
         String password = System.getProperty("password");
 
-        Preconditions.checkNotNull(hosts, "'hosts' property should be provided having value of a comma separated list of cassandra hosts");
-        Preconditions.checkNotNull(keyspace, "'keyspace' property should be provided having value of the cassandra keyspace");
-        Preconditions.checkNotNull(directoriesProperty, "'directories' property should be provided having value of the comma separated list of paths to cql files");
+        requireNonNull(hosts, "'hosts' property should be provided having value of a comma separated list of cassandra hosts");
+        requireNonNull(keyspace, "'keyspace' property should be provided having value of the cassandra keyspace");
+        requireNonNull(directoriesProperty, "'directories' property should be provided having value of the comma separated list of paths to cql files");
 
         Collection<Path> directories = Arrays.stream(directoriesProperty.split(","))
                 .map(Paths::get)

@@ -2,8 +2,6 @@ package uk.sky.cqlmigrate.example;
 
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.Session;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Uninterruptibles;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.thrift.transport.TTransportException;
@@ -18,6 +16,7 @@ import java.net.URL;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -37,8 +36,11 @@ public class CqlMigrateInvoker {
         CqlMigrator cqlMigrator = CqlMigratorFactory.create(CassandraLockConfig.builder().withTimeout(ofMillis(300)).build());
 
         URL resource = this.getClass().getResource("");
-        try (FileSystem fs = FileSystems.newFileSystem(resource.toURI(), ImmutableMap.of("create", "true"))) {
-            List<Path> resourcePaths = Lists.newArrayList(fs.getPath("cql_bootstrap"));
+        try (FileSystem fs = FileSystems.newFileSystem(
+            resource.toURI(),
+            Collections.singletonMap("create", "true")
+        )) {
+            List<Path> resourcePaths = Collections.singletonList(fs.getPath("cql_bootstrap"));
             cqlMigrator.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, resourcePaths);
         }
     }

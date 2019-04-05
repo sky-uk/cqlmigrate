@@ -1,7 +1,8 @@
 package uk.sky.cqlmigrate;
 
+import static java.util.Objects.requireNonNull;
+
 import com.datastax.driver.core.ConsistencyLevel;
-import static com.google.common.base.Preconditions.*;
 
 public class CqlMigratorConfig {
     private final LockConfig cassandraLockConfig;
@@ -9,9 +10,9 @@ public class CqlMigratorConfig {
     private final ConsistencyLevel writeConsistencyLevel;
 
     private CqlMigratorConfig(LockConfig cassandraLockConfig, ConsistencyLevel readConsistencyLevel, ConsistencyLevel writeConsistencyLevel) {
-        this.cassandraLockConfig = checkNotNull(cassandraLockConfig);
-        this.readConsistencyLevel = checkNotNull(readConsistencyLevel);
-        this.writeConsistencyLevel = checkNotNull(writeConsistencyLevel);
+        this.cassandraLockConfig = requireNonNull(cassandraLockConfig);
+        this.readConsistencyLevel = requireNonNull(readConsistencyLevel);
+        this.writeConsistencyLevel = requireNonNull(writeConsistencyLevel);
     }
 
     public static CassandraConfigBuilder builder() {

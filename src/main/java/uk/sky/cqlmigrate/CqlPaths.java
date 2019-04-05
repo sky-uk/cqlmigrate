@@ -1,17 +1,16 @@
 package uk.sky.cqlmigrate;
 
-import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableSortedMap;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.stream.StreamSupport;
 
 class CqlPaths {
@@ -19,10 +18,11 @@ class CqlPaths {
     private static final String BOOTSTRAP_CQL = "bootstrap.cql";
     private static final String CQL_FILE_FILTER = "*.cql";
 
-    private final ImmutableSortedMap<String, Path> sortedCqlPaths;
+    private final SortedMap<String, Path> sortedCqlPaths;
 
     public CqlPaths(Map<String, Path> paths) {
-        this.sortedCqlPaths = ImmutableSortedMap.copyOf(paths);
+
+        this.sortedCqlPaths = Collections.unmodifiableSortedMap(new TreeMap<>(paths));
     }
 
     static CqlPaths create(Collection<Path> directories) {
@@ -46,7 +46,7 @@ class CqlPaths {
             return Files.newDirectoryStream(path, CQL_FILE_FILTER);
         }
         catch (IOException e) {
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
     }
 

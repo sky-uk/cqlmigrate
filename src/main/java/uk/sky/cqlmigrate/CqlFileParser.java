@@ -1,19 +1,16 @@
 package uk.sky.cqlmigrate;
 
-import com.google.common.base.CharMatcher;
-import com.google.common.base.Throwables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static com.google.common.base.Preconditions.checkState;
 
 class CqlFileParser {
     private static final Logger LOGGER = LoggerFactory.getLogger(CqlFileParser.class);
@@ -24,14 +21,14 @@ class CqlFileParser {
     static List<String> getCqlStatementsFrom(Path cqlPath) {
         LineProcessor processor = new LineProcessor();
 
-        try (Scanner in = new Scanner(cqlPath, "UTF-8")) {
+        try (Scanner in = new Scanner(cqlPath, StandardCharsets.UTF_8.name())) {
             String original;
             while ((original = in.findWithinHorizon(EOL, 0)) != null) {
                 processor.process(original);
             }
         } catch (IOException | IllegalStateException e ) {
             LOGGER.error("Failed to process cql script {}: {}", cqlPath.getFileName(), e.getMessage());
-            throw Throwables.propagate(e);
+            throw new RuntimeException(e);
         }
 
         processor.check();
@@ -55,7 +52,7 @@ class CqlFileParser {
             IS_MULTI_LINE_COMMENT,
             IS_OPEN_STMT,
             IS_OPEN_VALUE_EXP,
-            IS_CLOSE_STMT;
+            IS_CLOSE_STMT
         }
 
         private final List<String> statements = new ArrayList<>();
@@ -99,7 +96,7 @@ class CqlFileParser {
         }
 
         private void findStatement(String original) throws IOException {
-            String line = CharMatcher.WHITESPACE.trimFrom(original);
+            String line = original.trim();
 
             if (line.startsWith(CQL_COMMENT_DOUBLE_HYPEN) || line.startsWith(CQL_COMMENT_DOUBLE_SLASH) || line.isEmpty()) {
                 return;
@@ -112,7 +109,7 @@ class CqlFileParser {
 
             if (line.endsWith(CQL_STATEMENT_TERMINATOR)) {
                 curStmt.append(" ").append(line, 0, line.length() - 1);
-                statements.add(CharMatcher.WHITESPACE.trimFrom(curStmt.toString()));
+                statements.add(curStmt.toString().trim());
                 curState = State.IS_CLOSE_STMT;
                 process(original);
                 return;
@@ -120,9 +117,9 @@ class CqlFileParser {
 
             // A semicolon preceded by an odd number of single quotes must be within a string,
             // and therefore is not a statement terminator
-            if (CharMatcher.is(CQL_STATEMENT_STRING_DELIMITER).countIn(line) % 2 != 0) {
+            if (line.chars().filter(character -> character == CQL_STATEMENT_STRING_DELIMITER).count() % 2 != 0) {
                 curState = State.IS_OPEN_VALUE_EXP;
-                curStmt.append(" ").append(CharMatcher.WHITESPACE.trimLeadingFrom(original));
+                curStmt.append(" ").append(trimLeadingWhitespace(original));
                 return;
             }
 
@@ -146,8 +143,16 @@ class CqlFileParser {
             }
         }
 
+        private static String trimLeadingWhitespace(String original) {
+            return original.replaceAll("^\\s+", "");
+        }
+
+        private static String trimTrailingWhitespace(String original) {
+            return original.replaceAll("\\s+$", "");
+        }
+
         private void findValueExpression(String original) {
-            if (CharMatcher.is(CQL_STATEMENT_STRING_DELIMITER).countIn(original) % 2 != 0) {
+            if (original.chars().filter(character -> character == CQL_STATEMENT_STRING_DELIMITER).count() % 2 != 0) {
                 curStmt.append(original);
                 curState = State.FIND_EOS;
                 return;
@@ -157,8 +162,9 @@ class CqlFileParser {
         }
 
         private void findMultilineComment(String original) {
-            if (CharMatcher.WHITESPACE.trimTrailingFrom(original).endsWith(CQL_MULTI_LINE_COMMENT_CLOSE))
+            if (trimTrailingWhitespace(original).endsWith(CQL_MULTI_LINE_COMMENT_CLOSE)) {
                 curState = State.FIND_EOS;
+            }
         }
 
         private void closedStatement(String original) {
@@ -167,7 +173,9 @@ class CqlFileParser {
         }
 
         private void check() {
-            checkState(State.IS_CLOSE_STMT.equals(curState) || State.INIT.equals(curState), "File had a non-terminated cql line");
+            if (!(State.IS_CLOSE_STMT.equals(curState) || State.INIT.equals(curState))) {
+                throw new IllegalStateException("File had a non-terminated cql line");
+            }
         }
 
         List<String> getResult() {

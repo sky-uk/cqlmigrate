@@ -3,8 +3,12 @@ package uk.sky.cqlmigrate;
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.KeyspaceMetadata;
+import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Session;
 import com.datastax.driver.core.exceptions.AlreadyExistsException;
+import com.google.common.hash.Hashing;
+import com.google.common.io.ByteSource;
+import com.google.common.io.Resources;
 import com.google.common.util.concurrent.Uninterruptibles;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.thrift.transport.TTransportException;
@@ -12,6 +16,8 @@ import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
 import org.junit.*;
 
 import java.io.IOException;
+import java.net.URL;
+import java.nio.file.Paths;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -93,5 +99,39 @@ public class SchemaUpdatesTest {
         //then
         KeyspaceMetadata keyspaceMetadata = cluster.getMetadata().getKeyspace(TEST_KEYSPACE);
         assertThat(keyspaceMetadata.getTable(SCHEMA_UPDATES_TABLE)).as("table should have been created").isNotNull();
+    }
+
+    /**
+     * Make sure that the hashes that are calculated now using JDK builtins to what was previously calculated using
+     * Guava's com.google.common.hash.Hashing library.
+     * @see Hashing
+     */
+    @Test
+    public void rowInsertedWithMessageDigestHashingAlgorithmIsSameAsGuavaSha1HashingAlgorithm() throws Exception {
+        //given
+        cluster.connect("system").execute("CREATE KEYSPACE " + TEST_KEYSPACE + " WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
+        Session session = cluster.connect(TEST_KEYSPACE);
+        SessionContext sessionContext = new SessionContext(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL, clusterHealth);
+        SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, TEST_KEYSPACE);
+        final String filename = "2018-03-26-18:11-create-some-tables.cql";
+        final URL cqlResource = Resources.getResource("cql_schema_update_hashing/" + filename);
+        schemaUpdates.initialise();
+
+        //when
+        schemaUpdates.add(
+            filename,
+            Paths.get(cqlResource.toURI())
+        );
+
+        //then
+        final String guavaSha1Hash = Resources.asByteSource(cqlResource).hash(Hashing.sha1()).toString();
+        final ResultSet resultSet = session.execute("SELECT * from " + SCHEMA_UPDATES_TABLE);
+        assertThat(resultSet.all())
+            .hasOnlyOneElementSatisfying(row -> {
+                assertThat(row.getString("filename"))
+                    .isEqualTo(filename);
+                assertThat(row.getString("checksum"))
+                    .isEqualTo(guavaSha1Hash);
+            });
     }
 }

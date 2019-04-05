@@ -51,8 +51,8 @@ import com.datastax.driver.core.*;
 
 // Configure locking for coordination of multiple nodes
 CassandraLockConfig lockConfig = CassandraLockConfig.builder()
-        .withTimeout(Duration.standardSeconds(3))
-        .withPollingInterval(Duration.millis(500))
+        .withTimeout(Duration.ofSeconds(3))
+        .withPollingInterval(Duration.ofMillis(500))
         .build();
 
 // Create a Cassandra session
