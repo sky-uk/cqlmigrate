@@ -18,3 +18,11 @@ Get the current version:
 
 Note that the `bintrayUpload` Gradle tasks will fail authentication unless the relevant `openSource*` properties have
 been defined in the system gradle.properties or overridden on the Gradle command line.
+
+Once the artifact has been uploaded to bintray, you will need to create a release on GitHub:
+ * Under Releases, click on Draft New Release
+ * Select the tag created by the Gradle release task (eg. 1.0.0)
+ * The title of the release should be the tag (eg. 1.0.0)
+ * In the release notes, include a link to the uploaded artifact on bintray, and list all PRs that have been merged since the last release
+ 
+Don't forget to publish the artifact on bintray!
