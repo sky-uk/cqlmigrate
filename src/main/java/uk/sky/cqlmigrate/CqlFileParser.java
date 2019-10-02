@@ -173,7 +173,7 @@ class CqlFileParser {
         }
 
         private void check() {
-            if (!(State.IS_CLOSE_STMT.equals(curState) || State.INIT.equals(curState))) {
+            if (!(State.IS_CLOSE_STMT.equals(curState) || State.INIT.equals(curState) || (State.FIND_EOS.equals(curState) && curStmt.length() ==0))) {
                 throw new IllegalStateException("File had a non-terminated cql line");
             }
         }
