@@ -94,4 +94,13 @@ public class CqlFileParserTest {
                                                  .isEqualToIgnoringCase(expectedStatement)
             );
     }
+
+    @Test
+    public void trailingEmptyLinesAreAllowed() throws Exception {
+        Path cqlPath = getResourcePath("cql_whitespace/whitespace.cql");
+
+        List<String> cqlStatements = CqlFileParser.getCqlStatementsFrom(cqlPath);
+        assertThat(cqlStatements).hasSize(2);
+    }
+
 }
