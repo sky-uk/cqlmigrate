@@ -4,6 +4,7 @@ import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Row;
 import com.datastax.driver.core.Session;
+import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.exceptions.DriverException;
 import com.datastax.driver.core.exceptions.WriteTimeoutException;
 import org.slf4j.Logger;
@@ -16,14 +17,16 @@ class CassandraLockingMechanism extends LockingMechanism {
     private static final Logger log = LoggerFactory.getLogger(CassandraLockingMechanism.class);
 
     private final Session session;
+    private final ConsistencyLevel consistencyLevel;
 
     private PreparedStatement insertLockQuery;
     private PreparedStatement deleteLockQuery;
     private boolean isRetryAfterWriteTimeout;
 
-    public CassandraLockingMechanism(Session session, String keyspace) {
+    public CassandraLockingMechanism(Session session, String keyspace, ConsistencyLevel consistencyLevel) {
         super(keyspace + ".schema_migration");
         this.session = session;
+        this.consistencyLevel = consistencyLevel;
     }
 
     /**
@@ -36,8 +39,10 @@ class CassandraLockingMechanism extends LockingMechanism {
         super.init();
 
         try {
-            insertLockQuery = session.prepare("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS");
-            deleteLockQuery = session.prepare("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?");
+            insertLockQuery = session.prepare("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+                    .setConsistencyLevel(consistencyLevel);
+            deleteLockQuery = session.prepare("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
+                    .setConsistencyLevel(consistencyLevel);;
 
         } catch (DriverException e) {
             throw new CannotAcquireLockException("Query to prepare locks queries failed", e);
