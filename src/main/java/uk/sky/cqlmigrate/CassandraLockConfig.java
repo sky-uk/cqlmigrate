@@ -23,6 +23,10 @@ public class CassandraLockConfig extends LockConfig {
         return new CassandraLockConfigBuilder();
     }
 
+    public ConsistencyLevel getConsistencyLevel() {
+        return this.consistencyLevel;
+    }
+
     public static class CassandraLockConfigBuilder extends LockConfig.LockConfigBuilder {
 
         private ConsistencyLevel consistencyLevel = ConsistencyLevel.LOCAL_ONE;
