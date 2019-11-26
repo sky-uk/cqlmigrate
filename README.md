@@ -53,6 +53,7 @@ import com.datastax.driver.core.*;
 CassandraLockConfig lockConfig = CassandraLockConfig.builder()
         .withTimeout(Duration.ofSeconds(3))
         .withPollingInterval(Duration.ofMillis(500))
+        .withConsistencyLevel(ConsistencyLevel.ALL)
         .build();
 
 // Create a Cassandra session

@@ -1,6 +1,7 @@
 package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.exceptions.DriverException;
 import com.google.common.collect.ImmutableMap;
 import org.assertj.core.api.AbstractThrowableAssert;
@@ -38,13 +39,13 @@ public class CassandraLockingMechanismTest {
 
     private final PreparedStatementExecution deleteLockPreparedStatement = PreparedStatementExecution.builder()
             .withPreparedStatementText("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
-            .withConsistency("LOCAL_ONE")
+            .withConsistency("ALL")
             .withVariables(LOCK_KEYSPACE + ".schema_migration", CLIENT_ID)
             .build();
 
     private final PreparedStatementExecution insertLockPreparedStatement = PreparedStatementExecution.builder()
             .withPreparedStatementText("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-            .withConsistency("LOCAL_ONE")
+            .withConsistency("ALL")
             .withVariables(LOCK_KEYSPACE + ".schema_migration", CLIENT_ID)
             .build();
 
@@ -77,7 +78,7 @@ public class CassandraLockingMechanismTest {
                 .build()
         );
 
-        lockingMechanism = new CassandraLockingMechanism(cluster.connect(), LOCK_KEYSPACE);
+        lockingMechanism = new CassandraLockingMechanism(cluster.connect(), LOCK_KEYSPACE, ConsistencyLevel.ALL);
         lockingMechanism.init();
 
         activityClient.clearAllRecordedActivity();

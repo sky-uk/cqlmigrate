@@ -34,7 +34,9 @@ public class CqlMigratorImplTest {
     private static final String LOCK_NAME = TEST_KEYSPACE + ".schema_migration";
 
     private static final CqlMigratorImpl MIGRATOR = new CqlMigratorImpl(CqlMigratorConfig.builder()
-            .withLockConfig(CassandraLockConfig.builder().build())
+            .withLockConfig(CassandraLockConfig.builder()
+                    .withConsistencyLevel(ConsistencyLevel.ALL)
+                    .build())
             .withReadConsistencyLevel(ConsistencyLevel.ALL)
             .withWriteConsistencyLevel(ConsistencyLevel.ALL)
             .build(), new SessionContextFactory());

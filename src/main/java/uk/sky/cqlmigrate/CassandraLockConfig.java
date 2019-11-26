@@ -1,25 +1,35 @@
 package uk.sky.cqlmigrate;
 
+import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.Session;
 
 import java.time.Duration;
 
 public class CassandraLockConfig extends LockConfig {
 
-    private CassandraLockConfig(Duration pollingInterval, Duration timeout, String clientId, boolean unlockOnFailure) {
+    private final ConsistencyLevel consistencyLevel;
+
+    private CassandraLockConfig(Duration pollingInterval, Duration timeout, String clientId, boolean unlockOnFailure, ConsistencyLevel consistencyLevel) {
         super(pollingInterval, timeout, clientId, unlockOnFailure);
+        this.consistencyLevel = consistencyLevel;
     }
 
     @Override
     public LockingMechanism getLockingMechanism(Session session, String keySpace) {
-        return new CassandraLockingMechanism(session, keySpace);
+        return new CassandraLockingMechanism(session, keySpace, consistencyLevel);
     }
 
     public static CassandraLockConfigBuilder builder() {
         return new CassandraLockConfigBuilder();
     }
 
+    public ConsistencyLevel getConsistencyLevel() {
+        return this.consistencyLevel;
+    }
+
     public static class CassandraLockConfigBuilder extends LockConfig.LockConfigBuilder {
+
+        private ConsistencyLevel consistencyLevel = ConsistencyLevel.LOCAL_ONE;
 
         private CassandraLockConfigBuilder() {}
 
@@ -41,8 +51,13 @@ public class CassandraLockConfig extends LockConfig {
             return this;
         }
 
+        public CassandraLockConfigBuilder withConsistencyLevel(ConsistencyLevel consistencyLevel){
+            this.consistencyLevel = consistencyLevel;
+            return this;
+        }
+
         public CassandraLockConfig build() {
-            return new CassandraLockConfig(pollingInterval, timeout, clientId, unlockOnFailure);
+            return new CassandraLockConfig(pollingInterval, timeout, clientId, unlockOnFailure, consistencyLevel);
         }
     }
 }
