@@ -15,8 +15,8 @@ public class CassandraLockConfig extends LockConfig {
     }
 
     @Override
-    public LockingMechanism getLockingMechanism(Session session, String keySpace) {
-        return new CassandraLockingMechanism(session, keySpace, consistencyLevel);
+    public LockingMechanism getLockingMechanism(Session session, String keySpace, String lockKeyspace) {
+        return new CassandraLockingMechanism(session, keySpace, consistencyLevel, lockKeyspace);
     }
 
     public static CassandraLockConfigBuilder builder() {

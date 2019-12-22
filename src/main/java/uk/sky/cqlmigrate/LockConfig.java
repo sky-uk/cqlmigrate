@@ -34,7 +34,7 @@ public class LockConfig {
         return unlockOnFailure;
     }
 
-    public LockingMechanism getLockingMechanism(Session session, String keySpace) {
+    public LockingMechanism getLockingMechanism(Session session, String keySpace, String lockKeyspace) {
         throw new UnsupportedOperationException();
     }
 
