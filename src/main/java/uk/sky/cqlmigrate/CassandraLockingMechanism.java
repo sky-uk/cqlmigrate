@@ -20,6 +20,7 @@ class CassandraLockingMechanism extends LockingMechanism {
     private final ConsistencyLevel consistencyLevel;
     private final String lockKeyspace;
 
+    private PreparedStatement selectLockQuery;
     private PreparedStatement insertLockQuery;
     private PreparedStatement deleteLockQuery;
     private boolean isRetryAfterWriteTimeout;
@@ -41,6 +42,8 @@ class CassandraLockingMechanism extends LockingMechanism {
         super.init();
 
         try {
+            selectLockQuery = session.prepare(String.format("SELECT name,client FROM %s.locks LIMIT 1", lockKeyspace))
+                    .setConsistencyLevel(consistencyLevel);
             insertLockQuery = session.prepare(String.format("INSERT INTO %s.locks (name, client) VALUES (?, ?) IF NOT EXISTS", lockKeyspace))
                     .setConsistencyLevel(consistencyLevel);
             deleteLockQuery = session.prepare(String.format("DELETE FROM %s.locks WHERE name = ? IF client = ?", lockKeyspace))
@@ -63,6 +66,9 @@ class CassandraLockingMechanism extends LockingMechanism {
     @Override
     public boolean acquire(String clientId) throws CannotAcquireLockException {
         try {
+            // Verify that a select of the locks completes successfully
+            // Ignore the result, we deal with key clashes during insert success/failure cases
+            session.execute(selectLockQuery.bind());
             ResultSet resultSet = session.execute(insertLockQuery.bind(lockName, clientId));
             Row currentLock = resultSet.one();
             // we could already hold the lock and not be aware if a previous acquire had a writetimeout as a timeout is not a failure in cassandra
