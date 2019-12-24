@@ -55,7 +55,7 @@ class CassandraLockingMechanism extends LockingMechanism {
      * {@inheritDoc}
      * <p>
      * Returns true if successfully inserted lock.
-     * Returns false if current lock is owned by this client.
+     * Returns true if current lock is owned by this client.
      * Returns false if WriteTimeoutException thrown.
      *
      * @throws CannotAcquireLockException if any DriverException thrown while executing queries.
