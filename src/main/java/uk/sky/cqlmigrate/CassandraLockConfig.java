@@ -8,14 +8,16 @@ import java.time.Duration;
 public class CassandraLockConfig extends LockConfig {
 
     private final ConsistencyLevel consistencyLevel;
+    private final String lockKeyspace;
 
-    private CassandraLockConfig(Duration pollingInterval, Duration timeout, String clientId, boolean unlockOnFailure, ConsistencyLevel consistencyLevel) {
+    private CassandraLockConfig(Duration pollingInterval, Duration timeout, String clientId, boolean unlockOnFailure, ConsistencyLevel consistencyLevel, String lockKeyspace) {
         super(pollingInterval, timeout, clientId, unlockOnFailure);
         this.consistencyLevel = consistencyLevel;
+        this.lockKeyspace = lockKeyspace;
     }
 
     @Override
-    public LockingMechanism getLockingMechanism(Session session, String keySpace, String lockKeyspace) {
+    public LockingMechanism getLockingMechanism(Session session, String keySpace) {
         return new CassandraLockingMechanism(session, keySpace, consistencyLevel, lockKeyspace);
     }
 
@@ -30,6 +32,7 @@ public class CassandraLockConfig extends LockConfig {
     public static class CassandraLockConfigBuilder extends LockConfig.LockConfigBuilder {
 
         private ConsistencyLevel consistencyLevel = ConsistencyLevel.LOCAL_ONE;
+        private String lockKeyspace = "cqlmigrate";
 
         private CassandraLockConfigBuilder() {}
 
@@ -56,8 +59,13 @@ public class CassandraLockConfig extends LockConfig {
             return this;
         }
 
+        public CassandraLockConfigBuilder withLockKeyspace(String lockKeyspace){
+            this.lockKeyspace = lockKeyspace;
+            return this;
+        }
+
         public CassandraLockConfig build() {
-            return new CassandraLockConfig(pollingInterval, timeout, clientId, unlockOnFailure, consistencyLevel);
+            return new CassandraLockConfig(pollingInterval, timeout, clientId, unlockOnFailure, consistencyLevel, lockKeyspace);
         }
     }
 }

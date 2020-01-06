@@ -11,7 +11,7 @@ public class CassandraNoOpLockConfig extends LockConfig {
     }
 
     @Override
-    public LockingMechanism getLockingMechanism(Session session, String keySpace, String lockKeyspace) {
+    public LockingMechanism getLockingMechanism(Session session, String keySpace) {
         return  new CassandraNoOpLockingMechanism();
     }
 
