@@ -112,7 +112,7 @@ public class LockVerificationTest {
             Cluster cluster = createCluster();
             Session session = cluster.connect();
 
-            CassandraLockingMechanism lockingMechanism = new CassandraLockingMechanism(session, KEYSPACE, ConsistencyLevel.ALL);
+            CassandraLockingMechanism lockingMechanism = new CassandraLockingMechanism(session, KEYSPACE, ConsistencyLevel.ALL, "cqlmigrate");
             CassandraLockConfig lockConfig = createCassandraLockConfig();
 
             Lock lock = new Lock(lockingMechanism, lockConfig);

@@ -78,7 +78,7 @@ public class CassandraLockingMechanismTest {
                 .build()
         );
 
-        lockingMechanism = new CassandraLockingMechanism(cluster.connect(), LOCK_KEYSPACE, ConsistencyLevel.ALL);
+        lockingMechanism = new CassandraLockingMechanism(cluster.connect(), LOCK_KEYSPACE, ConsistencyLevel.ALL, "cqlmigrate");
         lockingMechanism.init();
 
         activityClient.clearAllRecordedActivity();

@@ -18,15 +18,17 @@ class CassandraLockingMechanism extends LockingMechanism {
 
     private final Session session;
     private final ConsistencyLevel consistencyLevel;
+    private final String lockKeyspace;
 
     private PreparedStatement insertLockQuery;
     private PreparedStatement deleteLockQuery;
     private boolean isRetryAfterWriteTimeout;
 
-    public CassandraLockingMechanism(Session session, String keyspace, ConsistencyLevel consistencyLevel) {
+    public CassandraLockingMechanism(Session session, String keyspace, ConsistencyLevel consistencyLevel, String lockKeyspace) {
         super(keyspace + ".schema_migration");
         this.session = session;
         this.consistencyLevel = consistencyLevel;
+        this.lockKeyspace = lockKeyspace;
     }
 
     /**
@@ -39,9 +41,9 @@ class CassandraLockingMechanism extends LockingMechanism {
         super.init();
 
         try {
-            insertLockQuery = session.prepare("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+            insertLockQuery = session.prepare(String.format("INSERT INTO %s.locks (name, client) VALUES (?, ?) IF NOT EXISTS", lockKeyspace))
                     .setConsistencyLevel(consistencyLevel);
-            deleteLockQuery = session.prepare("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
+            deleteLockQuery = session.prepare(String.format("DELETE FROM %s.locks WHERE name = ? IF client = ?", lockKeyspace))
                     .setConsistencyLevel(consistencyLevel);;
 
         } catch (DriverException e) {
