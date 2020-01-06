@@ -1,6 +1,7 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.Session;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.session.Session;
 
 import java.time.Duration;
 import java.util.UUID;
@@ -34,7 +35,7 @@ public class LockConfig {
         return unlockOnFailure;
     }
 
-    public LockingMechanism getLockingMechanism(Session session, String keySpace) {
+    public LockingMechanism getLockingMechanism(CqlSession session, String keySpace) {
         throw new UnsupportedOperationException();
     }
 
@@ -49,7 +50,8 @@ public class LockConfig {
         protected String clientId = UUID.randomUUID().toString();
         protected boolean unlockOnFailure;
 
-        protected LockConfigBuilder() {}
+        protected LockConfigBuilder() {
+        }
 
         /**
          * Duration to wait after each attempt to acquire the lock.
@@ -59,8 +61,9 @@ public class LockConfig {
          * @throws IllegalArgumentException if value is less than 0
          */
         public LockConfigBuilder withPollingInterval(Duration pollingInterval) {
-            if (pollingInterval.toMillis() < 0)
+            if (pollingInterval.toMillis() < 0) {
                 throw new IllegalArgumentException("Polling interval must be positive: " + pollingInterval.toMillis());
+            }
 
             this.pollingInterval = pollingInterval;
             return this;
@@ -74,8 +77,9 @@ public class LockConfig {
          * @throws IllegalArgumentException if value is less than 0
          */
         public LockConfigBuilder withTimeout(Duration timeout) {
-            if (timeout.toMillis() < 0)
+            if (timeout.toMillis() < 0) {
                 throw new IllegalArgumentException("Timeout must be positive: " + timeout.toMillis());
+            }
 
             this.timeout = timeout;
             return this;
@@ -83,10 +87,10 @@ public class LockConfig {
 
         /**
          * Release the lock in case of failure.
-         *
+         * <p>
          * Note: default behavior is to leave the lock behind if any failures occurred during migration.
          * This was done to prevent accidental data corruption and bring manual attention to the problem.
-         *
+         * <p>
          * Use 'unlockOnFailure' to override the default behavior and force cqlmigrate to release the lock.
          *
          * @return this

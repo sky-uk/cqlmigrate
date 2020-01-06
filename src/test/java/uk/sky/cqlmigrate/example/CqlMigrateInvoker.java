@@ -1,7 +1,6 @@
 package uk.sky.cqlmigrate.example;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.Session;
+import com.datastax.oss.driver.api.core.CqlSession;
 import com.google.common.util.concurrent.Uninterruptibles;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.thrift.transport.TTransportException;
@@ -28,8 +27,7 @@ public class CqlMigrateInvoker {
     private static int binaryPort;
     private static String username = "cassandra";
     private static String password = "cassandra";
-    private static Cluster cluster;
-    private static Session session;
+    private static CqlSession session;
     private static final String TEST_KEYSPACE = "cqlmigrate_test";
 
     public void doMigrate() throws IOException, URISyntaxException {
@@ -48,7 +46,6 @@ public class CqlMigrateInvoker {
     public static void setupCassandra() throws ConfigurationException, IOException, TTransportException, InterruptedException {
         EmbeddedCassandraServerHelper.startEmbeddedCassandra(EmbeddedCassandraServerHelper.CASSANDRA_RNDPORT_YML_FILE);
         binaryPort = EmbeddedCassandraServerHelper.getNativeTransportPort();
-        cluster = EmbeddedCassandraServerHelper.getCluster();
         session = EmbeddedCassandraServerHelper.getSession();
     }
 

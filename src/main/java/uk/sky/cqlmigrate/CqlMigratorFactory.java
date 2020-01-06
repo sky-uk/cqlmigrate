@@ -1,6 +1,6 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
 
 public class CqlMigratorFactory {
     /**
@@ -12,10 +12,10 @@ public class CqlMigratorFactory {
      */
     public static CqlMigrator create(LockConfig lockConfig) {
         return create(CqlMigratorConfig.builder()
-                .withLockConfig(lockConfig)
-                .withReadConsistencyLevel(ConsistencyLevel.LOCAL_ONE)
-                .withWriteConsistencyLevel(ConsistencyLevel.ALL)
-                .build()
+            .withLockConfig(lockConfig)
+            .withReadConsistencyLevel(ConsistencyLevel.LOCAL_ONE)
+            .withWriteConsistencyLevel(ConsistencyLevel.ALL)
+            .build()
         );
     }
 

@@ -1,6 +1,7 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.Session;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.session.Session;
 import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
 import uk.sky.cqlmigrate.exception.CannotReleaseLockException;
 import uk.sky.cqlmigrate.exception.ClusterUnhealthyException;
@@ -37,7 +38,7 @@ public interface CqlMigrator {
      * @throws CannotReleaseLockException                          if any of the queries to release lock fail
      * @throws IllegalArgumentException                            if any file types other than .cql are found
      * @throws IllegalStateException                               if cql file has changed after migration has been run
-     * @throws com.datastax.driver.core.exceptions.DriverException if any of the migration queries fails
+     * @throws com.datastax.oss.driver.api.core.DriverException if any of the migration queries fails
      */
     void migrate(String[] hosts, int port, String username, String password, String keyspace, Collection<Path> directories);
 
@@ -58,9 +59,9 @@ public interface CqlMigrator {
      * @throws CannotReleaseLockException                          if any of the queries to release lock fail
      * @throws IllegalArgumentException                            if any file types other than .cql are found
      * @throws IllegalStateException                               if cql file has changed after migration has been run
-     * @throws com.datastax.driver.core.exceptions.DriverException if any of the migration queries fails
+     * @throws com.datastax.oss.driver.api.core.DriverException if any of the migration queries fails
      */
-    void migrate(Session session, String keyspace, Collection<Path> directories);
+    void migrate(CqlSession session, String keyspace, Collection<Path> directories);
 
     /**
      * Drops keyspace if it exists
@@ -72,7 +73,7 @@ public interface CqlMigrator {
      * @param password Password for Cassandra's internal authentication using PasswordAuthenticator
      *                 (if using AllowAllAuthenticator, can be set to any value)
      * @param keyspace Keyspace name for which the schema migration needs to be applied
-     * @throws com.datastax.driver.core.exceptions.DriverException if query fails
+     * @throws com.datastax.oss.driver.api.core.DriverException if query fails
      */
     void clean(String[] hosts, int port, String username, String password, String keyspace);
 
@@ -81,7 +82,7 @@ public interface CqlMigrator {
      *
      * @param session  Session to a cassandra cluster
      * @param keyspace Keyspace name for which the schema migration needs to be applied
-     * @throws com.datastax.driver.core.exceptions.DriverException if query fails
+     * @throws com.datastax.oss.driver.api.core.DriverException if query fails
      */
     void clean(Session session, String keyspace);
 }

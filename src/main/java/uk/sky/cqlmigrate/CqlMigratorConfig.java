@@ -2,7 +2,7 @@ package uk.sky.cqlmigrate;
 
 import static java.util.Objects.requireNonNull;
 
-import com.datastax.driver.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
 
 public class CqlMigratorConfig {
     private final LockConfig cassandraLockConfig;

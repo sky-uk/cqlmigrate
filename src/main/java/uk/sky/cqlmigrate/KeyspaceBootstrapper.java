@@ -1,7 +1,7 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.KeyspaceMetadata;
-import com.datastax.driver.core.Session;
+import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
+import com.datastax.oss.driver.api.core.session.Session;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,7 +23,7 @@ class KeyspaceBootstrapper {
 
     void bootstrap() {
         Session session = sessionContext.getSession();
-        KeyspaceMetadata keyspaceMetadata = session.getCluster().getMetadata().getKeyspace(keyspace);
+        KeyspaceMetadata keyspaceMetadata = session.getMetadata().getKeyspace(keyspace).orElseGet(null);
         if (keyspaceMetadata == null) {
             paths.applyBootstrap((filename, path) -> {
                 LOGGER.info("Keyspace not found, applying {} at consistency level {}", path, sessionContext.getWriteConsistencyLevel());

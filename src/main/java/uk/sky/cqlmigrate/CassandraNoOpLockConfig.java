@@ -1,6 +1,6 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.Session;
+import com.datastax.oss.driver.api.core.CqlSession;
 
 import java.time.Duration;
 
@@ -11,8 +11,8 @@ public class CassandraNoOpLockConfig extends LockConfig {
     }
 
     @Override
-    public LockingMechanism getLockingMechanism(Session session, String keySpace) {
-        return  new CassandraNoOpLockingMechanism();
+    public LockingMechanism getLockingMechanism(CqlSession session, String keySpace) {
+        return new CassandraNoOpLockingMechanism();
     }
 
     public static CassandraNoOpLockConfigBuilder builder() {
@@ -21,7 +21,8 @@ public class CassandraNoOpLockConfig extends LockConfig {
 
     public static class CassandraNoOpLockConfigBuilder extends LockConfigBuilder {
 
-        private CassandraNoOpLockConfigBuilder() {}
+        private CassandraNoOpLockConfigBuilder() {
+        }
 
         @Override
         public CassandraNoOpLockConfigBuilder withPollingInterval(Duration pollingInterval) {

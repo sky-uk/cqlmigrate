@@ -51,6 +51,7 @@ shadowJar {
 }
 
 repositories {
+    mavenLocal()
     mavenCentral()
 }
 
@@ -61,7 +62,7 @@ configurations {
 }
 
 dependencies {
-    api('com.datastax.cassandra:cassandra-driver-core:3.7.1')
+    api('com.datastax.oss:java-driver-core:4.3.1')
     implementation('org.slf4j:slf4j-api:1.7.25')
 
     testImplementation("com.google.guava:guava:25.1-jre")
@@ -75,7 +76,7 @@ dependencies {
 
     testImplementation('org.scassandra:java-client:1.1.2')
 
-    testCompileAndFunctional('org.cassandraunit:cassandra-unit:3.5.0.1')
+    testCompileAndFunctional('org.cassandraunit:cassandra-unit:4.2.2.0-SNAPSHOT')
     functional('org.slf4j:slf4j-simple:1.7.25')
 }
 

@@ -1,6 +1,6 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.Cluster;
+import com.datastax.oss.driver.api.core.CqlSession;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -11,6 +11,7 @@ import org.scassandra.http.client.PrimingClient;
 import uk.sky.cqlmigrate.exception.ClusterUnhealthyException;
 import uk.sky.cqlmigrate.util.PortScavenger;
 
+import java.net.InetSocketAddress;
 import java.util.Collection;
 
 import static java.util.Collections.singletonList;
@@ -22,16 +23,17 @@ import static org.awaitility.Awaitility.await;
 
 public class ClusterHealthTest {
 
-    private static final int BINARY_PORT = PortScavenger.getFreePort();
+    private static final int BINARY_PORT = 9042;
     private static final int ADMIN_PORT = PortScavenger.getFreePort();
     private static final Collection<String> CASSANDRA_HOSTS = singletonList("localhost");
+    private static final Collection<InetSocketAddress> CASSANDRA_NODES = singletonList(new InetSocketAddress("localhost", BINARY_PORT));
 
-    private static final Scassandra scassandra = ScassandraFactory.createServer(BINARY_PORT, ADMIN_PORT);
+    private static final Scassandra scassandra = ScassandraFactory.createServer("0.0.0.0",BINARY_PORT, "0.0.0.0",ADMIN_PORT);
 
     private static final PrimingClient primingClient = scassandra.primingClient();
     private static final ActivityClient activityClient = scassandra.activityClient();
 
-    private Cluster cluster;
+    private CqlSession cluster;
     private ClusterHealth clusterHealth;
 
     @Before
@@ -40,13 +42,10 @@ public class ClusterHealthTest {
 
         String username = "cassandra";
         String password = "cassandra";
-        cluster = Cluster.builder()
-                .addContactPoints(CASSANDRA_HOSTS.toArray(new String[CASSANDRA_HOSTS.size()]))
-                .withPort(BINARY_PORT)
-                .withCredentials(username, password)
-                .build();
-
-        cluster.connect();
+        cluster = CqlSession.builder()
+            .addContactPoints(CASSANDRA_NODES)
+            .withAuthCredentials(username, password)
+            .build();
 
         clusterHealth = new ClusterHealth(cluster);
 
@@ -67,16 +66,16 @@ public class ClusterHealthTest {
         scassandra.stop();
 
         await().pollInterval(500, MILLISECONDS)
-                .atMost(5, SECONDS)
-                .untilAsserted(() -> {
-                    //when
-                    Throwable throwable = catchThrowable(clusterHealth::check);
+            .atMost(5, SECONDS)
+            .untilAsserted(() -> {
+                //when
+                Throwable throwable = catchThrowable(clusterHealth::check);
 
-                    //then
-                    assertThat(throwable).isNotNull();
-                    assertThat(throwable).isInstanceOf(ClusterUnhealthyException.class);
-                    assertThat(throwable).hasMessage("Cluster not healthy, the following hosts are down: [localhost/127.0.0.1]");
-                    throwable.printStackTrace();
-                });
+                //then
+                assertThat(throwable).isNotNull();
+                assertThat(throwable).isInstanceOf(ClusterUnhealthyException.class);
+                assertThat(throwable).hasMessage("Cluster not healthy, the following hosts are down: [localhost/127.0.0.1]");
+                throwable.printStackTrace();
+            });
     }
 }

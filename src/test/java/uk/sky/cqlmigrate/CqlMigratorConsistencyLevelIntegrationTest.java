@@ -1,8 +1,7 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.Session;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlSession;
 import com.google.common.collect.ImmutableMap;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.thrift.transport.TTransportException;
@@ -15,12 +14,14 @@ import org.scassandra.junit.ScassandraServerRule;
 import uk.sky.cqlmigrate.util.PortScavenger;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collection;
 
 import static java.util.Arrays.asList;
+import static java.util.Collections.singletonList;
 import static org.scassandra.http.client.PrimingRequest.*;
 import static org.scassandra.http.client.types.ColumnMetadata.column;
 import static org.scassandra.matchers.Matchers.containsQuery;
@@ -35,14 +36,16 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
     private static String password = "cassandra";
     public static final int FREE_PORT = PortScavenger.getFreePort();
     private static final String TEST_KEYSPACE = "cqlmigrate_test";
+    private static final Collection<InetSocketAddress> CASSANDRA_NODES = singletonList(new InetSocketAddress("localhost", FREE_PORT));
+
 
     private final CassandraLockConfig lockConfig = CassandraLockConfig.builder()
-            .build();
+        .build();
 
 
     private PrimingClient primingClient = scassandra.primingClient();
     private ActivityClient activityClient = scassandra.activityClient();
-    private static Session session;
+    private static CqlSession session;
     private Collection<Path> cqlPaths;
 
     @Before
@@ -50,43 +53,41 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
 
         cqlPaths = asList(getResourcePath("cql_bootstrap"), getResourcePath("cql_consistency_level"));
 
-        session = Cluster.builder()
-                .addContactPoints(CASSANDRA_HOSTS)
-                .withPort(FREE_PORT)
-                .withCredentials(username, password)
-                .build()
-                .connect();
+        session = CqlSession.builder()
+            .addContactPoints(CASSANDRA_NODES)
+            .withAuthCredentials(username, password)
+            .build();
 
         primingClient.prime(queryBuilder()
             .withQuery("SELECT * FROM system.schema_keyspaces")
             .withThen(
-                    then()
+                then()
                     .withColumnTypes(column("keyspace_name", PrimitiveType.TEXT), column("durable_writes", PrimitiveType.BOOLEAN), column("strategy_class", PrimitiveType.VARCHAR), column("strategy_options", PrimitiveType.TEXT))
                     .withRows(ImmutableMap.of("keyspace_name", "cqlmigrate_test", "durable_writes", true, "strategy_class", "org.apache.cassandra.locator.SimpleStrategy", "strategy_options", "{\"replication_factor\":\"1\"}"))
             ));
 
         primingClient.prime(preparedStatementBuilder()
-                .withQuery("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                .withThen(
-                        then()
-                                .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
-                                .withColumnTypes(column("client", PrimitiveType.TEXT), column("[applied]", PrimitiveType.BOOLEAN))
-                                .withRows(ImmutableMap.of("client", lockConfig.getClientId(), "[applied]", true)))
+            .withQuery("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+            .withThen(
+                then()
+                    .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
+                    .withColumnTypes(column("client", PrimitiveType.TEXT), column("[applied]", PrimitiveType.BOOLEAN))
+                    .withRows(ImmutableMap.of("client", lockConfig.getClientId(), "[applied]", true)))
         );
 
         primingClient.prime(preparedStatementBuilder()
-                .withQuery("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
-                .withThen(
-                        then()
-                                .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
-                                .withColumnTypes(column("client", PrimitiveType.TEXT), column("[applied]", PrimitiveType.BOOLEAN))
-                                .withRows(ImmutableMap.of("client", lockConfig.getClientId(), "[applied]", true)))
+            .withQuery("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
+            .withThen(
+                then()
+                    .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
+                    .withColumnTypes(column("client", PrimitiveType.TEXT), column("[applied]", PrimitiveType.BOOLEAN))
+                    .withRows(ImmutableMap.of("client", lockConfig.getClientId(), "[applied]", true)))
         );
     }
 
     @After
     public void tearDown() {
-        session.getCluster().close();
+        session.close();
     }
 
     private Path getResourcePath(String resourcePath) throws URISyntaxException {
@@ -121,10 +122,10 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
         ConsistencyLevel expectedWriteConsistencyLevel = ConsistencyLevel.EACH_QUORUM;
 
         CqlMigrator migrator = CqlMigratorFactory.create(CqlMigratorConfig.builder()
-                .withLockConfig(lockConfig)
-                .withReadConsistencyLevel(expectedReadConsistencyLevel)
-                .withWriteConsistencyLevel(expectedWriteConsistencyLevel)
-                .build()
+            .withLockConfig(lockConfig)
+            .withReadConsistencyLevel(expectedReadConsistencyLevel)
+            .withWriteConsistencyLevel(expectedWriteConsistencyLevel)
+            .build()
         );
 
         //act
@@ -141,37 +142,37 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
 
         //ensure that schema updates are applied at configured consistency level
         Assert.assertThat(activityClient.retrieveQueries(), containsQuery(Query
-                .builder()
-                .withQuery("CREATE TABLE consistency_test (column1 text primary key, column2 text)")
-                .withConsistency(expectedWriteConsistencyLevel.toString())
-                .build()));
+            .builder()
+            .withQuery("CREATE TABLE consistency_test (column1 text primary key, column2 text)")
+            .withConsistency(expectedWriteConsistencyLevel.toString())
+            .build()));
 
         // ensure that any reads from schema updates are read at the configured consistency level
         Assert.assertThat(activityClient.retrieveQueries(), containsQuery(Query
-                .builder()
-                .withQuery("SELECT * FROM schema_updates where filename = ?")
-                .withConsistency(expectedReadConsistencyLevel.toString())
-                .build()));
+            .builder()
+            .withQuery("SELECT * FROM schema_updates where filename = ?")
+            .withConsistency(expectedReadConsistencyLevel.toString())
+            .build()));
 
         //ensure that any inserts into schema updates are done at the configured consistency level
         Assert.assertThat(activityClient.retrieveQueries(), containsQuery(Query
-                .builder()
-                .withQuery("INSERT INTO schema_updates (filename, checksum, applied_on) VALUES (?, ?, dateof(now()));")
-                .withConsistency(expectedWriteConsistencyLevel.toString())
-                .build()));
+            .builder()
+            .withQuery("INSERT INTO schema_updates (filename, checksum, applied_on) VALUES (?, ?, dateof(now()));")
+            .withConsistency(expectedWriteConsistencyLevel.toString())
+            .build()));
 
         //ensure that use keyspace is done at the configured consistency level
         Assert.assertThat(activityClient.retrieveQueries(), containsQuery(Query
-                .builder()
-                .withQuery("USE cqlmigrate_test;")
-                .withConsistency(expectedReadConsistencyLevel.toString())
-                .build()));
+            .builder()
+            .withQuery("USE cqlmigrate_test;")
+            .withConsistency(expectedReadConsistencyLevel.toString())
+            .build()));
 
         //ensure that create schema_updates table is done at the configured consistency level
         Assert.assertThat(activityClient.retrieveQueries(), containsQuery(Query
-                .builder()
-                .withQuery("CREATE TABLE schema_updates (filename text primary key, checksum text, applied_on timestamp);")
-                .withConsistency(expectedWriteConsistencyLevel.toString())
-                .build()));
+            .builder()
+            .withQuery("CREATE TABLE schema_updates (filename text primary key, checksum text, applied_on timestamp);")
+            .withConsistency(expectedWriteConsistencyLevel.toString())
+            .build()));
     }
 }
