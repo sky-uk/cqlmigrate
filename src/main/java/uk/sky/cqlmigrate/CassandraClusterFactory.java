@@ -4,6 +4,8 @@ import com.datastax.driver.core.Cluster;
 
 public class CassandraClusterFactory {
 
+    // test
+
     /**
      * Creates an instance of cassandra {@link Cluster} based on the provided configuration
      *
