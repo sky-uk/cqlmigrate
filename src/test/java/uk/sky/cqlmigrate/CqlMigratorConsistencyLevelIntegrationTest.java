@@ -25,7 +25,8 @@ import static java.util.Collections.singletonList;
 import static org.scassandra.http.client.PrimingRequest.*;
 import static org.scassandra.http.client.types.ColumnMetadata.column;
 import static org.scassandra.matchers.Matchers.containsQuery;
-
+@Ignore
+//TODO for 4.x.x
 public class CqlMigratorConsistencyLevelIntegrationTest {
 
     @Rule

@@ -2,21 +2,23 @@ package uk.sky.cqlmigrate;
 
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.cql.Statement;
 import com.datastax.oss.driver.api.core.session.Session;
-import com.datastax.oss.protocol.internal.response.result.Void;
+import io.netty.util.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.Time;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static com.datastax.oss.driver.api.core.type.reflect.GenericType.of;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -56,10 +58,10 @@ final class CqlMigratorImpl implements CqlMigrator {
         requireNonNull(directoriesProperty, "'directories' property should be provided having value of the comma separated list of paths to cql files");
 
         Collection<Path> directories = Arrays.stream(directoriesProperty.split(","))
-            .map(Paths::get)
-            .collect(Collectors.toList());
+                .map(Paths::get)
+                .collect(Collectors.toList());
         CqlMigratorFactory.create(CassandraLockConfig.builder().build())
-            .migrate(hosts.split(","), port == null ? 9042 : Integer.parseInt(port), username, password, keyspace, directories);
+                .migrate(hosts.split(","), port == null ? 9042 : Integer.parseInt(port), username, password, keyspace, directories);
 
     }
 
@@ -70,9 +72,9 @@ final class CqlMigratorImpl implements CqlMigrator {
         List<InetSocketAddress> cassandraHosts = Stream.of(hosts).map(host -> new InetSocketAddress(host, port)).collect(Collectors.toList());
 
         try (CqlSession cqlSession = CqlSession.builder()
-            .addContactPoints(cassandraHosts)
-            .withLocalDatacenter("datacentre1")
-            .withAuthCredentials(username, password).build()) {
+                .addContactPoints(cassandraHosts)
+                .withLocalDatacenter("datacenter1")
+                .withAuthCredentials(username, password).build()) {
             this.migrate(cqlSession, keyspace, directories);
         }
     }
@@ -117,9 +119,10 @@ final class CqlMigratorImpl implements CqlMigrator {
 
         List<InetSocketAddress> cassandraHosts = Stream.of(hosts).map(host -> new InetSocketAddress(host, port)).collect(Collectors.toList());
 
-        try (Session cqlSession = CqlSession.builder()
-            .addContactPoints(cassandraHosts)
-            .withAuthCredentials(username, password).build()) {
+        try (CqlSession cqlSession = CqlSession.builder()
+                .addContactPoints(cassandraHosts)
+                .withLocalDatacenter("datacenter1")
+                .withAuthCredentials(username, password).build()) {
             this.clean(cqlSession, keyspace);
         }
 
@@ -128,10 +131,13 @@ final class CqlMigratorImpl implements CqlMigrator {
     /**
      * {@inheritDoc}
      */
+    // TODO driver is taking longer than 2 secs to drop schema
     public void clean(Session session, String keyspace) {
-
         session.execute(SimpleStatement.newInstance("DROP KEYSPACE IF EXISTS " + keyspace)
-            .setConsistencyLevel(cqlMigratorConfig.getWriteConsistencyLevel()), of(Void.class));
+                .setTimeout(Duration.ofSeconds(4))
+                .setConsistencyLevel(cqlMigratorConfig.getWriteConsistencyLevel()), Statement.SYNC);
+
         LOGGER.info("Cleaned {}", keyspace);
     }
+
 }

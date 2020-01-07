@@ -10,8 +10,6 @@ import java.util.stream.Stream;
 
 public class CassandraClusterFactory {
 
-    // test
-
     /**
      * Creates an instance of cassandra {@link Session} based on the provided configuration
      *
@@ -24,7 +22,9 @@ public class CassandraClusterFactory {
      */
     public static Session createCluster(String[] hosts, int port, String username, String password) {
 
-        List<InetSocketAddress> cassandraHosts = Stream.of(hosts).map(host -> new InetSocketAddress(host, port)).collect(Collectors.toList());
+        List<InetSocketAddress> cassandraHosts = Stream.of(hosts)
+                .map(host -> new InetSocketAddress(host, port))
+                .collect(Collectors.toList());
 
         if (username != null && password != null) {
             return CqlSession.builder()

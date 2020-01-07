@@ -28,6 +28,7 @@
 //import static junit.framework.TestCase.fail;
 //import static org.assertj.core.api.Assertions.assertThat;
 //
+//TODO LOOK AT THIS
 //@Ignore("Ignored till we can move it out of pipeline build")
 //public class LockVerificationTest {
 //

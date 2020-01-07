@@ -26,7 +26,7 @@ class CqlLoader {
                 .map(stringStatement -> SimpleStatement.newInstance(stringStatement).setConsistencyLevel(sessionContext.getWriteConsistencyLevel()))
                 .forEach(statement -> {
                     LOGGER.debug("Executing cql statement {}", statement);
-                    sessionContext.getSession().execute(statement, BOOLEAN); //TODO not sure if the statements returns a Boolean
+                    sessionContext.getSession().execute(statement); //TODO not sure if the statements returns a Boolean
                 });
         } catch (DriverException e) {
             LOGGER.error("Failed to execute cql statements {}: {}", cqlStatements, e.getMessage());

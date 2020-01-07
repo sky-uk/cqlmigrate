@@ -23,7 +23,7 @@ class KeyspaceBootstrapper {
 
     void bootstrap() {
         Session session = sessionContext.getSession();
-        KeyspaceMetadata keyspaceMetadata = session.getMetadata().getKeyspace(keyspace).orElseGet(null);
+        KeyspaceMetadata keyspaceMetadata = session.getMetadata().getKeyspace(keyspace).orElse(null);
         if (keyspaceMetadata == null) {
             paths.applyBootstrap((filename, path) -> {
                 LOGGER.info("Keyspace not found, applying {} at consistency level {}", path, sessionContext.getWriteConsistencyLevel());

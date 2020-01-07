@@ -13,6 +13,8 @@ import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
 import uk.sky.cqlmigrate.exception.CannotReleaseLockException;
 
 import static com.datastax.oss.driver.api.core.cql.SimpleStatement.newInstance;
+import static com.datastax.oss.driver.api.core.cql.Statement.ASYNC;
+import static com.datastax.oss.driver.api.core.cql.Statement.SYNC;
 
 class CassandraLockingMechanism extends LockingMechanism {
 
@@ -41,9 +43,9 @@ class CassandraLockingMechanism extends LockingMechanism {
         super.init();
 
         try {
-            insertLockQuery = session.prepare(newInstance("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+            insertLockQuery = session.prepare(newInstance("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS",ASYNC)
                 .setConsistencyLevel(consistencyLevel));
-            deleteLockQuery = session.prepare(newInstance("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
+            deleteLockQuery = session.prepare(newInstance("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?",ASYNC)
                 .setConsistencyLevel(consistencyLevel));
 
         } catch (DriverException e) {

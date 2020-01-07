@@ -33,7 +33,7 @@ class SchemaUpdates {
     void initialise() {
         CqlSession session = sessionContext.getSession();
         session.execute(SimpleStatement.newInstance("USE " + keyspace + ";").setConsistencyLevel(sessionContext.getReadConsistencyLevel()));
-        TableMetadata schemaUpdateTableMetadata = session.getMetadata().getKeyspace(keyspace).get().getTable(SCHEMA_UPDATES_TABLE).get();
+        TableMetadata schemaUpdateTableMetadata = session.getMetadata().getKeyspace(keyspace).get().getTable(SCHEMA_UPDATES_TABLE).orElse(null);
         if (schemaUpdateTableMetadata == null) {
             CqlLoader.load(sessionContext, Collections.singletonList("CREATE TABLE " + SCHEMA_UPDATES_TABLE + " (filename text primary key, " + CHECKSUM_COLUMN + " text, applied_on timestamp);"));
         }
