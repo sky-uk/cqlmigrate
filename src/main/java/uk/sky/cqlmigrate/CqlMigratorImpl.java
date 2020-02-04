@@ -134,7 +134,7 @@ final class CqlMigratorImpl implements CqlMigrator {
     // TODO driver is taking longer than 2 secs to drop schema
     public void clean(Session session, String keyspace) {
         session.execute(SimpleStatement.newInstance("DROP KEYSPACE IF EXISTS " + keyspace)
-                .setTimeout(Duration.ofSeconds(4))
+                .setTimeout(Duration.ofSeconds(10))
                 .setConsistencyLevel(cqlMigratorConfig.getWriteConsistencyLevel()), Statement.SYNC);
 
         LOGGER.info("Cleaned {}", keyspace);
