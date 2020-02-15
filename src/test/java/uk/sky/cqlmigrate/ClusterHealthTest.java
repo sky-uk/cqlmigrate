@@ -45,7 +45,6 @@ public class ClusterHealthTest {
         addressResolver = new Inet4Resolver(defaultStartingIp, defaultStartingPort);
         availableAddress = addressResolver.get();
         dc.addNode().withAddress(availableAddress).build();
-        dc.addNode().withPeerInfo("host_id", UUID.randomUUID()).build();
         bCluster = server.register(cluster);
         session = CqlSession.builder().addContactPoint((InetSocketAddress) availableAddress).withLocalDatacenter(dc.getName()).build();
         clusterHealth = new ClusterHealth(session);
