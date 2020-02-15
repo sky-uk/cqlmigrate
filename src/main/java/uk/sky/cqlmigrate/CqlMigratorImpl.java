@@ -131,7 +131,7 @@ final class CqlMigratorImpl implements CqlMigrator {
     /**
      * {@inheritDoc}
      */
-    // TODO driver is taking longer than 2 secs to drop schema
+    // TODO (driver 4.x.x) either cassandra unit or the driver itself is taking longer than 2 secs to drop schema
     public void clean(Session session, String keyspace) {
         session.execute(SimpleStatement.newInstance("DROP KEYSPACE IF EXISTS " + keyspace)
                 .setTimeout(Duration.ofSeconds(10))

@@ -12,7 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verifyZeroInteractions;
 
 @RunWith(MockitoJUnitRunner.class)
-public class CassandraNoOpLockingMechanismTestSimulacron {
+public class CassandraNoOpLockingMechanismTestMock {
 
 
     public static final String CLIENT_ID = "CLIENT_ID";
