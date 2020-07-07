@@ -1,6 +1,6 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.Cluster;
+import com.datastax.oss.driver.api.core.CqlSession;
 import com.google.common.collect.ImmutableMap;
 import org.junit.*;
 import org.scassandra.cql.PrimitiveType;
@@ -10,12 +10,14 @@ import org.scassandra.http.client.PrimingRequest;
 import org.scassandra.junit.ScassandraServerRule;
 import uk.sky.cqlmigrate.util.PortScavenger;
 
+import java.net.InetSocketAddress;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.scassandra.http.client.PrimingRequest.then;
 import static org.scassandra.http.client.types.ColumnMetadata.column;
-
+@Ignore("have a updated version with mock version; can be removed after review")
+//TODO for 4.x.x
 public class CassandraNoOpLockingMechanismTest {
 
     private static final int BINARY_PORT = PortScavenger.getFreePort();
@@ -31,33 +33,32 @@ public class CassandraNoOpLockingMechanismTest {
     private final PrimingClient primingClient = SCASSANDRA.primingClient();
     private final ActivityClient activityClient = SCASSANDRA.activityClient();
 
-    private Cluster cluster;
+    private CqlSession cluster;
     private CassandraNoOpLockingMechanism lockingMechanism;
 
     @Before
     public void baseSetup() throws Exception {
 
-        cluster = Cluster.builder()
-                .addContactPoint("localhost")
-                .withPort(BINARY_PORT)
-                .build();
+        cluster = CqlSession.builder()
+            .addContactPoint(new InetSocketAddress("127.0.0.1", BINARY_PORT))
+            .build();
 
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                .withThen(then()
-                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
-                        .withColumnTypes(column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("[applied]", true)))
-                .build()
+            .withQuery("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
+            .withThen(then()
+                .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
+                .withColumnTypes(column("[applied]", PrimitiveType.BOOLEAN))
+                .withRows(ImmutableMap.of("[applied]", true)))
+            .build()
         );
 
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
-                .withThen(then()
-                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
-                        .withColumnTypes(column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("[applied]", true)))
-                .build()
+            .withQuery("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
+            .withThen(then()
+                .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
+                .withColumnTypes(column("[applied]", PrimitiveType.BOOLEAN))
+                .withRows(ImmutableMap.of("[applied]", true)))
+            .build()
         );
 
         lockingMechanism = new CassandraNoOpLockingMechanism();

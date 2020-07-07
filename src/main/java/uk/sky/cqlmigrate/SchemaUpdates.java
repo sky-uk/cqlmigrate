@@ -1,12 +1,10 @@
 package uk.sky.cqlmigrate;
 
-import static java.util.Objects.requireNonNull;
-
-import com.datastax.driver.core.Row;
-import com.datastax.driver.core.Session;
-import com.datastax.driver.core.SimpleStatement;
-import com.datastax.driver.core.Statement;
-import com.datastax.driver.core.TableMetadata;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.cql.Statement;
+import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -16,6 +14,8 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
+
+import static java.util.Objects.requireNonNull;
 
 class SchemaUpdates {
     private static final Logger LOGGER = LoggerFactory.getLogger(SchemaUpdates.class);
@@ -31,9 +31,9 @@ class SchemaUpdates {
     }
 
     void initialise() {
-        Session session = sessionContext.getSession();
-        session.execute(new SimpleStatement("USE " + keyspace + ";").setConsistencyLevel(sessionContext.getReadConsistencyLevel()));
-        TableMetadata schemaUpdateTableMetadata = session.getCluster().getMetadata().getKeyspace(keyspace).getTable(SCHEMA_UPDATES_TABLE);
+        CqlSession session = sessionContext.getSession();
+        session.execute(SimpleStatement.newInstance("USE " + keyspace + ";").setConsistencyLevel(sessionContext.getReadConsistencyLevel()));
+        TableMetadata schemaUpdateTableMetadata = session.getMetadata().getKeyspace(keyspace).get().getTable(SCHEMA_UPDATES_TABLE).orElse(null);
         if (schemaUpdateTableMetadata == null) {
             CqlLoader.load(sessionContext, Collections.singletonList("CREATE TABLE " + SCHEMA_UPDATES_TABLE + " (filename text primary key, " + CHECKSUM_COLUMN + " text, applied_on timestamp);"));
         }
@@ -44,11 +44,11 @@ class SchemaUpdates {
         return row != null;
     }
 
-    private Row getSchemaUpdate(Session session, String filename) {
+    private Row getSchemaUpdate(CqlSession session, String filename) {
         return session.execute(
-                new SimpleStatement("SELECT * FROM " + SCHEMA_UPDATES_TABLE + " where filename = ?", filename)
-                        .setConsistencyLevel(sessionContext.getReadConsistencyLevel()))
-                .one();
+            SimpleStatement.newInstance("SELECT * FROM " + SCHEMA_UPDATES_TABLE + " where filename = ?", filename)
+                .setConsistencyLevel(sessionContext.getReadConsistencyLevel()))
+            .one();
     }
 
     boolean contentsAreDifferent(String filename, Path path) {
@@ -66,9 +66,9 @@ class SchemaUpdates {
     void add(String filename, Path path) {
 
         String query = "INSERT INTO " + SCHEMA_UPDATES_TABLE + " (filename, " + CHECKSUM_COLUMN + ", applied_on)" +
-                " VALUES (?, ?, dateof(now()));";
+            " VALUES (?, ?, dateof(now()));";
 
-        Statement statement = new SimpleStatement(query, filename, calculateChecksum(path)).setConsistencyLevel(sessionContext.getWriteConsistencyLevel());
+        Statement statement = SimpleStatement.newInstance(query, filename, calculateChecksum(path)).setConsistencyLevel(sessionContext.getWriteConsistencyLevel());
 
         LOGGER.debug("Applying schema cql: {} path: {}", query, path);
         sessionContext.getSession().execute(statement);
@@ -89,7 +89,7 @@ class SchemaUpdates {
         for (byte b : bytes) {
             final int asUnsigned = Byte.toUnsignedInt(b);
             builder.append(Character.forDigit(asUnsigned >>> 4, 16))
-                   .append(Character.forDigit(asUnsigned & 0x0F, 16));
+                .append(Character.forDigit(asUnsigned & 0x0F, 16));
         }
         return builder.toString();
     }

@@ -1,24 +1,22 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.Session;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlSession;
 
 import java.time.Duration;
 
 public class CassandraLockConfig extends LockConfig {
 
     private final ConsistencyLevel consistencyLevel;
-    private final String lockKeyspace;
 
-    private CassandraLockConfig(Duration pollingInterval, Duration timeout, String clientId, boolean unlockOnFailure, ConsistencyLevel consistencyLevel, String lockKeyspace) {
+    private CassandraLockConfig(Duration pollingInterval, Duration timeout, String clientId, boolean unlockOnFailure, ConsistencyLevel consistencyLevel) {
         super(pollingInterval, timeout, clientId, unlockOnFailure);
         this.consistencyLevel = consistencyLevel;
-        this.lockKeyspace = lockKeyspace;
     }
 
     @Override
-    public LockingMechanism getLockingMechanism(Session session, String keySpace) {
-        return new CassandraLockingMechanism(session, keySpace, consistencyLevel, lockKeyspace);
+    public LockingMechanism getLockingMechanism(CqlSession session, String keySpace) {
+        return new CassandraLockingMechanism(session, keySpace, consistencyLevel);
     }
 
     public static CassandraLockConfigBuilder builder() {
@@ -32,9 +30,9 @@ public class CassandraLockConfig extends LockConfig {
     public static class CassandraLockConfigBuilder extends LockConfig.LockConfigBuilder {
 
         private ConsistencyLevel consistencyLevel = ConsistencyLevel.LOCAL_ONE;
-        private String lockKeyspace = "cqlmigrate";
 
-        private CassandraLockConfigBuilder() {}
+        private CassandraLockConfigBuilder() {
+        }
 
         @Override
         public CassandraLockConfigBuilder withPollingInterval(Duration pollingInterval) {
@@ -54,18 +52,13 @@ public class CassandraLockConfig extends LockConfig {
             return this;
         }
 
-        public CassandraLockConfigBuilder withConsistencyLevel(ConsistencyLevel consistencyLevel){
+        public CassandraLockConfigBuilder withConsistencyLevel(ConsistencyLevel consistencyLevel) {
             this.consistencyLevel = consistencyLevel;
             return this;
         }
 
-        public CassandraLockConfigBuilder withLockKeyspace(String lockKeyspace){
-            this.lockKeyspace = lockKeyspace;
-            return this;
-        }
-
         public CassandraLockConfig build() {
-            return new CassandraLockConfig(pollingInterval, timeout, clientId, unlockOnFailure, consistencyLevel, lockKeyspace);
+            return new CassandraLockConfig(pollingInterval, timeout, clientId, unlockOnFailure, consistencyLevel);
         }
     }
 }

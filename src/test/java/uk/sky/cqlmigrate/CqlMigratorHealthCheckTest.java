@@ -1,17 +1,13 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.Session;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlSession;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Uninterruptibles;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.thrift.transport.TTransportException;
 import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.*;
 import org.mockito.Mockito;
 
 import java.io.IOException;
@@ -30,22 +26,22 @@ public class CqlMigratorHealthCheckTest {
     private static String username = "cassandra";
     private static String password = "cassandra";
     private static int binaryPort;
-    private static Session session;
+    private static CqlSession session;
     private static final String TEST_KEYSPACE = "cqlmigrate_clusterhealth_test";
 
     private ClusterHealth mockClusterHealth = mock(ClusterHealth.class);
     private final SessionContextFactory sessionContextFactory = new SessionContextFactory() {
         @Override
-        SessionContext getInstance(Session session, CqlMigratorConfig cqlMigratorConfig) {
+        SessionContext getInstance(CqlSession session, CqlMigratorConfig cqlMigratorConfig) {
             return new SessionContext(session, cqlMigratorConfig.getReadConsistencyLevel(), cqlMigratorConfig.getWriteConsistencyLevel(), mockClusterHealth);
         }
     };
 
     private final CqlMigratorImpl migrator = new CqlMigratorImpl(CqlMigratorConfig.builder()
-            .withLockConfig(CassandraLockConfig.builder().build())
-            .withReadConsistencyLevel(ConsistencyLevel.ALL)
-            .withWriteConsistencyLevel(ConsistencyLevel.ALL)
-            .build(), sessionContextFactory);
+        .withLockConfig(CassandraLockConfig.builder().build())
+        .withReadConsistencyLevel(ConsistencyLevel.ALL)
+        .withWriteConsistencyLevel(ConsistencyLevel.ALL)
+        .build(), sessionContextFactory);
 
     @BeforeClass
     public static void setupCassandra() throws ConfigurationException, IOException, TTransportException, InterruptedException {

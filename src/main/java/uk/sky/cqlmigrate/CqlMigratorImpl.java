@@ -1,19 +1,25 @@
 package uk.sky.cqlmigrate;
 
-import static java.util.Objects.requireNonNull;
-
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.Session;
-import com.datastax.driver.core.SimpleStatement;
-import com.datastax.driver.core.Statement;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.cql.Statement;
+import com.datastax.oss.driver.api.core.session.Session;
+import io.netty.util.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.InetSocketAddress;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.sql.Time;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * Standard implementation for {@code CqlMigrator}
@@ -54,25 +60,29 @@ final class CqlMigratorImpl implements CqlMigrator {
         Collection<Path> directories = Arrays.stream(directoriesProperty.split(","))
                 .map(Paths::get)
                 .collect(Collectors.toList());
-
         CqlMigratorFactory.create(CassandraLockConfig.builder().build())
                 .migrate(hosts.split(","), port == null ? 9042 : Integer.parseInt(port), username, password, keyspace, directories);
+
     }
 
     /**
      * {@inheritDoc}
      */
     public void migrate(String[] hosts, int port, String username, String password, String keyspace, Collection<Path> directories) {
-        try (Cluster cluster = CassandraClusterFactory.createCluster(hosts, port, username, password);
-             Session session = cluster.connect()) {
-            this.migrate(session, keyspace, directories);
+        List<InetSocketAddress> cassandraHosts = Stream.of(hosts).map(host -> new InetSocketAddress(host, port)).collect(Collectors.toList());
+
+        try (CqlSession cqlSession = CqlSession.builder()
+                .addContactPoints(cassandraHosts)
+                .withLocalDatacenter("datacenter1")
+                .withAuthCredentials(username, password).build()) {
+            this.migrate(cqlSession, keyspace, directories);
         }
     }
 
     /**
      * {@inheritDoc}
      */
-    public void migrate(Session session, String keyspace, Collection<Path> directories) {
+    public void migrate(CqlSession session, String keyspace, Collection<Path> directories) {
         LockingMechanism lockingMechanism = cqlMigratorConfig.getCassandraLockConfig().getLockingMechanism(session, keyspace);
         LockConfig lockConfig = cqlMigratorConfig.getCassandraLockConfig();
 
@@ -106,19 +116,28 @@ final class CqlMigratorImpl implements CqlMigrator {
      * {@inheritDoc}
      */
     public void clean(String[] hosts, int port, String username, String password, String keyspace) {
-        try (Cluster cluster = CassandraClusterFactory.createCluster(hosts, port, username, password);
-             Session session = cluster.connect()) {
-            this.clean(session, keyspace);
+
+        List<InetSocketAddress> cassandraHosts = Stream.of(hosts).map(host -> new InetSocketAddress(host, port)).collect(Collectors.toList());
+
+        try (CqlSession cqlSession = CqlSession.builder()
+                .addContactPoints(cassandraHosts)
+                .withLocalDatacenter("datacenter1")
+                .withAuthCredentials(username, password).build()) {
+            this.clean(cqlSession, keyspace);
         }
+
     }
 
     /**
      * {@inheritDoc}
      */
+    // TODO (driver 4.x.x) either cassandra unit or the driver itself is taking longer than 2 secs to drop schema
     public void clean(Session session, String keyspace) {
-        Statement clean = new SimpleStatement("DROP KEYSPACE IF EXISTS " + keyspace)
-                .setConsistencyLevel(cqlMigratorConfig.getWriteConsistencyLevel());
-        session.execute(clean);
+        session.execute(SimpleStatement.newInstance("DROP KEYSPACE IF EXISTS " + keyspace)
+                .setTimeout(Duration.ofSeconds(10))
+                .setConsistencyLevel(cqlMigratorConfig.getWriteConsistencyLevel()), Statement.SYNC);
+
         LOGGER.info("Cleaned {}", keyspace);
     }
+
 }
