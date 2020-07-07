@@ -51,7 +51,6 @@ shadowJar {
 }
 
 repositories {
-    mavenLocal()
     mavenCentral()
 }
 
