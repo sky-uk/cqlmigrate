@@ -1,8 +1,8 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.ConsistencyLevel;
 import com.datastax.driver.core.exceptions.DriverException;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlSession;
 import com.google.common.collect.ImmutableMap;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.junit.*;
@@ -13,14 +13,15 @@ import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
 import uk.sky.cqlmigrate.exception.CannotReleaseLockException;
 import uk.sky.cqlmigrate.util.PortScavenger;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.catchThrowable;
 import static org.scassandra.http.client.PrimingRequest.then;
 import static org.scassandra.http.client.types.ColumnMetadata.column;
 
+@Ignore("replaced with CassandraLockingMechanismSimulacron; can be removed/replaced after review")
 public class CassandraLockingMechanismTest {
 
     private static final int BINARY_PORT = PortScavenger.getFreePort();
@@ -37,11 +38,6 @@ public class CassandraLockingMechanismTest {
     private final PrimingClient primingClient = SCASSANDRA.primingClient();
     private final ActivityClient activityClient = SCASSANDRA.activityClient();
 
-    private final PreparedStatementExecution selectLockPreparedStatement = PreparedStatementExecution.builder()
-            .withPreparedStatementText("SELECT name,client FROM cqlmigrate.locks LIMIT 1")
-            .withConsistency("ALL")
-            .build();
-
     private final PreparedStatementExecution deleteLockPreparedStatement = PreparedStatementExecution.builder()
             .withPreparedStatementText("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
             .withConsistency("ALL")
@@ -54,25 +50,11 @@ public class CassandraLockingMechanismTest {
             .withVariables(LOCK_KEYSPACE + ".schema_migration", CLIENT_ID)
             .build();
 
-    private Cluster cluster;
+        private CqlSession cluster;
     private CassandraLockingMechanism lockingMechanism;
 
     @Before
     public void baseSetup() throws Exception {
-
-        cluster = Cluster.builder()
-                .addContactPoint("localhost")
-                .withPort(BINARY_PORT)
-                .build();
-
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("SELECT name,client FROM cqlmigrate.locks LIMIT 1")
-                .withThen(then()
-                        .withColumnTypes(column("name", PrimitiveType.ASCII))
-                        .withColumnTypes(column("client", PrimitiveType.ASCII))
-                        .withRows(Collections.emptyList())
-                )
-                .build());
 
         primingClient.prime(PrimingRequest.preparedStatementBuilder()
                 .withQuery("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
@@ -92,7 +74,7 @@ public class CassandraLockingMechanismTest {
                 .build()
         );
 
-        lockingMechanism = new CassandraLockingMechanism(cluster.connect(), LOCK_KEYSPACE, ConsistencyLevel.ALL, "cqlmigrate");
+        lockingMechanism = new CassandraLockingMechanism(cluster, LOCK_KEYSPACE, ConsistencyLevel.ALL);
         lockingMechanism.init();
 
         activityClient.clearAllRecordedActivity();
@@ -135,43 +117,13 @@ public class CassandraLockingMechanismTest {
         lockingMechanism.acquire(CLIENT_ID);
 
         //then
-        List<PreparedStatementExecution> executions = activityClient.retrievePreparedStatementExecutions();
-        assertThat(executions.size()).isEqualTo(2);
-
-        assertThat(executions.get(0))
-                .usingRecursiveComparison()
-                .ignoringFields("timestamp")
-                .isEqualTo(selectLockPreparedStatement);
-
-        assertThat(executions.get(1))
-            .usingRecursiveComparison()
-            .ignoringFields("variableTypes", "timestamp")
-            .isEqualTo(insertLockPreparedStatement);
-    }
-
-    @Test
-    public void shouldNotAttemptToInsertLockIfReadingLocksFails() throws Exception {
-        //given
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("SELECT name,client FROM cqlmigrate.locks LIMIT 1")
-                .withThen(then()
-                        .withResult(Result.unavailable))
-                .build()
-        );
-
-        //when
-        Throwable throwable = catchThrowable(() -> lockingMechanism.acquire(CLIENT_ID));
-
-        //then
-        assertThat(throwable).isNotNull();
-
-        List<PreparedStatementExecution> executions = activityClient.retrievePreparedStatementExecutions();
-        assertThat(executions.size()).isEqualTo(1);
-
-        assertThat(executions.get(0))
-                .usingRecursiveComparison()
-                .ignoringFields("timestamp")
-                .isEqualTo(selectLockPreparedStatement);
+        assertThat(activityClient.retrievePreparedStatementExecutions())
+            .hasOnlyOneElementSatisfying(preparedStatementExecution -> {
+                assertThat(preparedStatementExecution)
+                    .usingRecursiveComparison()
+                    .ignoringFields("variableTypes", "timestamp")
+                    .isEqualTo(insertLockPreparedStatement);
+            });
     }
 
     @Test
@@ -183,28 +135,6 @@ public class CassandraLockingMechanismTest {
         assertThat(acquiredLock)
             .describedAs("lock was acquired")
             .isTrue();
-    }
-
-    @Test
-    public void shouldSuccessfullyAcquireLockIgnoringResultOfSelectLocks() throws Exception {
-        //given
-        String lockName = String.format("%s.schema_migration", LOCK_KEYSPACE);
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("SELECT name,client FROM cqlmigrate.locks LIMIT 1")
-                .withThen(then()
-                        .withColumnTypes(column("name", PrimitiveType.ASCII))
-                        .withColumnTypes(column("client", PrimitiveType.ASCII))
-                        .withRows(ImmutableMap.of("name", lockName, "client", CLIENT_ID))
-                )
-                .build());
-
-        //when
-        boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
-
-        //then
-        assertThat(acquiredLock)
-                .describedAs("lock was acquired")
-                .isTrue();
     }
 
     @Test
@@ -226,46 +156,6 @@ public class CassandraLockingMechanismTest {
         assertThat(acquiredLock)
             .describedAs("lock was not acquired")
             .isFalse();
-    }
-
-    @Test
-    public void shouldThrowExceptionWhenCannotInitiallyReadLocks() throws Exception {
-        //given
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("SELECT name,client FROM cqlmigrate.locks LIMIT 1")
-                .withThen(then()
-                        .withResult(Result.unavailable))
-                .build()
-        );
-
-        //when
-        Throwable throwable = catchThrowable(() -> lockingMechanism.acquire(CLIENT_ID));
-
-        //then
-        assertThat(throwable)
-                .isNotNull()
-                .isInstanceOf(CannotAcquireLockException.class)
-                .hasCauseInstanceOf(DriverException.class)
-                .hasMessage(String.format("Query to acquire lock %s.schema_migration for client %s failed to execute", LOCK_KEYSPACE, CLIENT_ID));
-    }
-
-    @Test
-    public void shouldUnsuccessfullyAcquireLockWhenWriteTimeoutOccursWhenInitiallyReadingLocks() throws Exception {
-        //given
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("SELECT name,client FROM cqlmigrate.locks LIMIT 1")
-                .withThen(then()
-                        .withResult(Result.write_request_timeout))
-                .build()
-        );
-
-        //when
-        boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
-
-        //then
-        assertThat(acquiredLock)
-                .describedAs("lock was not acquired")
-                .isFalse();
     }
 
     @Test

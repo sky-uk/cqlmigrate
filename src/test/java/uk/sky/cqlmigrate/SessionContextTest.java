@@ -1,7 +1,7 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.Session;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlSession;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -15,7 +15,7 @@ public class SessionContextTest {
     private SessionContext sessionContext;
 
     @Mock
-    private Session session;
+    private CqlSession session;
     @Mock
     private ClusterHealth mockedClusterHealth;
 
