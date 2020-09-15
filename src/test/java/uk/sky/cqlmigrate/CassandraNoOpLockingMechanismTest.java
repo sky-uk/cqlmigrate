@@ -16,7 +16,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.scassandra.http.client.PrimingRequest.then;
 import static org.scassandra.http.client.types.ColumnMetadata.column;
-@Ignore("have a updated version with Simulacron; can be removed after review")
+// @ignore("have a updated version with Simulacron; can be removed after review")
 //TODO for 4.x.x
 public class CassandraNoOpLockingMechanismTest {
 

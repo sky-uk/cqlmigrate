@@ -17,7 +17,6 @@ import com.google.common.collect.Lists;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
 import uk.sky.cqlmigrate.exception.CannotReleaseLockException;
@@ -234,7 +233,6 @@ public class CassandraLockingMechanismSimulacron {
             .hasMessage("Query failed to execute");
     }
 
-    @Ignore("needs review")
     @Test
     public void shouldSuccessfullyReleaseLockWhenRetryingAfterWriteTimeOutButDoesNotHoldLockNow() {
         //given
@@ -243,8 +241,10 @@ public class CassandraLockingMechanismSimulacron {
         //when
         lockingMechanism.init();
         lockingMechanism.release(CLIENT_ID);
+        bCluster.clearPrimes(true);
+
         //then prime a success
-        bCluster.prime(primeDeleteQuery(LOCK_KEYSPACE, CLIENT_ID, false));
+        bCluster.prime(primeDeleteQuery(LOCK_KEYSPACE, CLIENT_ID, false, "somethingElse").applyToPrepare());
         //when
         boolean result = lockingMechanism.release(CLIENT_ID);
         //then
@@ -253,15 +253,11 @@ public class CassandraLockingMechanismSimulacron {
             .isTrue();
     }
 
-    @Ignore("needs review")
     @Test
     public void shouldThrowCannotReleaseLockExceptionWhenLockNotHeldByUs() throws InterruptedException {
         //when
         String newLockHolder = "new lock holder";
-        bCluster.prime(primeDeleteQuery(LOCK_KEYSPACE, newLockHolder, false).applyToPrepare());
-        //and
-        PrimeBuilder primeBuilder = primeDeleteQuery(LOCK_KEYSPACE, CLIENT_ID, false);
-        bCluster.prime(primeBuilder.then(noRows()));
+        bCluster.prime(primeDeleteQuery(LOCK_KEYSPACE, CLIENT_ID, false, newLockHolder).applyToPrepare());
         lockingMechanism.init();
 
         Throwable throwable = catchThrowable(() -> lockingMechanism.release(CLIENT_ID));
@@ -304,6 +300,10 @@ public class CassandraLockingMechanismSimulacron {
     }
 
     private static PrimeBuilder primeDeleteQuery(String lockName, String clientId, boolean lockApplied) {
+        return primeDeleteQuery(lockName, clientId, lockApplied, CLIENT_ID);
+    }
+
+    private static PrimeBuilder primeDeleteQuery(String lockName, String clientId, boolean lockApplied, String lockHoldingClient) {
         String deleteQuery = "DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?";
 
         PrimeBuilder primeBuilder = when(query(
@@ -314,7 +314,7 @@ public class CassandraLockingMechanismSimulacron {
             ImmutableMap.of("name", lockName + ".schema_migration", "client", clientId),
             ImmutableMap.of("name", "varchar", "client", "varchar")))
             .then(rows()
-                .row("[applied]", valueOf(lockApplied), "client", CLIENT_ID).columnTypes("[applied]", "boolean", "clientid", "varchar"));
+                .row("[applied]", valueOf(lockApplied), "client", lockHoldingClient).columnTypes("[applied]", "boolean", "clientid", "varchar"));
         return primeBuilder;
     }
 
