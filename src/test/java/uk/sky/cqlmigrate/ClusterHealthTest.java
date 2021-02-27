@@ -1,19 +1,26 @@
 package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.Session;
+import com.datastax.oss.simulacron.common.cluster.ClusterSpec;
+import com.datastax.oss.simulacron.common.cluster.DataCenterSpec;
+import com.datastax.oss.simulacron.server.BoundCluster;
+import com.datastax.oss.simulacron.server.RejectScope;
+import com.datastax.oss.simulacron.server.Server;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.scassandra.Scassandra;
-import org.scassandra.ScassandraFactory;
-import org.scassandra.http.client.ActivityClient;
-import org.scassandra.http.client.PrimingClient;
 import uk.sky.cqlmigrate.exception.ClusterUnhealthyException;
 import uk.sky.cqlmigrate.util.PortScavenger;
 
-import java.util.Collection;
+import java.net.Inet4Address;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
+import java.util.UUID;
 
-import static java.util.Collections.singletonList;
+import static com.datastax.oss.simulacron.common.stubbing.CloseType.DISCONNECT;
+import static com.datastax.oss.simulacron.common.stubbing.PrimeDsl.rows;
+import static com.datastax.oss.simulacron.common.stubbing.PrimeDsl.when;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -22,49 +29,41 @@ import static org.awaitility.Awaitility.await;
 
 public class ClusterHealthTest {
 
-    private static final int BINARY_PORT = PortScavenger.getFreePort();
-    private static final int ADMIN_PORT = PortScavenger.getFreePort();
-    private static final Collection<String> CASSANDRA_HOSTS = singletonList("localhost");
+    private static final int defaultStartingPort = PortScavenger.getFreePort();
 
-    private static final Scassandra scassandra = ScassandraFactory.createServer(BINARY_PORT, ADMIN_PORT);
-
-    private static final PrimingClient primingClient = scassandra.primingClient();
-    private static final ActivityClient activityClient = scassandra.activityClient();
-
-    private Cluster cluster;
     private ClusterHealth clusterHealth;
 
+    private static Server server = Server.builder().build();
+    private ClusterSpec cluster = ClusterSpec.builder().build();
+    private BoundCluster bCluster;
+
+    private Cluster realCluster;
+
     @Before
-    public void setUp() {
-        scassandra.start();
+    public void setUp() throws UnknownHostException {
+        DataCenterSpec dc = cluster.addDataCenter().withName("DC1").withCassandraVersion("3.8").build();
+        dc.addNode().withAddress( new InetSocketAddress(Inet4Address.getByAddress(new byte[] {127, 0, 0, 1}), defaultStartingPort)).build();
+        dc.addNode().withPeerInfo("host_id", UUID.randomUUID()).build();
+        bCluster = server.register(cluster);
 
-        String username = "cassandra";
-        String password = "cassandra";
-        cluster = Cluster.builder()
-                .addContactPoints(CASSANDRA_HOSTS.toArray(new String[CASSANDRA_HOSTS.size()]))
-                .withPort(BINARY_PORT)
-                .withCredentials(username, password)
-                .build();
+        bCluster.prime(when("select cluster_name from system.local where key = 'local'")
+                .then(rows().row("cluster_name", "0").build()));
 
-        cluster.connect();
-
-        clusterHealth = new ClusterHealth(cluster);
-
-        primingClient.clearAllPrimes();
-
-        activityClient.clearAllRecordedActivity();
+        realCluster = CassandraClusterFactory.createCluster(new String[]{"localhost"}, defaultStartingPort, null, null);
+        realCluster.connect();
+        clusterHealth = new ClusterHealth(realCluster);
     }
 
     @After
     public void tearDown() {
-        scassandra.stop();
-        cluster.close();
+        realCluster.close();
     }
 
     @Test
     public void shouldThrowExceptionIfHostIsDown() {
         //given
-        scassandra.stop();
+        bCluster.node(0).closeConnections(DISCONNECT);
+        bCluster.node(0).rejectConnections(0, RejectScope.UNBIND);
 
         await().pollInterval(500, MILLISECONDS)
                 .atMost(5, SECONDS)
