@@ -2,118 +2,94 @@ package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.Cluster;
 import com.datastax.driver.core.ConsistencyLevel;
+import com.datastax.driver.core.Session;
 import com.datastax.driver.core.exceptions.DriverException;
+import com.datastax.oss.protocol.internal.request.Prepare;
+import com.datastax.oss.simulacron.common.cluster.ClusterSpec;
+import com.datastax.oss.simulacron.common.cluster.DataCenterSpec;
+import com.datastax.oss.simulacron.common.cluster.QueryLog;
+import com.datastax.oss.simulacron.common.codec.WriteType;
+import com.datastax.oss.simulacron.server.BoundCluster;
+import com.datastax.oss.simulacron.server.Server;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.junit.*;
-import org.scassandra.cql.PrimitiveType;
-import org.scassandra.http.client.*;
-import org.scassandra.junit.ScassandraServerRule;
 import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
 import uk.sky.cqlmigrate.exception.CannotReleaseLockException;
 import uk.sky.cqlmigrate.util.PortScavenger;
 
-import java.util.Collections;
+import java.net.Inet4Address;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
+import static com.datastax.oss.simulacron.common.stubbing.PrimeDsl.*;
+import static java.lang.String.valueOf;
 import static org.assertj.core.api.Assertions.*;
-import static org.scassandra.http.client.PrimingRequest.then;
-import static org.scassandra.http.client.types.ColumnMetadata.column;
 
 public class CassandraLockingMechanismTest {
 
-    private static final int BINARY_PORT = PortScavenger.getFreePort();
-    private static final int ADMIN_PORT = PortScavenger.getFreePort();
     private static final String LOCK_KEYSPACE = "lock-keyspace";
     private static final String CLIENT_ID = UUID.randomUUID().toString();
+    private static final String PREPARE_INSERT_QUERY = "INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS";
+    private static final String PREPARE_DELETE_QUERY = "DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?";
 
-    @ClassRule
-    public static final ScassandraServerRule SCASSANDRA = new ScassandraServerRule(BINARY_PORT, ADMIN_PORT);
+    private static final int defaultStartingPort = PortScavenger.getFreePort();
 
-    @Rule
-    public final ScassandraServerRule resetScassandra = SCASSANDRA;
+    private static final Server server = Server.builder().build();
+    private static final ClusterSpec clusterSpec = ClusterSpec.builder().build();
+    private static BoundCluster cluster;
 
-    private final PrimingClient primingClient = SCASSANDRA.primingClient();
-    private final ActivityClient activityClient = SCASSANDRA.activityClient();
+    private Session session;
 
-    private final PreparedStatementExecution selectLockPreparedStatement = PreparedStatementExecution.builder()
-            .withPreparedStatementText("SELECT name,client FROM cqlmigrate.locks LIMIT 1")
-            .withConsistency("ALL")
-            .build();
-
-    private final PreparedStatementExecution deleteLockPreparedStatement = PreparedStatementExecution.builder()
-            .withPreparedStatementText("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
-            .withConsistency("ALL")
-            .withVariables(LOCK_KEYSPACE + ".schema_migration", CLIENT_ID)
-            .build();
-
-    private final PreparedStatementExecution insertLockPreparedStatement = PreparedStatementExecution.builder()
-            .withPreparedStatementText("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-            .withConsistency("ALL")
-            .withVariables(LOCK_KEYSPACE + ".schema_migration", CLIENT_ID)
-            .build();
-
-    private Cluster cluster;
     private CassandraLockingMechanism lockingMechanism;
 
+    Predicate<QueryLog> prepareQueryPredicate = i -> i.getFrame().message instanceof Prepare;
+
+    @BeforeClass
+    public static void classSetup() throws UnknownHostException {
+        DataCenterSpec dc = clusterSpec.addDataCenter().withName("DC1").withCassandraVersion("3.8").build();
+        dc.addNode()
+                .withAddress( new InetSocketAddress(Inet4Address.getByAddress(new byte[] {127, 0, 0, 1}), defaultStartingPort))
+                .withPeerInfo("host_id", UUID.randomUUID())
+                .build();
+        cluster = server.register(clusterSpec);
+
+        cluster.prime(when("select cluster_name from system.local where key = 'local'")
+                .then(rows().row("cluster_name", "0").build()));
+    }
+    
     @Before
     public void baseSetup() throws Exception {
+        cluster.acceptConnections();
+        cluster.clearLogs();
+        cluster.clearPrimes(true);
 
-        cluster = Cluster.builder()
-                .addContactPoint("localhost")
-                .withPort(BINARY_PORT)
-                .build();
-
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("SELECT name,client FROM cqlmigrate.locks LIMIT 1")
-                .withThen(then()
-                        .withColumnTypes(column("name", PrimitiveType.ASCII))
-                        .withColumnTypes(column("client", PrimitiveType.ASCII))
-                        .withRows(Collections.emptyList())
-                )
-                .build());
-
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                .withThen(then()
-                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
-                        .withColumnTypes(column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("[applied]", true)))
-                .build()
-        );
-
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
-                .withThen(then()
-                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
-                        .withColumnTypes(column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("[applied]", true)))
-                .build()
-        );
-
-        lockingMechanism = new CassandraLockingMechanism(cluster.connect(), LOCK_KEYSPACE, ConsistencyLevel.ALL, "cqlmigrate");
-        lockingMechanism.init();
-
-        activityClient.clearAllRecordedActivity();
+        session = newSession();
+        lockingMechanism = new CassandraLockingMechanism(session, LOCK_KEYSPACE, ConsistencyLevel.ALL, "cqlmigrate");
     }
 
     @After
     public void baseTearDown() throws Exception {
-        cluster.close();
+        session.close();
     }
 
     @Test
     public void shouldPrepareInsertLocksQueryWhenInit() throws Throwable {
         //when
         lockingMechanism.init();
-
         //then
-        PreparedStatementPreparation expectedPreparedStatement = PreparedStatementPreparation.builder()
-                .withPreparedStatementText("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                .build();
+        List<QueryLog> queryLogs = cluster.getLogs().getQueryLogs().stream()
+            .filter(prepareQueryPredicate)
+            .filter(queryLog -> ((Prepare)queryLog.getFrame().message).cqlQuery.equals(PREPARE_INSERT_QUERY))
+            .collect(Collectors.toList());
 
-        assertThat(activityClient.retrievePreparedStatementPreparations()).contains(expectedPreparedStatement);
+        assertThat(queryLogs.size()).isEqualTo(1);
     }
 
     @Test
@@ -122,61 +98,29 @@ public class CassandraLockingMechanismTest {
         lockingMechanism.init();
 
         //then
-        PreparedStatementPreparation expectedPreparedStatement = PreparedStatementPreparation.builder()
-                .withPreparedStatementText("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
-                .build();
-
-        assertThat(activityClient.retrievePreparedStatementPreparations()).contains(expectedPreparedStatement);
+        List<QueryLog> queryLogs = cluster.getLogs().getQueryLogs().stream()
+            .filter(queryLog -> queryLog.getFrame().message.toString().contains(PREPARE_DELETE_QUERY))
+            .filter(prepareQueryPredicate).collect(Collectors.toList());
+        assertThat(queryLogs.size()).isEqualTo(1);
     }
 
     @Test
     public void shouldInsertLockWhenAcquiringLock() throws Exception {
+
+        cluster.prime(primeInsertQuery(LOCK_KEYSPACE, CLIENT_ID, true));
         //when
-        lockingMechanism.acquire(CLIENT_ID);
-
+        lockingMechanism.init();
         //then
-        List<PreparedStatementExecution> executions = activityClient.retrievePreparedStatementExecutions();
-        assertThat(executions.size()).isEqualTo(2);
-
-        assertThat(executions.get(0))
-                .usingRecursiveComparison()
-                .ignoringFields("timestamp")
-                .isEqualTo(selectLockPreparedStatement);
-
-        assertThat(executions.get(1))
-            .usingRecursiveComparison()
-            .ignoringFields("variableTypes", "timestamp")
-            .isEqualTo(insertLockPreparedStatement);
+        assertThat(lockingMechanism.acquire(CLIENT_ID)).isTrue();
     }
 
-    @Test
-    public void shouldNotAttemptToInsertLockIfReadingLocksFails() throws Exception {
-        //given
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("SELECT name,client FROM cqlmigrate.locks LIMIT 1")
-                .withThen(then()
-                        .withResult(Result.unavailable))
-                .build()
-        );
-
-        //when
-        Throwable throwable = catchThrowable(() -> lockingMechanism.acquire(CLIENT_ID));
-
-        //then
-        assertThat(throwable).isNotNull();
-
-        List<PreparedStatementExecution> executions = activityClient.retrievePreparedStatementExecutions();
-        assertThat(executions.size()).isEqualTo(1);
-
-        assertThat(executions.get(0))
-                .usingRecursiveComparison()
-                .ignoringFields("timestamp")
-                .isEqualTo(selectLockPreparedStatement);
-    }
-
-    @Test
+    @Test  // same as one above
     public void shouldSuccessfullyAcquireLockWhenInsertIsApplied() throws Exception {
+        // given
+        cluster.prime(primeInsertQuery(LOCK_KEYSPACE, CLIENT_ID, true));
+
         //when
+        lockingMechanism.init();
         boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
 
         //then
@@ -186,40 +130,14 @@ public class CassandraLockingMechanismTest {
     }
 
     @Test
-    public void shouldSuccessfullyAcquireLockIgnoringResultOfSelectLocks() throws Exception {
-        //given
-        String lockName = String.format("%s.schema_migration", LOCK_KEYSPACE);
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("SELECT name,client FROM cqlmigrate.locks LIMIT 1")
-                .withThen(then()
-                        .withColumnTypes(column("name", PrimitiveType.ASCII))
-                        .withColumnTypes(column("client", PrimitiveType.ASCII))
-                        .withRows(ImmutableMap.of("name", lockName, "client", CLIENT_ID))
-                )
-                .build());
-
-        //when
-        boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
-
-        //then
-        assertThat(acquiredLock)
-                .describedAs("lock was acquired")
-                .isTrue();
-    }
-
-    @Test
     public void shouldUnsuccessfullyAcquireLockWhenInsertIsNotApplied() throws Exception {
         //given
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                .withThen(then()
-                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
-                        .withColumnTypes(column("client", PrimitiveType.TEXT), column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("client", "a different client", "[applied]", false)))
-                .build()
-        );
+        cluster.prime(primeInsertQuery(LOCK_KEYSPACE, CLIENT_ID, true).
+            then(writeTimeout(com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL, 1, 1, WriteType.SIMPLE)));
 
         //when
+        lockingMechanism.init();
+        //then
         boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
 
         //then
@@ -229,77 +147,26 @@ public class CassandraLockingMechanismTest {
     }
 
     @Test
-    public void shouldThrowExceptionWhenCannotInitiallyReadLocks() throws Exception {
-        //given
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("SELECT name,client FROM cqlmigrate.locks LIMIT 1")
-                .withThen(then()
-                        .withResult(Result.unavailable))
-                .build()
-        );
-
-        //when
-        Throwable throwable = catchThrowable(() -> lockingMechanism.acquire(CLIENT_ID));
-
-        //then
-        assertThat(throwable)
-                .isNotNull()
-                .isInstanceOf(CannotAcquireLockException.class)
-                .hasCauseInstanceOf(DriverException.class)
-                .hasMessage(String.format("Query to acquire lock %s.schema_migration for client %s failed to execute", LOCK_KEYSPACE, CLIENT_ID));
-    }
-
-    @Test
-    public void shouldUnsuccessfullyAcquireLockWhenWriteTimeoutOccursWhenInitiallyReadingLocks() throws Exception {
-        //given
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("SELECT name,client FROM cqlmigrate.locks LIMIT 1")
-                .withThen(then()
-                        .withResult(Result.write_request_timeout))
-                .build()
-        );
-
-        //when
-        boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
-
-        //then
-        assertThat(acquiredLock)
-                .describedAs("lock was not acquired")
-                .isFalse();
-    }
-
-    @Test
     public void shouldSuccessfullyAcquireLockWhenLockIsAlreadyAcquired() throws Exception {
         //given
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                .withThen(then()
-                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
-                        .withColumnTypes(column("client", PrimitiveType.TEXT), column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("client", CLIENT_ID, "[applied]", false)))
-                .build()
-        );
-
+        cluster.prime(primeInsertQuery(LOCK_KEYSPACE, CLIENT_ID, false));
         //when
-        boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
-
+        lockingMechanism.init();
         //then
+        boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
         assertThat(acquiredLock)
             .describedAs("lock was acquired")
             .isTrue();
     }
 
     @Test
-    public void shouldUnsuccessfullyAcquireLockWhenWriteTimeoutOccurs() throws Exception {
+    public void shouldUnsuccessfullyAcquireLockWhenWriteTimeoutOccurs() {
         //given
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                .withThen(then()
-                        .withResult(Result.write_request_timeout))
-                .build()
-        );
+        cluster.prime(primeInsertQuery(LOCK_KEYSPACE, CLIENT_ID, true).
+            then(writeTimeout(com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL, 1, 1, WriteType.SIMPLE)));
 
         //when
+        lockingMechanism.init();
         boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
 
         //then
@@ -311,55 +178,45 @@ public class CassandraLockingMechanismTest {
     @Test
     public void shouldThrowExceptionIfQueryFailsToExecuteWhenAcquiringLock() throws Exception {
         //given
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                        .withQuery("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS")
-                        .withThen(then()
-                                .withResult(Result.unavailable))
-                        .build()
-        );
+        cluster.prime(primeInsertQuery(LOCK_KEYSPACE, CLIENT_ID, true).
+            then(unavailable(com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL, 1, 1)));
+        lockingMechanism.init();
         //when
         Throwable throwable = catchThrowable(() -> lockingMechanism.acquire(CLIENT_ID));
-
         //then
         assertThat(throwable)
-                .isNotNull()
-                .isInstanceOf(CannotAcquireLockException.class)
-                .hasCauseInstanceOf(DriverException.class)
-                .hasMessage(String.format("Query to acquire lock %s.schema_migration for client %s failed to execute", LOCK_KEYSPACE, CLIENT_ID));
+            .isNotNull()
+            .isInstanceOf(CannotAcquireLockException.class)
+            .hasCauseInstanceOf(DriverException.class)
+            .hasMessage(String.format("Query to acquire lock %s.schema_migration for client %s failed to execute", LOCK_KEYSPACE, CLIENT_ID));
     }
 
     @Test
     public void shouldDeleteLockWhenReleasingLock() throws Exception {
+        //given
+        cluster.prime(primeDeleteQuery(LOCK_KEYSPACE, CLIENT_ID, true));
         //when
-        lockingMechanism.release(CLIENT_ID);
+        lockingMechanism.init();
+        boolean isLockReleased = lockingMechanism.release(CLIENT_ID);
 
         //then
-        assertThat(activityClient.retrievePreparedStatementExecutions())
-            .hasOnlyOneElementSatisfying(preparedStatementExecution -> {
-                assertThat(preparedStatementExecution)
-                    .usingRecursiveComparison()
-                    .ignoringFields("variableTypes", "timestamp")
-                    .isEqualTo(deleteLockPreparedStatement);
-            });
+        assertThat(isLockReleased).isTrue();
+        List<QueryLog> queryLogs = cluster.getLogs().getQueryLogs().stream()
+            .filter(queryLog -> queryLog.getFrame().message.toString().contains(PREPARE_DELETE_QUERY))
+            .collect(Collectors.toList());
+
+        assertThat(queryLogs.size()).isEqualTo(1);
+
     }
 
     @Test
     public void shouldSuccessfullyReleaseLockWhenNoLockFound() throws Exception {
-        //given
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
-                .withThen(then()
-                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
-                        .withColumnTypes(column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("[applied]", false)))
-                .build()
-        );
-
+        cluster.prime(primeDeleteQuery(LOCK_KEYSPACE, CLIENT_ID, false));
+        lockingMechanism.init();
         //when
         AbstractThrowableAssert<?, ? extends Throwable> execution = assertThatCode(
             () -> lockingMechanism.release(CLIENT_ID)
         );
-
         // then
         execution.doesNotThrowAnyException();
     }
@@ -367,44 +224,34 @@ public class CassandraLockingMechanismTest {
     @Test
     public void shouldThrowExceptionIfQueryFailsToExecuteWhenReleasingLock() throws Exception {
         //given
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                        .withQuery("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
-                        .withThen(then()
-                                .withResult(Result.unavailable))
-                        .build()
-        );
+        cluster.prime(primeDeleteQuery(LOCK_KEYSPACE, CLIENT_ID, true).
+            then(unavailable(com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL, 1, 1)));
+        lockingMechanism.init();
 
         //when
         Throwable throwable = catchThrowable(() -> lockingMechanism.release(CLIENT_ID));
 
         //then
         assertThat(throwable)
-                .isNotNull()
-                .isInstanceOf(CannotReleaseLockException.class)
-                .hasCauseInstanceOf(DriverException.class)
-                .hasMessage("Query failed to execute");
+            .isNotNull()
+            .isInstanceOf(CannotReleaseLockException.class)
+            .hasCauseInstanceOf(DriverException.class)
+            .hasMessage("Query failed to execute");
     }
 
     @Test
-    public void shouldSuccessfullyReleaseLockWhenRetryingAfterWriteTimeOutButDoesNotHoldLockNow() throws InterruptedException {
+    public void shouldSuccessfullyReleaseLockWhenRetryingAfterWriteTimeOutButDoesNotHoldLockNow() {
         //given
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
-                .withThen(then().withResult(Result.write_request_timeout))
-                .build());
+        cluster.prime(primeDeleteQuery(LOCK_KEYSPACE, CLIENT_ID, false).
+            then(writeTimeout(com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL, 1, 1, WriteType.SIMPLE)));
 
+        //when
+        lockingMechanism.init();
         lockingMechanism.release(CLIENT_ID);
 
-
         //then prime a success
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
-                .withThen(then()
-                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
-                        .withColumnTypes(column("client", PrimitiveType.TEXT), column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("client", "new lock holder", "[applied]", false)))
-                .build()
-        );
+        cluster.clearPrimes(true);
+        cluster.prime(primeDeleteQuery(LOCK_KEYSPACE, CLIENT_ID, true));
 
         //when
         boolean result = lockingMechanism.release(CLIENT_ID);
@@ -413,52 +260,31 @@ public class CassandraLockingMechanismTest {
         assertThat(result)
             .describedAs("lock was released")
             .isTrue();
-        assertThat(activityClient.retrievePreparedStatementExecutions())
-            .hasSize(2)
-            .allSatisfy(preparedStatementExecution -> assertThat(preparedStatementExecution)
-                .usingRecursiveComparison()
-                .ignoringFields("variableTypes", "timestamp")
-                .isEqualTo(deleteLockPreparedStatement)
-            );
     }
 
     @Test
     public void shouldThrowCannotReleaseLockExceptionWhenLockNotHeldByUs() throws InterruptedException {
-        //given
-        String newLockHolder = "new lock holder";
-
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
-                .withThen(then()
-                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
-                        .withColumnTypes(column("client", PrimitiveType.TEXT), column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("client", newLockHolder, "[applied]", false)))
-                .build()
-        );
-
         //when
+        String newLockHolder = "new lock holder";
+        cluster.prime(primeDeleteQueryFailsWithLockForOtherClient(LOCK_KEYSPACE, CLIENT_ID, newLockHolder));
+        //and
+//        primeDeleteQuery(LOCK_KEYSPACE, CLIENT_ID, false);
+//        cluster.prime(primeBuilder.then(noRows()));
+        lockingMechanism.init();
+
         Throwable throwable = catchThrowable(() -> lockingMechanism.release(CLIENT_ID));
 
-        //then
         assertThat(throwable)
-                .isNotNull()
-                .isInstanceOf(CannotReleaseLockException.class)
-                .hasMessage(String.format("Lock %s.schema_migration attempted to be released by a non lock holder (%s). Current lock holder: %s", LOCK_KEYSPACE, CLIENT_ID, newLockHolder));
+            .isNotNull()
+            .isInstanceOf(CannotReleaseLockException.class)
+            .hasMessage(String.format("Lock %s.schema_migration attempted to be released by a non lock holder (%s). Current lock holder: %s", LOCK_KEYSPACE, CLIENT_ID, newLockHolder));
     }
 
-    @Test
-    public void shouldReturnFalseIfDeleteNotAppliedButClientIsUs() throws InterruptedException {
+    @Test // Not sure if this is a realistic possibility?
+    public void shouldReturnFalseIfDeleteNotAppliedButClientIsUs() {
         //given
-
-        primingClient.prime(PrimingRequest.preparedStatementBuilder()
-                .withQuery("DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?")
-                .withThen(then()
-                        .withVariableTypes(PrimitiveType.TEXT, PrimitiveType.TEXT)
-                        .withColumnTypes(column("client", PrimitiveType.TEXT), column("[applied]", PrimitiveType.BOOLEAN))
-                        .withRows(ImmutableMap.of("client", CLIENT_ID, "[applied]", false)))
-                .build()
-        );
-
+        cluster.prime(primeDeleteQueryFailsWithLockForOtherClient(LOCK_KEYSPACE, CLIENT_ID, CLIENT_ID));
+        lockingMechanism.init();
         //when
         boolean released = lockingMechanism.release(CLIENT_ID);
 
@@ -466,5 +292,64 @@ public class CassandraLockingMechanismTest {
         assertThat(released)
             .describedAs("lock was not released")
             .isFalse();
+    }
+
+    private Session newSession() {
+        Cluster cluster = Cluster.builder()
+                .addContactPoints("localhost")
+                .withPort(defaultStartingPort)
+                .withoutJMXReporting()
+                .build();
+
+        cluster.init();
+
+        Session session = cluster.connect(LOCK_KEYSPACE);
+
+        return session;
+    }
+
+    private static PrimeBuilder primeInsertQuery(String lockName, String clientId, Boolean lockApplied) {
+        String prepareInsertQuery = "INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS";
+
+        PrimeBuilder primeBuilder = when(query(
+            prepareInsertQuery,
+            Lists.newArrayList(
+                com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ONE,
+                com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL),
+            new LinkedHashMap<>(ImmutableMap.of("name", lockName + ".schema_migration", "client", clientId)),
+            new LinkedHashMap<>(ImmutableMap.of("name", "varchar", "client", "varchar"))))
+            .then(rows().row(
+                "[applied]", valueOf(lockApplied), "client", CLIENT_ID).columnTypes("[applied]", "boolean", "clientid", "varchar")
+            );
+        return primeBuilder;
+
+    }
+
+    private static PrimeBuilder primeDeleteQuery(String lockName, String queriedClientId, boolean lockDeleted) {
+        String deleteQuery = "DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?";
+
+        return when(query(
+            deleteQuery,
+            Lists.newArrayList(
+                com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ONE,
+                com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL),
+            new LinkedHashMap<>(ImmutableMap.of("name", lockName + ".schema_migration", "client", queriedClientId)),
+            new LinkedHashMap<>(ImmutableMap.of("name", "varchar", "client", "varchar"))))
+            .then(rows()
+                .row("[applied]", valueOf(lockDeleted)).columnTypes("[applied]", "boolean"));
+    }
+
+    private static PrimeBuilder primeDeleteQueryFailsWithLockForOtherClient(String lockName, String queriedClientId, String lockHeldClientId) {
+        String deleteQuery = "DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?";
+
+        return when(query(
+                deleteQuery,
+                Lists.newArrayList(
+                        com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ONE,
+                        com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL),
+                new LinkedHashMap<>(ImmutableMap.of("name", lockName + ".schema_migration", "client", queriedClientId)),
+                new LinkedHashMap<>(ImmutableMap.of("name", "varchar", "client", "varchar"))))
+                .then(rows()
+                        .row("[applied]", false, "client", lockHeldClientId).columnTypes("[applied]", "boolean", "clientid", "varchar"));
     }
 }
