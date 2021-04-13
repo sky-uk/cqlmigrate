@@ -127,6 +127,7 @@ class CassandraLockingMechanism extends LockingMechanism {
             }
 
         } catch (WriteTimeoutException e) {
+            log.info("Lock release timed out for client {}", clientId);
             isRetryAfterWriteTimeout = true;
             return false;
         } catch (DriverException e) {
