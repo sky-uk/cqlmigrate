@@ -74,7 +74,6 @@ dependencies {
     testImplementation('org.awaitility:awaitility:3.1.6')
     testImplementation('com.datastax.oss.simulacron:simulacron-native-server:0.11.0')
     testImplementation('com.datastax.oss.simulacron:simulacron-driver-3x:0.11.0')
-    testImplementation('org.scassandra:java-client:1.1.2')
 
     testCompileAndFunctional('org.cassandraunit:cassandra-unit:3.5.0.1')
     functional('org.slf4j:slf4j-simple:1.7.25')
