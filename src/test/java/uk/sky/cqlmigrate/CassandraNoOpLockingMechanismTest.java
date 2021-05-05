@@ -1,5 +1,6 @@
 package uk.sky.cqlmigrate;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnitRunner;
@@ -11,11 +12,11 @@ public class CassandraNoOpLockingMechanismTest {
 
     public static final String CLIENT_ID = "CLIENT_ID";
 
-    private final CassandraNoOpLockingMechanism lockingMechanism = new CassandraNoOpLockingMechanism();
+    private CassandraNoOpLockingMechanism lockingMechanism;
 
-    @Test
-    public void shouldDoNothingWhenInit() throws Throwable {
-        //when
+    @Before
+    public void setup() {
+        lockingMechanism = new CassandraNoOpLockingMechanism();
         lockingMechanism.init();
     }
 
