@@ -36,7 +36,7 @@ import static java.lang.String.valueOf;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class CqlMigratorConsistencyLevelIntegrationTestSimulacron {
+public class CqlMigratorConsistencyLevelIntegrationTest {
 
     private static final String CLIENT_ID = UUID.randomUUID().toString();
     private static final int defaultStartingPort = PortScavenger.getFreePort();
