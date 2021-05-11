@@ -1,6 +1,14 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.*;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.cql.Statement;
+import com.datastax.oss.simulacron.common.cluster.ClusterSpec;
+import com.datastax.oss.simulacron.common.cluster.DataCenterSpec;
+import com.datastax.oss.simulacron.server.BoundCluster;
+import com.datastax.oss.simulacron.server.Server;
 import com.google.common.util.concurrent.Uninterruptibles;
 import org.junit.After;
 import org.junit.Before;
@@ -9,7 +17,10 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.Inet4Address;
+import java.net.InetSocketAddress;
 import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
@@ -36,13 +47,22 @@ public class LockVerificationTest {
     private static final String KEYSPACE = "locker";
     private static String TABLE_NAME = KEYSPACE + ".lock_testing";
 
-    private Cluster cluster;
-    private Session session;
+    private static Server server = Server.builder().build();
+    private ClusterSpec cluster = ClusterSpec.builder().build();
+    private BoundCluster bCluster;
+    private CqlSession session;
+    private DataCenterSpec dc;
 
     @Before
-    public void setUp() {
-        cluster = createCluster();
-        session = cluster.connect();
+    public void setUp() throws UnknownHostException {
+        dc = cluster.addDataCenter().withName("DC1").withCassandraVersion("3.8").build();
+        dc.addNode().withAddress(new InetSocketAddress(Inet4Address.getByAddress(new byte[]{127, 0, 0, 1}), CASSANDRA_PORT)).build();
+        dc.addNode().withPeerInfo("host_id", UUID.randomUUID()).build();
+        bCluster = server.register(cluster);
+
+        session = CqlSession.builder()
+                .addContactPoint(new InetSocketAddress(Inet4Address.getByAddress(new byte[]{127, 0, 0, 1}), CASSANDRA_PORT))
+                .withLocalDatacenter(dc.getName()).build();
 
         session.execute("DROP KEYSPACE IF EXISTS cqlmigrate");
         session.execute("CREATE KEYSPACE IF NOT EXISTS cqlmigrate WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
@@ -57,7 +77,6 @@ public class LockVerificationTest {
         session.execute("DROP KEYSPACE IF EXISTS cqlmigrate");
         session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test");
         session.close();
-        cluster.close();
     }
 
     @Test
@@ -67,14 +86,14 @@ public class LockVerificationTest {
 
         final Collection<Path> cqlPaths = singletonList(Paths.get(ClassLoader.getSystemResource("cql_migrate_multithreads").toURI()));
         final Callable<String> cqlMigrate = () -> {
-            Cluster cluster = createCluster();
-            Session session = cluster.connect();
+            CqlSession session = CqlSession.builder()
+                    .addContactPoint(new InetSocketAddress(Inet4Address.getByAddress(new byte[]{127, 0, 0, 1}), CASSANDRA_PORT))
+                    .withLocalDatacenter(dc.getName()).build();
 
             CqlMigrator cqlMigrator = CqlMigratorFactory.create(CassandraLockConfig.builder().build());
             cqlMigrator.migrate(session, "cqlmigrate_test", cqlPaths);
 
             session.close();
-            cluster.close();
             return "Done";
         };
 
@@ -104,13 +123,14 @@ public class LockVerificationTest {
         Uninterruptibles.sleepUninterruptibly(800, TimeUnit.MILLISECONDS);
         session.execute(String.format("CREATE TABLE %s (id text PRIMARY KEY, counter int);", TABLE_NAME));
         Uninterruptibles.sleepUninterruptibly(800, TimeUnit.MILLISECONDS);
-        session.execute(new SimpleStatement(String.format("INSERT INTO %s (id, counter) VALUES (?, ?);", TABLE_NAME), "lock-tester", 0).setConsistencyLevel(ConsistencyLevel.QUORUM));
+        session.execute(SimpleStatement.newInstance(String.format("INSERT INTO %s (id, counter) VALUES (?, ?);", TABLE_NAME), "lock-tester", 0).setConsistencyLevel(ConsistencyLevel.QUORUM));
 
         final int maximumCounter = 1000;
         final int maximumWorkers = 25;
         final Callable<List<Integer>> worker = () -> {
-            Cluster cluster = createCluster();
-            Session session = cluster.connect();
+            CqlSession session = CqlSession.builder()
+                    .addContactPoint(new InetSocketAddress(Inet4Address.getByAddress(new byte[]{127, 0, 0, 1}), CASSANDRA_PORT))
+                    .withLocalDatacenter(dc.getName()).build();
 
             CassandraLockingMechanism lockingMechanism = new CassandraLockingMechanism(session, KEYSPACE, ConsistencyLevel.ALL, "cqlmigrate");
             CassandraLockConfig lockConfig = createCassandraLockConfig();
@@ -132,10 +152,9 @@ public class LockVerificationTest {
                 }
 
                 lock.unlock(false);
-            } while(!done);
+            } while (!done);
 
             session.close();
-            cluster.close();
             return counters;
         };
 
@@ -166,31 +185,17 @@ public class LockVerificationTest {
     }
 
     private void updateCounter(int updatedCounter) {
-        Statement updateCounterQuery = new SimpleStatement(String.format("UPDATE %s SET counter = %d WHERE id = 'lock-tester'", TABLE_NAME, updatedCounter)).setConsistencyLevel(ConsistencyLevel.QUORUM);
+        Statement updateCounterQuery = SimpleStatement.newInstance(String.format("UPDATE %s SET counter = %d WHERE id = 'lock-tester'", TABLE_NAME, updatedCounter)).setConsistencyLevel(ConsistencyLevel.QUORUM);
         session.execute(updateCounterQuery);
 
     }
 
     private int readCurrentCounter() {
-        Statement readCounterQuery = new SimpleStatement(String.format("SELECT counter from %s WHERE id = 'lock-tester'", TABLE_NAME)).setConsistencyLevel(ConsistencyLevel.QUORUM);
+        Statement readCounterQuery = SimpleStatement.newInstance(String.format("SELECT counter from %s WHERE id = 'lock-tester'", TABLE_NAME)).setConsistencyLevel(ConsistencyLevel.QUORUM);
         final ResultSet currentRecord = session.execute(readCounterQuery);
         return currentRecord.one().getInt("counter");
     }
 
-    private Cluster createCluster() {
-        QueryOptions queryOptions = new QueryOptions();
-        queryOptions.setConsistencyLevel(ConsistencyLevel.LOCAL_QUORUM);
-
-        SocketOptions socketOptions = new SocketOptions();
-        socketOptions.setReadTimeoutMillis(1000);
-
-        return Cluster.builder()
-                .addContactPoints(CASSANDRA_HOST)
-                .withPort(CASSANDRA_PORT)
-                .withQueryOptions(queryOptions)
-                .withSocketOptions(socketOptions)
-                .build();
-    }
 
     private CassandraLockConfig createCassandraLockConfig() {
         return CassandraLockConfig.builder()

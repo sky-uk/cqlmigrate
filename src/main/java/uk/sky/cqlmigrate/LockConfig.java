@@ -1,6 +1,6 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.Session;
+import com.datastax.oss.driver.api.core.CqlSession;
 
 import java.time.Duration;
 import java.util.UUID;
@@ -34,7 +34,7 @@ public class LockConfig {
         return unlockOnFailure;
     }
 
-    public LockingMechanism getLockingMechanism(Session session, String keySpace) {
+    public LockingMechanism getLockingMechanism(CqlSession session, String keySpace) {
         throw new UnsupportedOperationException();
     }
 

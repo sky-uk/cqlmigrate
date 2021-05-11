@@ -1,13 +1,12 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.KeyspaceMetadata;
-import com.datastax.driver.core.ResultSet;
-import com.datastax.driver.core.Session;
-import com.datastax.driver.core.exceptions.AlreadyExistsException;
+
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
+import com.datastax.oss.driver.api.core.servererrors.AlreadyExistsException;
 import com.google.common.hash.Hashing;
-import com.google.common.io.ByteSource;
 import com.google.common.io.Resources;
 import com.google.common.util.concurrent.Uninterruptibles;
 import org.apache.cassandra.exceptions.ConfigurationException;
@@ -20,8 +19,8 @@ import java.net.URL;
 import java.nio.file.Paths;
 import java.util.concurrent.TimeUnit;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 public class SchemaUpdatesTest {
 
@@ -32,8 +31,7 @@ public class SchemaUpdatesTest {
     private static int binaryPort;
     private static String username = "cassandra";
     private static String password = "cassandra";
-    private static Cluster cluster;
-    private static Session session;
+    private static CqlSession session;
     private static ClusterHealth clusterHealth;
 
 
@@ -41,14 +39,16 @@ public class SchemaUpdatesTest {
     public static void setupCassandra() throws ConfigurationException, IOException, TTransportException, InterruptedException {
         EmbeddedCassandraServerHelper.startEmbeddedCassandra(EmbeddedCassandraServerHelper.CASSANDRA_RNDPORT_YML_FILE);
 
-        cluster = EmbeddedCassandraServerHelper.getCluster();
-        clusterHealth = new ClusterHealth(cluster);
+        binaryPort = EmbeddedCassandraServerHelper.getNativeTransportPort();
         session = EmbeddedCassandraServerHelper.getSession();
+        clusterHealth = new ClusterHealth(session);
+
     }
 
     @Before
     public void setUp() throws Exception {
         session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test");
+        session.execute("CREATE KEYSPACE IF NOT EXISTS cqlmigrate_test WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
     }
 
     @After
@@ -67,8 +67,7 @@ public class SchemaUpdatesTest {
     @Test
     public void schemaUpdatesTableShouldBeCreatedIfNotExists() throws Exception {
         //given
-        cluster.connect("system").execute("CREATE KEYSPACE " + TEST_KEYSPACE + " WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
-        Session session = cluster.connect(TEST_KEYSPACE);
+
         SessionContext sessionContext = new SessionContext(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL, clusterHealth);
         SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, TEST_KEYSPACE);
 
@@ -76,15 +75,13 @@ public class SchemaUpdatesTest {
         schemaUpdates.initialise();
 
         //then
-        KeyspaceMetadata keyspaceMetadata = cluster.getMetadata().getKeyspace(TEST_KEYSPACE);
+        KeyspaceMetadata keyspaceMetadata = session.getMetadata().getKeyspace(TEST_KEYSPACE).get();
         assertThat(keyspaceMetadata.getTable(SCHEMA_UPDATES_TABLE)).as("table should have been created").isNotNull();
     }
 
     @Test
     public void schemaUpdatesTableShouldNotBeCreatedIfExists() throws Exception {
         //given
-        cluster.connect("system").execute("CREATE KEYSPACE " + TEST_KEYSPACE + " WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
-        Session session = cluster.connect(TEST_KEYSPACE);
         SessionContext sessionContext = new SessionContext(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL, clusterHealth);
         SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, TEST_KEYSPACE);
 
@@ -97,20 +94,19 @@ public class SchemaUpdatesTest {
             fail("Expected " + SCHEMA_UPDATES_TABLE + " table creation to be attempted only once.");
         }
         //then
-        KeyspaceMetadata keyspaceMetadata = cluster.getMetadata().getKeyspace(TEST_KEYSPACE);
+        KeyspaceMetadata keyspaceMetadata = session.getMetadata().getKeyspace(TEST_KEYSPACE).get();
         assertThat(keyspaceMetadata.getTable(SCHEMA_UPDATES_TABLE)).as("table should have been created").isNotNull();
     }
 
     /**
      * Make sure that the hashes that are calculated now using JDK builtins to what was previously calculated using
      * Guava's com.google.common.hash.Hashing library.
+     *
      * @see Hashing
      */
     @Test
     public void rowInsertedWithMessageDigestHashingAlgorithmIsSameAsGuavaSha1HashingAlgorithm() throws Exception {
         //given
-        cluster.connect("system").execute("CREATE KEYSPACE " + TEST_KEYSPACE + " WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
-        Session session = cluster.connect(TEST_KEYSPACE);
         SessionContext sessionContext = new SessionContext(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL, clusterHealth);
         SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, TEST_KEYSPACE);
         final String filename = "2018-03-26-18:11-create-some-tables.cql";
@@ -119,19 +115,20 @@ public class SchemaUpdatesTest {
 
         //when
         schemaUpdates.add(
-            filename,
-            Paths.get(cqlResource.toURI())
+                filename,
+                Paths.get(cqlResource.toURI())
         );
 
         //then
         final String guavaSha1Hash = Resources.asByteSource(cqlResource).hash(Hashing.sha1()).toString();
         final ResultSet resultSet = session.execute("SELECT * from " + SCHEMA_UPDATES_TABLE);
-        assertThat(resultSet.all())
-            .hasOnlyOneElementSatisfying(row -> {
-                assertThat(row.getString("filename"))
+        assertThat(resultSet.all().size()).isEqualTo(1);
+        resultSet.forEach(row ->
+        {
+            assertThat(row.getString("filename"))
                     .isEqualTo(filename);
-                assertThat(row.getString("checksum"))
+            assertThat(row.getString("checksum"))
                     .isEqualTo(guavaSha1Hash);
-            });
+        });
     }
 }

@@ -1,6 +1,6 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.simulacron.common.cluster.ClusterSpec;
 import com.datastax.oss.simulacron.common.cluster.DataCenterSpec;
 import com.datastax.oss.simulacron.common.cluster.QueryLog;
@@ -14,10 +14,7 @@ import com.datastax.oss.simulacron.server.Server;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import org.apache.cassandra.exceptions.ConfigurationException;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.*;
 import uk.sky.cqlmigrate.util.PortScavenger;
 
 import java.net.Inet4Address;
@@ -46,6 +43,7 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
     private static final String username = "cassandra";
     private static final String password = "cassandra";
     private static final String TEST_KEYSPACE = "cqlmigrate_test";
+    private static final String LOCAL_DC = "DC1";
 
     private Collection<Path> cqlPaths;
 
@@ -112,7 +110,7 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
 
     private void executeMigration(CqlMigrator migrator, Collection<Path> cqlPaths) {
         String[] hosts = new String[] {"localhost"};
-        migrator.migrate(hosts, defaultStartingPort, username, password, TEST_KEYSPACE, cqlPaths);
+        migrator.migrate(hosts, LOCAL_DC, defaultStartingPort, username, password, TEST_KEYSPACE, cqlPaths);
     }
 
     @Test

@@ -1,6 +1,8 @@
 package uk.sky.cqlmigrate;
 
 import com.datastax.driver.core.Cluster;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -10,15 +12,17 @@ import org.mockito.Mockito;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
+import java.net.InetSocketAddress;
+import java.util.Collections;
+
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.powermock.api.mockito.PowerMockito.mockStatic;
 import static org.powermock.api.mockito.PowerMockito.when;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({Cluster.class})
+@PrepareForTest({CqlSession.class})
 public class CassandraClusterFactoryTest {
 
     private static class VarArgMatcher implements ArgumentMatcher<String[]> {
@@ -29,15 +33,20 @@ public class CassandraClusterFactoryTest {
     }
 
     @Mock
-    private Cluster.Builder clusterBuilderMock;
+    private CqlSession session;
+
+    @Mock
+    private CqlSessionBuilder cqlSessionBuilder;
 
     @Before
     public void setUp() throws Exception {
-        mockStatic(Cluster.class);
-        when(Cluster.builder()).thenReturn(clusterBuilderMock);
-        when(clusterBuilderMock.addContactPoints(Mockito.<String[]>any())).thenReturn(clusterBuilderMock);
-        when(clusterBuilderMock.withPort(anyInt())).thenReturn(clusterBuilderMock);
-        when(clusterBuilderMock.withCredentials(any(String.class), any(String.class))).thenReturn(clusterBuilderMock);
+        mockStatic(CqlSession.class);
+
+        when(CqlSession.builder()).thenReturn(cqlSessionBuilder);
+        when(cqlSessionBuilder.addContactPoints(anyCollection())).thenReturn(cqlSessionBuilder);
+        when(cqlSessionBuilder.withAuthCredentials(any(String.class), any(String.class))).thenReturn(cqlSessionBuilder);
+        when(cqlSessionBuilder.build()).thenReturn(session);
+
     }
 
     @Test
@@ -46,10 +55,12 @@ public class CassandraClusterFactoryTest {
         String expectedPassword = "cassandra-password";
 
         //when
-        CassandraClusterFactory.createCluster(new String[]{"host1"}, 0, expectedUser, expectedPassword);
+        CassandraClusterFactory.createCluster(new String[] {"host1"}, 0, expectedUser, expectedPassword);
+        InetSocketAddress testInetSocketAddress = new InetSocketAddress("host1", 0);
 
         //then
-        verify(clusterBuilderMock).withCredentials(expectedUser, expectedPassword);
+        verify(cqlSessionBuilder).addContactPoints(Collections.singletonList(testInetSocketAddress));
+        verify(cqlSessionBuilder).withAuthCredentials(expectedUser, expectedPassword);
     }
 
     @Test
@@ -58,10 +69,10 @@ public class CassandraClusterFactoryTest {
         String expectedPassword = null;
 
         //when
-        CassandraClusterFactory.createCluster(new String[]{"host1"}, 0, expectedUser, expectedPassword);
+        CassandraClusterFactory.createCluster(new String[] {"host1"}, 0, expectedUser, expectedPassword);
 
         //then
-        verify(clusterBuilderMock, never()).withCredentials(expectedUser, expectedPassword);
+        verify(cqlSessionBuilder, never()).withAuthCredentials(expectedUser, expectedPassword);
     }
 
 
@@ -71,10 +82,10 @@ public class CassandraClusterFactoryTest {
         String expectedPassword = null;
 
         //when
-        CassandraClusterFactory.createCluster(new String[]{"host1"}, 0, expectedUser, expectedPassword);
+        CassandraClusterFactory.createCluster(new String[] {"host1"}, 0, expectedUser, expectedPassword);
 
         //then
-        verify(clusterBuilderMock, never()).withCredentials(expectedUser, expectedPassword);
+        verify(cqlSessionBuilder, never()).withAuthCredentials(expectedUser, expectedPassword);
     }
 
     @Test
@@ -83,9 +94,9 @@ public class CassandraClusterFactoryTest {
         String expectedPassword = "cassandra";
 
         //when
-        CassandraClusterFactory.createCluster(new String[]{"host1"}, 0, expectedUser, expectedPassword);
+        CassandraClusterFactory.createCluster(new String[] {"host1"}, 0, expectedUser, expectedPassword);
 
         //then
-        verify(clusterBuilderMock, never()).withCredentials(expectedUser, expectedPassword);
+        verify(cqlSessionBuilder, never()).withAuthCredentials(expectedUser, expectedPassword);
     }
 }

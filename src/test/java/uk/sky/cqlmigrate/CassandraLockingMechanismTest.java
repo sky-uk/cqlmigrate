@@ -1,9 +1,8 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.Session;
-import com.datastax.driver.core.exceptions.DriverException;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.DriverException;
 import com.datastax.oss.protocol.internal.request.Prepare;
 import com.datastax.oss.simulacron.common.cluster.ClusterSpec;
 import com.datastax.oss.simulacron.common.cluster.DataCenterSpec;
@@ -14,7 +13,10 @@ import com.datastax.oss.simulacron.server.Server;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import org.assertj.core.api.AbstractThrowableAssert;
-import org.junit.*;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.BeforeClass;
+import org.junit.Test;
 import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
 import uk.sky.cqlmigrate.exception.CannotReleaseLockException;
 import uk.sky.cqlmigrate.util.PortScavenger;
@@ -45,15 +47,17 @@ public class CassandraLockingMechanismTest {
     private static final ClusterSpec clusterSpec = ClusterSpec.builder().build();
     private static BoundCluster cluster;
 
-    private Session session;
+    private CqlSession session;
 
     private CassandraLockingMechanism lockingMechanism;
+
+    private static DataCenterSpec dc;
 
     Predicate<QueryLog> prepareQueryPredicate = i -> i.getFrame().message instanceof Prepare;
 
     @BeforeClass
     public static void classSetup() throws UnknownHostException {
-        DataCenterSpec dc = clusterSpec.addDataCenter().withName("DC1").withCassandraVersion("3.8").build();
+        dc = clusterSpec.addDataCenter().withName("DC1").withCassandraVersion("3.8").build();
         dc.addNode()
                 .withAddress( new InetSocketAddress(Inet4Address.getByAddress(new byte[] {127, 0, 0, 1}), defaultStartingPort))
                 .withPeerInfo("host_id", UUID.randomUUID())
@@ -177,7 +181,6 @@ public class CassandraLockingMechanismTest {
 
     @Test
     public void shouldThrowExceptionIfQueryFailsToExecuteWhenAcquiringLock() throws Exception {
-        //given
         cluster.prime(primeInsertQuery(LOCK_KEYSPACE, CLIENT_ID, true).
             then(unavailable(com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL, 1, 1)));
         lockingMechanism.init();
@@ -294,17 +297,8 @@ public class CassandraLockingMechanismTest {
             .isFalse();
     }
 
-    private Session newSession() {
-        Cluster cluster = Cluster.builder()
-                .addContactPoints("localhost")
-                .withPort(defaultStartingPort)
-                .withoutJMXReporting()
-                .build();
-
-        cluster.init();
-
-        Session session = cluster.connect(LOCK_KEYSPACE);
-
+    private CqlSession newSession() throws UnknownHostException {
+        CqlSession session = CqlSession.builder().addContactPoint(new InetSocketAddress(Inet4Address.getByAddress(new byte[]{127, 0, 0, 1}), defaultStartingPort)).withLocalDatacenter(dc.getName()).build();
         return session;
     }
 

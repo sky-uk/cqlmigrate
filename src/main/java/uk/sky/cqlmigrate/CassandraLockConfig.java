@@ -1,7 +1,7 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.Session;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlSession;
 
 import java.time.Duration;
 
@@ -17,7 +17,7 @@ public class CassandraLockConfig extends LockConfig {
     }
 
     @Override
-    public LockingMechanism getLockingMechanism(Session session, String keySpace) {
+    public LockingMechanism getLockingMechanism(CqlSession session, String keySpace) {
         return new CassandraLockingMechanism(session, keySpace, consistencyLevel, lockKeyspace);
     }
 

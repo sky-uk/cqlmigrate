@@ -1,42 +1,43 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.Host;
+import com.datastax.oss.driver.api.core.metadata.Node;
+import com.datastax.oss.driver.api.core.metadata.NodeState;
+import com.datastax.oss.driver.api.core.session.Session;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.sky.cqlmigrate.exception.ClusterUnhealthyException;
 
 import java.net.InetAddress;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 class ClusterHealth {
 
     private static final Logger log = LoggerFactory.getLogger(ClusterHealth.class);
 
-    private final Cluster cluster;
+    private final Session session;
 
-    ClusterHealth(Cluster cluster) {
-        this.cluster = cluster;
+    ClusterHealth(Session session) {
+        this.session = session;
     }
 
     void check() throws ClusterUnhealthyException {
 
-        log.debug("Checking cluster health");
+        log.debug("Checking session health");
 
-        Set<Host> allHosts = cluster.getMetadata().getAllHosts();
+        Map<UUID, Node> nodes = session.getMetadata().getNodes();
 
-        List<InetAddress> unhealthyHosts = allHosts
-                .stream()
-                .filter(host -> !host.isUp())
-                .map(Host::getAddress)
+        List<InetAddress> unhealthyHosts = nodes.entrySet().stream()
+                .filter(host -> host.getValue().getState().equals(NodeState.DOWN))
+                .map(host -> host.getValue().getBroadcastAddress().get().getAddress())
                 .collect(Collectors.toList());
 
         if (!unhealthyHosts.isEmpty()) {
             throw new ClusterUnhealthyException("Cluster not healthy, the following hosts are down: " + unhealthyHosts);
         }
 
-        log.debug("All hosts healthy: {}", allHosts);
+        log.debug("All hosts healthy: {}", nodes.entrySet());
     }
 }

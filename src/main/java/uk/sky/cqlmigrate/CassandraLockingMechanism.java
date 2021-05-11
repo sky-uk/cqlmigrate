@@ -1,18 +1,27 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.*;
-import com.datastax.driver.core.exceptions.DriverException;
-import com.datastax.driver.core.exceptions.WriteTimeoutException;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.DriverException;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.datastax.oss.driver.api.core.cql.ResultSet;
+import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.servererrors.WriteTimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
 import uk.sky.cqlmigrate.exception.CannotReleaseLockException;
 
+import java.util.List;
+
+import static java.lang.String.format;
+
 class CassandraLockingMechanism extends LockingMechanism {
 
     private static final Logger log = LoggerFactory.getLogger(CassandraLockingMechanism.class);
 
-    private final Session session;
+    private final CqlSession session;
     private final ConsistencyLevel consistencyLevel;
     private final String lockKeyspace;
 
@@ -21,7 +30,7 @@ class CassandraLockingMechanism extends LockingMechanism {
     private PreparedStatement deleteLockQuery;
     private boolean isRetryAfterWriteTimeout;
 
-    public CassandraLockingMechanism(Session session, String keyspace, ConsistencyLevel consistencyLevel, String lockKeyspace) {
+    public CassandraLockingMechanism(CqlSession session, String keyspace, ConsistencyLevel consistencyLevel, String lockKeyspace) {
         super(keyspace + ".schema_migration");
         this.session = session;
         this.consistencyLevel = consistencyLevel;
@@ -38,12 +47,16 @@ class CassandraLockingMechanism extends LockingMechanism {
         super.init();
 
         try {
-            selectLockQuery = session.prepare(String.format("SELECT name,client FROM %s.locks LIMIT 1", lockKeyspace))
-                    .setConsistencyLevel(consistencyLevel);
-            insertLockQuery = session.prepare(String.format("INSERT INTO %s.locks (name, client) VALUES (?, ?) IF NOT EXISTS", lockKeyspace))
-                    .setConsistencyLevel(consistencyLevel);
-            deleteLockQuery = session.prepare(String.format("DELETE FROM %s.locks WHERE name = ? IF client = ?", lockKeyspace))
-                    .setConsistencyLevel(consistencyLevel);;
+            String selectQuery = format("SELECT name,client FROM %s.locks LIMIT 1", lockKeyspace);
+            String insertQuery = format("INSERT INTO %s.locks (name, client) VALUES (?, ?) IF NOT EXISTS", lockKeyspace);
+            String deleteQuery = format("DELETE FROM %s.locks WHERE name = ? IF client = ?", lockKeyspace);
+
+            selectLockQuery = session.prepare(SimpleStatement.newInstance(selectQuery)
+                    .setConsistencyLevel(consistencyLevel));
+            insertLockQuery = session.prepare(SimpleStatement.newInstance(insertQuery)
+                    .setConsistencyLevel(consistencyLevel));
+            deleteLockQuery = session.prepare(SimpleStatement.newInstance(deleteQuery)
+                    .setConsistencyLevel(consistencyLevel));
 
         } catch (DriverException e) {
             throw new CannotAcquireLockException("Query to prepare locks queries failed", e);
@@ -66,7 +79,8 @@ class CassandraLockingMechanism extends LockingMechanism {
             ResultSet resultSet = session.execute(insertLockQuery.bind(lockName, clientId));
             Row currentLock = resultSet.one();
             // we could already hold the lock and not be aware if a previous acquire had a writetimeout as a timeout is not a failure in cassandra
-            if (currentLock.getBool("[applied]") || clientId.equals(currentLock.getString("client"))) {
+            //TODO this needs to be tested
+            if (currentLock != null && (currentLock.getBoolean("[applied]") || clientId.equals(currentLock.getString("client")))) {
                 return true;
             } else {
                 log.info("Lock currently held by {}", currentLock);
@@ -76,15 +90,14 @@ class CassandraLockingMechanism extends LockingMechanism {
             log.warn("Query to acquire lock for {} failed to execute: {}", clientId, wte.getMessage());
             return false;
         } catch (DriverException de) {
-            throw new CannotAcquireLockException(String.format("Query to acquire lock %s for client %s failed to execute", lockName, clientId), de);
+            throw new CannotAcquireLockException(format("Query to acquire lock %s for client %s failed to execute", lockName, clientId), de);
         }
     }
 
     /**
      * Verify that a select of the locks completes successfully
      *
-     * @throws DriverException propagated from the session.execute() call. See
-     *       {@link ResultSetFuture#getUninterruptibly()} for more explcit details
+     * @throws DriverException propagated from the session.execute() call.
      */
     private void verifyClusterIsHealthy() {
         session.execute(selectLockQuery.bind());
@@ -107,10 +120,11 @@ class CassandraLockingMechanism extends LockingMechanism {
 
             // if a row doesn't exist then cassandra doesn't send back any columns
             boolean noLockExists = !result.getColumnDefinitions().contains("client");
-            if (result.getBool("[applied]") || noLockExists) {
+            if (result.getBoolean("[applied]") || noLockExists) {
                 log.info("Lock released for {} by client {} at: {}", lockName, clientId, System.currentTimeMillis());
                 return true;
             }
+
 
             String clientReleasingLock = result.getString("client");
             if (!clientReleasingLock.equals(clientId)) {
