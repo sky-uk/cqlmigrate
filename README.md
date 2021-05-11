@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/sky-uk/cqlmigrate.svg?branch=master)](https://travis-ci.org/sky-uk/cqlmigrate)
+[![Build Status](https://travis-ci.com/sky-uk/cqlmigrate.svg?branch=master)](https://travis-ci.com/sky-uk/cqlmigrate)
 [![Download](https://api.bintray.com/packages/sky-uk/oss-maven/cqlmigrate/images/download.svg) ](https://bintray.com/sky-uk/oss-maven/cqlmigrate/_latestVersion)
 
 # Cassandra CQL migration tool
@@ -57,9 +57,12 @@ CassandraLockConfig lockConfig = CassandraLockConfig.builder()
         .withLockKeyspace("cqlmigrate")
         .build();
 
-// Create a Cassandra session
-Cluster cluster = Cluster.builder.addContactPoint("localhost").build();
-Session session = cluster.connect();
+// Create a Cassandra session for cassandra driver 4.x
+CqlSession session = CqlSession.builder()
+        .addContactPoints(cassandraHosts)
+        .withLocalDatacenter("datacenter1")
+        .withAuthProvider(new ProgrammaticPlainTextAuthProvider("username", "password"))
+        .build();
 
 // Create a migrator and run it
 CqlMigrator migrator = CqlMigratorFactory.create(lockConfig);

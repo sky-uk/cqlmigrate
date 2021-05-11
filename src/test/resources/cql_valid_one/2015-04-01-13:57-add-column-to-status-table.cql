@@ -1,1 +1,1 @@
-ALTER TABLE status ADD waste_of_space double;
+ALTER TABLE status ADD waste_of_space text;

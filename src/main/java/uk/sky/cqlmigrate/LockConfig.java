@@ -1,6 +1,6 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.Session;
+import com.datastax.oss.driver.api.core.CqlSession;
 
 import java.time.Duration;
 import java.util.UUID;
@@ -34,7 +34,7 @@ public class LockConfig {
         return unlockOnFailure;
     }
 
-    public LockingMechanism getLockingMechanism(Session session, String keySpace) {
+    public LockingMechanism getLockingMechanism(CqlSession session, String keySpace) {
         throw new UnsupportedOperationException();
     }
 
@@ -83,10 +83,10 @@ public class LockConfig {
 
         /**
          * Release the lock in case of failure.
-         *
+         * <p>
          * Note: default behavior is to leave the lock behind if any failures occurred during migration.
          * This was done to prevent accidental data corruption and bring manual attention to the problem.
-         *
+         * <p>
          * Use 'unlockOnFailure' to override the default behavior and force cqlmigrate to release the lock.
          *
          * @return this

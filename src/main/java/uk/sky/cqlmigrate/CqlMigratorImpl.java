@@ -1,19 +1,23 @@
 package uk.sky.cqlmigrate;
 
-import static java.util.Objects.requireNonNull;
-
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.Session;
-import com.datastax.driver.core.SimpleStatement;
-import com.datastax.driver.core.Statement;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.cql.Statement;
+import com.datastax.oss.driver.api.core.session.Session;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.net.InetSocketAddress;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static java.util.Objects.requireNonNull;
 
 /**
  * Standard implementation for {@code CqlMigrator}
@@ -41,6 +45,7 @@ final class CqlMigratorImpl implements CqlMigrator {
      */
     public static void main(String[] args) {
         String hosts = System.getProperty("hosts");
+        String localDC = System.getProperty("localDC");
         String keyspace = System.getProperty("keyspace");
         String directoriesProperty = System.getProperty("directories");
         String port = System.getProperty("port");
@@ -48,6 +53,8 @@ final class CqlMigratorImpl implements CqlMigrator {
         String password = System.getProperty("password");
 
         requireNonNull(hosts, "'hosts' property should be provided having value of a comma separated list of cassandra hosts");
+        requireNonNull(localDC, "'localDC' property should be provided having value of local datacenter for the contact points mentioned in the hosts; " +
+                "the local datacenter must be the same for all contact points");
         requireNonNull(keyspace, "'keyspace' property should be provided having value of the cassandra keyspace");
         requireNonNull(directoriesProperty, "'directories' property should be provided having value of the comma separated list of paths to cql files");
 
@@ -56,23 +63,27 @@ final class CqlMigratorImpl implements CqlMigrator {
                 .collect(Collectors.toList());
 
         CqlMigratorFactory.create(CassandraLockConfig.builder().build())
-                .migrate(hosts.split(","), port == null ? 9042 : Integer.parseInt(port), username, password, keyspace, directories);
+                .migrate(hosts.split(","), localDC, port == null ? 9042 : Integer.parseInt(port), username, password, keyspace, directories);
     }
 
     /**
      * {@inheritDoc}
      */
-    public void migrate(String[] hosts, int port, String username, String password, String keyspace, Collection<Path> directories) {
-        try (Cluster cluster = CassandraClusterFactory.createCluster(hosts, port, username, password);
-             Session session = cluster.connect()) {
-            this.migrate(session, keyspace, directories);
+    public void migrate(String[] hosts, String localDC, int port, String username, String password, String keyspace, Collection<Path> directories) {
+        List<InetSocketAddress> cassandraHosts = Stream.of(hosts).map(host -> new InetSocketAddress(host, port)).collect(Collectors.toList());
+
+        try (CqlSession cqlSession = CqlSession.builder()
+                .addContactPoints(cassandraHosts)
+                .withLocalDatacenter(localDC)
+                .withAuthCredentials(username, password).build()) {
+            this.migrate(cqlSession, keyspace, directories);
         }
     }
 
     /**
      * {@inheritDoc}
      */
-    public void migrate(Session session, String keyspace, Collection<Path> directories) {
+    public void migrate(CqlSession session, String keyspace, Collection<Path> directories) {
         LockingMechanism lockingMechanism = cqlMigratorConfig.getCassandraLockConfig().getLockingMechanism(session, keyspace);
         LockConfig lockConfig = cqlMigratorConfig.getCassandraLockConfig();
 
@@ -105,10 +116,15 @@ final class CqlMigratorImpl implements CqlMigrator {
     /**
      * {@inheritDoc}
      */
-    public void clean(String[] hosts, int port, String username, String password, String keyspace) {
-        try (Cluster cluster = CassandraClusterFactory.createCluster(hosts, port, username, password);
-             Session session = cluster.connect()) {
-            this.clean(session, keyspace);
+    public void clean(String[] hosts, String localDC, int port, String username, String password, String keyspace) {
+
+        List<InetSocketAddress> cassandraHosts = Stream.of(hosts).map(host -> new InetSocketAddress(host, port)).collect(Collectors.toList());
+
+        try (CqlSession cqlSession = CqlSession.builder()
+                .addContactPoints(cassandraHosts)
+                .withLocalDatacenter(localDC)
+                .withAuthCredentials(username, password).build()) {
+            this.clean(cqlSession, keyspace);
         }
     }
 
@@ -116,9 +132,9 @@ final class CqlMigratorImpl implements CqlMigrator {
      * {@inheritDoc}
      */
     public void clean(Session session, String keyspace) {
-        Statement clean = new SimpleStatement("DROP KEYSPACE IF EXISTS " + keyspace)
-                .setConsistencyLevel(cqlMigratorConfig.getWriteConsistencyLevel());
-        session.execute(clean);
+        session.execute(SimpleStatement.newInstance("DROP KEYSPACE IF EXISTS " + keyspace)
+                .setConsistencyLevel(cqlMigratorConfig.getWriteConsistencyLevel()), Statement.SYNC);
+
         LOGGER.info("Cleaned {}", keyspace);
     }
 }
