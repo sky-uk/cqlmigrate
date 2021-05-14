@@ -28,8 +28,7 @@ class CqlPaths {
     static CqlPaths create(Collection<Path> directories) {
         Map<String, Path> cqlPathsMap = new HashMap<>();
 
-        directories.stream()
-                .forEach( directory -> {
+        directories.forEach( directory -> {
                     try( DirectoryStream<Path> directoryStream = directoryStreamFromPath(directory)) {
                         StreamSupport.stream(directoryStream.spliterator(), false)
                                 .forEach(path -> addPathToMap(cqlPathsMap, path));

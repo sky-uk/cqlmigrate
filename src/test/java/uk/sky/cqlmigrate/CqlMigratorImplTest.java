@@ -461,7 +461,6 @@ public class CqlMigratorImplTest {
         assertThat(throwable.getMessage()).isEqualTo("'directories' property should be provided having value of the comma separated list of paths to cql files");
     }
 
-    @Ignore("under review, test needs updating; driver no longer allows updating datatype of columns")
     @Test
     public void shouldRemoveAllDataWhenCleaningAKeyspace() throws Exception {
         //given

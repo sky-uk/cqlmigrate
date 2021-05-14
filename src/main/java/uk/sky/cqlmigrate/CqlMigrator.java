@@ -68,6 +68,7 @@ public interface CqlMigrator {
      * Drops keyspace if it exists
      *
      * @param hosts    Comma separated list of cassandra hosts
+     * @param localDC  Local datacenter for hosts
      * @param port     Native transport port for the above cassandra nodes
      * @param username Username for Cassandra's internal authentication using PasswordAuthenticator
      *                 (if using AllowAllAuthenticator, can be set to any value)
@@ -76,7 +77,7 @@ public interface CqlMigrator {
      * @param keyspace Keyspace name for which the schema migration needs to be applied
      * @throws com.datastax.oss.driver.api.core.DriverException if query fails
      */
-    void clean(String[] hosts, String localDc, int port, String username, String password, String keyspace);
+    void clean(String[] hosts, String localDC, int port, String username, String password, String keyspace);
 
     /**
      * Drops keyspace if it exists

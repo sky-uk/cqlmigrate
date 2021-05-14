@@ -53,6 +53,8 @@ final class CqlMigratorImpl implements CqlMigrator {
         String password = System.getProperty("password");
 
         requireNonNull(hosts, "'hosts' property should be provided having value of a comma separated list of cassandra hosts");
+        requireNonNull(localDC, "'localDC' property should be provided having value of local datacenter for the contact points mentioned in the hosts; " +
+                "the local datacenter must be the same for all contact points");
         requireNonNull(keyspace, "'keyspace' property should be provided having value of the cassandra keyspace");
         requireNonNull(directoriesProperty, "'directories' property should be provided having value of the comma separated list of paths to cql files");
 
@@ -72,7 +74,7 @@ final class CqlMigratorImpl implements CqlMigrator {
 
         try (CqlSession cqlSession = CqlSession.builder()
                 .addContactPoints(cassandraHosts)
-                .withLocalDatacenter(localDC)  //TODO 4.x.x new driver needs explicit datacentre name
+                .withLocalDatacenter(localDC)
                 .withAuthCredentials(username, password).build()) {
             this.migrate(cqlSession, keyspace, directories);
         }
@@ -120,7 +122,7 @@ final class CqlMigratorImpl implements CqlMigrator {
 
         try (CqlSession cqlSession = CqlSession.builder()
                 .addContactPoints(cassandraHosts)
-                .withLocalDatacenter(localDC) //TODO 4.x.x new driver needs explicit datacentre name
+                .withLocalDatacenter(localDC)
                 .withAuthCredentials(username, password).build()) {
             this.clean(cqlSession, keyspace);
         }
@@ -130,10 +132,8 @@ final class CqlMigratorImpl implements CqlMigrator {
     /**
      * {@inheritDoc}
      */
-    // TODO 4.x.x either cassandra unit or the driver itself is taking longer than 2 secs to drop schema
     public void clean(Session session, String keyspace) {
         session.execute(SimpleStatement.newInstance("DROP KEYSPACE IF EXISTS " + keyspace)
-                .setTimeout(Duration.ofSeconds(10))
                 .setConsistencyLevel(cqlMigratorConfig.getWriteConsistencyLevel()), Statement.SYNC);
 
         LOGGER.info("Cleaned {}", keyspace);

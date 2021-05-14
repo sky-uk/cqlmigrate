@@ -57,9 +57,12 @@ CassandraLockConfig lockConfig = CassandraLockConfig.builder()
         .withLockKeyspace("cqlmigrate")
         .build();
 
-// Create a Cassandra session
-Cluster cluster = Cluster.builder.addContactPoint("localhost").build();
-Session session = cluster.connect();
+// Create a Cassandra session for cassandra driver 4.x
+CqlSession session = CqlSession.builder()
+        .addContactPoints(cassandraHosts)
+        .withLocalDatacenter("datacenter1")
+        .withAuthProvider(new ProgrammaticPlainTextAuthProvider("username", "password"))
+        .build();
 
 // Create a migrator and run it
 CqlMigrator migrator = CqlMigratorFactory.create(lockConfig);

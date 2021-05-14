@@ -29,9 +29,9 @@ class ClusterHealth {
 
         Map<UUID, Node> nodes = session.getMetadata().getNodes();
 
-        List<InetAddress> unhealthyHosts = nodes.entrySet().stream()
-                .filter(host -> host.getValue().getState().equals(NodeState.DOWN))
-                .map(host -> host.getValue().getBroadcastAddress().get().getAddress())
+        List<InetAddress> unhealthyHosts = nodes.values().stream()
+                .filter(node -> node.getState().equals(NodeState.DOWN))
+                .map(node -> node.getBroadcastAddress().get().getAddress())
                 .collect(Collectors.toList());
 
         if (!unhealthyHosts.isEmpty()) {
