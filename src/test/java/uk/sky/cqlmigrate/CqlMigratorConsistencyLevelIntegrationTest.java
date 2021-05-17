@@ -53,7 +53,7 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
 
     @BeforeClass
     public static void classSetup() throws UnknownHostException {
-        DataCenterSpec dc = clusterSpec.addDataCenter().withName("DC1").withCassandraVersion("3.8").build();
+        DataCenterSpec dc = clusterSpec.addDataCenter().withName("DC1").withCassandraVersion("3.11").build();
         dc.addNode()
                 .withAddress( new InetSocketAddress(Inet4Address.getByAddress(new byte[] {127, 0, 0, 1}), defaultStartingPort))
                 .withPeerInfo("host_id", UUID.randomUUID())

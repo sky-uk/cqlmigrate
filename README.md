@@ -140,11 +140,8 @@ Each lock will be deleted by `cqlmigrate` once the migration is complete.
 ## Supported Cassandra versions
 
 This project has been tested against the following versions:
-* DSE 5.0.2 (3.0.8)
-* 2.1.7
-* DSE 4.7.3 (2.1.8)
-* 2.2.2
-* 2.2.3
+* DSE 5.1.18 (3.11.3)
+* Apache Cassandra 3.11.5
 
 ## Caveats
 

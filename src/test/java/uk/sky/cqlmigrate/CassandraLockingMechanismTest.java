@@ -57,7 +57,7 @@ public class CassandraLockingMechanismTest {
 
     @BeforeClass
     public static void classSetup() throws UnknownHostException {
-        dc = clusterSpec.addDataCenter().withName("DC1").withCassandraVersion("3.8").build();
+        DataCenterSpec dc = clusterSpec.addDataCenter().withName("DC1").withCassandraVersion("3.11").build();
         dc.addNode()
                 .withAddress( new InetSocketAddress(Inet4Address.getByAddress(new byte[] {127, 0, 0, 1}), defaultStartingPort))
                 .withPeerInfo("host_id", UUID.randomUUID())
@@ -181,6 +181,7 @@ public class CassandraLockingMechanismTest {
 
     @Test
     public void shouldThrowExceptionIfQueryFailsToExecuteWhenAcquiringLock() throws Exception {
+        //given
         cluster.prime(primeInsertQuery(LOCK_KEYSPACE, CLIENT_ID, true).
             then(unavailable(com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL, 1, 1)));
         lockingMechanism.init();
