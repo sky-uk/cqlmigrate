@@ -61,7 +61,7 @@ configurations {
 }
 
 dependencies {
-    api('com.datastax.cassandra:cassandra-driver-core:3.7.1')
+    api('com.datastax.cassandra:cassandra-driver-core:3.11.0')
     implementation('org.slf4j:slf4j-api:1.7.25')
 
     testImplementation("com.google.guava:guava:25.1-jre")
@@ -75,7 +75,7 @@ dependencies {
     testImplementation('com.datastax.oss.simulacron:simulacron-native-server:0.11.0')
     testImplementation('com.datastax.oss.simulacron:simulacron-driver-3x:0.11.0')
 
-    testCompileAndFunctional('org.cassandraunit:cassandra-unit:3.5.0.1')
+    testCompileAndFunctional('org.cassandraunit:cassandra-unit:3.11.2.0')
     functional('org.slf4j:slf4j-simple:1.7.25')
 }
 
