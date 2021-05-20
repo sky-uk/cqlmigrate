@@ -140,6 +140,42 @@ public class CqlMigratorImplTest {
     }
 
     @Test
+    public void shouldMigrateIfPreFlightChecksEnabledAndChangesNotApplied() throws Exception {
+        //given
+        Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
+
+        //when
+        MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true);
+
+        //then
+        try {
+            cluster.connect(TEST_KEYSPACE);
+        } catch (Throwable t) {
+            fail("Should have successfully connected, but got " + t);
+        }
+    }
+
+    @Test
+    public void shouldMigrateIfPreFlightChecksEnabledAndSomeChangesNotApplied() throws Exception {
+        //given
+        Collection<Path> cqlPaths = new ArrayList<>();
+        cqlPaths.add(getResourcePath("cql_valid_one"));
+        cqlPaths.add(getResourcePath("cql_valid_two"));
+        MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true);
+
+        //when
+        cqlPaths.add(getResourcePath("cql_valid_three"));
+        MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true);
+
+        //then
+        Session session = cluster.connect(TEST_KEYSPACE);
+        ResultSet rs = session.execute("select * from status where dependency = 'developers'");
+        List<Row> rows = rs.all();
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).getString("waste_of_space")).isEqualTo("false");
+    }
+
+    @Test
     public void shouldRemoveLockAfterMigration() throws Exception {
         //given
         Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));

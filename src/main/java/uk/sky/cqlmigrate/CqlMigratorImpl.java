@@ -46,6 +46,7 @@ final class CqlMigratorImpl implements CqlMigrator {
         String port = System.getProperty("port");
         String username = System.getProperty("username");
         String password = System.getProperty("password");
+        String precheck = System.getProperty("precheck", "false");
 
         requireNonNull(hosts, "'hosts' property should be provided having value of a comma separated list of cassandra hosts");
         requireNonNull(keyspace, "'keyspace' property should be provided having value of the cassandra keyspace");
@@ -56,25 +57,34 @@ final class CqlMigratorImpl implements CqlMigrator {
                 .collect(Collectors.toList());
 
         CqlMigratorFactory.create(CassandraLockConfig.builder().build())
-                .migrate(hosts.split(","), port == null ? 9042 : Integer.parseInt(port), username, password, keyspace, directories);
+                .migrate(hosts.split(","), port == null ? 9042 : Integer.parseInt(port), username, password, keyspace, directories, Boolean.parseBoolean(precheck));
     }
 
     /**
      * {@inheritDoc}
      */
-    public void migrate(String[] hosts, int port, String username, String password, String keyspace, Collection<Path> directories) {
+    public void migrate(String[] hosts, int port, String username, String password, String keyspace, Collection<Path> directories, boolean performPrechecks) {
         try (Cluster cluster = CassandraClusterFactory.createCluster(hosts, port, username, password);
              Session session = cluster.connect()) {
-            this.migrate(session, keyspace, directories);
+            this.migrate(session, keyspace, directories, performPrechecks);
         }
     }
 
     /**
      * {@inheritDoc}
      */
-    public void migrate(Session session, String keyspace, Collection<Path> directories) {
+    public void migrate(Session session, String keyspace, Collection<Path> directories, boolean performPrechecks) {
         LockingMechanism lockingMechanism = cqlMigratorConfig.getCassandraLockConfig().getLockingMechanism(session, keyspace);
         LockConfig lockConfig = cqlMigratorConfig.getCassandraLockConfig();
+
+        if (performPrechecks) {
+            PreMigrationChecker preMigrationChecker = new PreMigrationChecker();
+            if (!preMigrationChecker.migrationIsNeeded()) {
+                LOGGER.info("Migration not needed as environment matches expected state");
+                return;
+            }
+            LOGGER.info("Pre-migration checks completed, migration is needed. Continuing...");
+        }
 
         boolean migrationFailed = false;
         Lock lock = new Lock(lockingMechanism, lockConfig);
