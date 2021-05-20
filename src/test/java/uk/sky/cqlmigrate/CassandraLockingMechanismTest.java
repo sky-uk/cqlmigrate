@@ -55,6 +55,7 @@ public class CassandraLockingMechanismTest {
 
     @BeforeClass
     public static void classSetup() throws UnknownHostException {
+
         dc = clusterSpec.addDataCenter().withName("DC1").withCassandraVersion("3.11").build();
         dc.addNode()
                 .withAddress(new InetSocketAddress(Inet4Address.getByAddress(new byte[]{127, 0, 0, 1}), defaultStartingPort))

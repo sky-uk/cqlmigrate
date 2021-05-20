@@ -40,7 +40,9 @@ public class ClusterHealthTest {
     @Before
     public void setUp() throws UnknownHostException {
         DataCenterSpec dc = cluster.addDataCenter().withName("DC1").withCassandraVersion("3.11").build();
+
         dc.addNode().withAddress(new InetSocketAddress(Inet4Address.getByAddress(new byte[]{127, 0, 0, 1}), defaultStartingPort)).build();
+
         dc.addNode().withPeerInfo("host_id", UUID.randomUUID()).build();
         bCluster = server.register(cluster);
 
