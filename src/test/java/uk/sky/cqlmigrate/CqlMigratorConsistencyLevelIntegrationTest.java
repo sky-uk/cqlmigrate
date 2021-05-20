@@ -1,6 +1,6 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.simulacron.common.cluster.ClusterSpec;
 import com.datastax.oss.simulacron.common.cluster.DataCenterSpec;
 import com.datastax.oss.simulacron.common.cluster.QueryLog;
@@ -14,10 +14,7 @@ import com.datastax.oss.simulacron.server.Server;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import org.apache.cassandra.exceptions.ConfigurationException;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.*;
 import uk.sky.cqlmigrate.util.PortScavenger;
 
 import java.net.Inet4Address;
@@ -29,9 +26,7 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.datastax.oss.simulacron.common.stubbing.PrimeDsl.query;
-import static com.datastax.oss.simulacron.common.stubbing.PrimeDsl.rows;
-import static com.datastax.oss.simulacron.common.stubbing.PrimeDsl.when;
+import static com.datastax.oss.simulacron.common.stubbing.PrimeDsl.*;
 import static java.lang.String.valueOf;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -46,6 +41,7 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
     private static final String username = "cassandra";
     private static final String password = "cassandra";
     private static final String TEST_KEYSPACE = "cqlmigrate_test";
+    private static final String LOCAL_DC = "DC1";
 
     private Collection<Path> cqlPaths;
 
@@ -57,7 +53,7 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
     public static void classSetup() throws UnknownHostException {
         DataCenterSpec dc = clusterSpec.addDataCenter().withName("DC1").withCassandraVersion("3.11").build();
         dc.addNode()
-                .withAddress( new InetSocketAddress(Inet4Address.getByAddress(new byte[] {127, 0, 0, 1}), defaultStartingPort))
+                .withAddress(new InetSocketAddress(Inet4Address.getByAddress(new byte[]{127, 0, 0, 1}), defaultStartingPort))
                 .withPeerInfo("host_id", UUID.randomUUID())
                 .build();
         cluster = server.register(clusterSpec);
@@ -111,8 +107,8 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
     }
 
     private void executeMigration(CqlMigrator migrator, Collection<Path> cqlPaths) {
-        String[] hosts = new String[] {"localhost"};
-        migrator.migrate(hosts, defaultStartingPort, username, password, TEST_KEYSPACE, cqlPaths);
+        String[] hosts = new String[]{"localhost"};
+        migrator.migrate(hosts, LOCAL_DC, defaultStartingPort, username, password, TEST_KEYSPACE, cqlPaths);
     }
 
     @Test
@@ -182,15 +178,15 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
         String prepareInsertQuery = "INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS";
 
         PrimeDsl.PrimeBuilder primeBuilder = when(query(
-            prepareInsertQuery,
-            Lists.newArrayList(
-                com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ONE,
-                com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL),
-            new LinkedHashMap<>(ImmutableMap.of("name",  lockName + ".schema_migration", "client", clientId)),
-            new LinkedHashMap<>(ImmutableMap.of("name", "varchar", "client", "varchar"))))
-            .then(rows().row(
-                "[applied]", valueOf(lockApplied), "client", CLIENT_ID).columnTypes("[applied]", "boolean", "clientid", "varchar")
-            );
+                prepareInsertQuery,
+                Lists.newArrayList(
+                        com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ONE,
+                        com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL),
+                new LinkedHashMap<>(ImmutableMap.of("name", lockName + ".schema_migration", "client", clientId)),
+                new LinkedHashMap<>(ImmutableMap.of("name", "varchar", "client", "varchar"))))
+                .then(rows().row(
+                        "[applied]", valueOf(lockApplied), "client", CLIENT_ID).columnTypes("[applied]", "boolean", "clientid", "varchar")
+                );
         return primeBuilder;
     }
 
@@ -198,14 +194,14 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
         String deleteQuery = "DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?";
 
         PrimeDsl.PrimeBuilder primeBuilder = when(query(
-            deleteQuery,
-            Lists.newArrayList(
-                com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ONE,
-                com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL),
-            new LinkedHashMap<>(ImmutableMap.of("name", lockName + ".schema_migration", "client", clientId)),
-            new LinkedHashMap<>(ImmutableMap.of("name", "varchar", "client", "varchar"))))
-            .then(rows()
-                .row("[applied]", valueOf(lockApplied), "client", lockHoldingClient).columnTypes("[applied]", "boolean", "clientid", "varchar"));
+                deleteQuery,
+                Lists.newArrayList(
+                        com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ONE,
+                        com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL),
+                new LinkedHashMap<>(ImmutableMap.of("name", lockName + ".schema_migration", "client", clientId)),
+                new LinkedHashMap<>(ImmutableMap.of("name", "varchar", "client", "varchar"))))
+                .then(rows()
+                        .row("[applied]", valueOf(lockApplied), "client", lockHoldingClient).columnTypes("[applied]", "boolean", "clientid", "varchar"));
         return primeBuilder;
     }
 

@@ -1,7 +1,7 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.ConsistencyLevel;
-import com.datastax.driver.core.Session;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.CqlSession;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Uninterruptibles;
 import org.apache.cassandra.exceptions.ConfigurationException;
@@ -30,13 +30,14 @@ public class CqlMigratorHealthCheckTest {
     private static String username = "cassandra";
     private static String password = "cassandra";
     private static int binaryPort;
-    private static Session session;
+    private static CqlSession session;
     private static final String TEST_KEYSPACE = "cqlmigrate_clusterhealth_test";
+    private static final String LOCAL_DC = "datacenter1";
 
     private ClusterHealth mockClusterHealth = mock(ClusterHealth.class);
     private final SessionContextFactory sessionContextFactory = new SessionContextFactory() {
         @Override
-        SessionContext getInstance(Session session, CqlMigratorConfig cqlMigratorConfig) {
+        SessionContext getInstance(CqlSession session, CqlMigratorConfig cqlMigratorConfig) {
             return new SessionContext(session, cqlMigratorConfig.getReadConsistencyLevel(), cqlMigratorConfig.getWriteConsistencyLevel(), mockClusterHealth);
         }
     };
@@ -86,7 +87,7 @@ public class CqlMigratorHealthCheckTest {
         //given
         Collection<Path> cqlPaths = singletonList(getResourcePath("cql_cluster_health_bootstrap"));
         //when
-        migrator.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
+        migrator.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
 
         //then
         verify(mockClusterHealth, times(1)).check();
@@ -98,7 +99,7 @@ public class CqlMigratorHealthCheckTest {
         session.execute("CREATE KEYSPACE cqlmigrate_clusterhealth_test WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
         Collection<Path> cqlPaths = singletonList(getResourcePath("cql_cluster_health_bootstrap"));
         //when
-        migrator.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
+        migrator.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
 
         //then
         verify(mockClusterHealth, times(1)).check();
@@ -109,11 +110,11 @@ public class CqlMigratorHealthCheckTest {
         //given
         Collection<Path> cqlPaths = new ArrayList<>();
         cqlPaths.add(getResourcePath("cql_cluster_health_bootstrap"));
-        migrator.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
+        migrator.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
         cqlPaths.add(getResourcePath("cql_cluster_health_first"));
         Mockito.reset(mockClusterHealth);
         //when
-        migrator.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
+        migrator.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
         //then
         verify(mockClusterHealth, times(1)).check();
     }
@@ -122,11 +123,11 @@ public class CqlMigratorHealthCheckTest {
     public void checkClusterHealthCheckedWhenThereAreFollowingChanges() throws Exception {
         //given
         Collection<Path> cqlPaths = Lists.newArrayList(getResourcePath("cql_cluster_health_bootstrap"), getResourcePath("cql_cluster_health_first"));
-        migrator.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
+        migrator.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
         Mockito.reset(mockClusterHealth);
         cqlPaths.add(getResourcePath("cql_cluster_health_second"));
         //when
-        migrator.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
+        migrator.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
         //then
         verify(mockClusterHealth, times(1)).check();
     }
@@ -134,10 +135,10 @@ public class CqlMigratorHealthCheckTest {
     @Test
     public void checkClusterHealthNotCheckedWhenThereAreNoChanges() throws Exception {
         Collection<Path> cqlPaths = Lists.newArrayList(getResourcePath("cql_cluster_health_bootstrap"), getResourcePath("cql_cluster_health_first"));
-        migrator.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
+        migrator.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
         Mockito.reset(mockClusterHealth);
         //when
-        migrator.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
+        migrator.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
         //then
         verify(mockClusterHealth, never()).check();
     }
