@@ -1,5 +1,7 @@
 package uk.sky.cqlmigrate;
 
+import static uk.sky.cqlmigrate.SchemaUpdates.SCHEMA_UPDATES_TABLE;
+
 public class PreMigrationChecker {
 
     private final SessionContext sessionContext;
@@ -11,11 +13,16 @@ public class PreMigrationChecker {
     }
 
     boolean migrationIsNeeded() {
-        return !keyspaceExists();
+        return !keyspaceExists() || !schemaUpdatesTableExists();
     }
 
     private boolean keyspaceExists() {
         return sessionContext.getSession().getCluster().getMetadata().getKeyspace(keyspace) != null;
     }
+
+    private boolean schemaUpdatesTableExists() {
+        return sessionContext.getSession().getCluster().getMetadata().getKeyspace(keyspace).getTable(SCHEMA_UPDATES_TABLE) != null;
+    }
+
 
 }

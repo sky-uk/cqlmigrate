@@ -48,7 +48,8 @@ public class PreMigrationCheckerIntegrationTest {
     public void migrationNotNeededIfEverythingExists() {
         //given
         cluster.connect("system").execute("CREATE KEYSPACE " + TEST_KEYSPACE + " WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
-        Session session = cluster.connect("system");
+        cluster.connect(TEST_KEYSPACE).execute("CREATE TABLE schema_updates (filename text primary key, checksum text, applied_on timestamp);");
+        Session session = cluster.connect(TEST_KEYSPACE);
         SessionContext sessionContext = new SessionContext(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL, clusterHealth);
         PreMigrationChecker preMigrationChecker = new PreMigrationChecker(sessionContext, TEST_KEYSPACE);
 
@@ -63,6 +64,21 @@ public class PreMigrationCheckerIntegrationTest {
     public void migrationNeededIfKeyspaceDoesNotExist() {
         //given
         cluster.connect("system").execute("DROP KEYSPACE IF EXISTS " + TEST_KEYSPACE + ";");
+        Session session = cluster.connect("system");
+        SessionContext sessionContext = new SessionContext(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL, clusterHealth);
+        PreMigrationChecker preMigrationChecker = new PreMigrationChecker(sessionContext, TEST_KEYSPACE);
+
+        //when
+        boolean migrationIsNeeded = preMigrationChecker.migrationIsNeeded();
+
+        //then
+        assertThat(migrationIsNeeded).isTrue();
+    }
+
+    @Test
+    public void migrationNeededIfSchemaUpdatesTableDoesNotExist() {
+        //given
+        cluster.connect("system").execute("CREATE KEYSPACE " + TEST_KEYSPACE + " WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
         Session session = cluster.connect("system");
         SessionContext sessionContext = new SessionContext(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL, clusterHealth);
         PreMigrationChecker preMigrationChecker = new PreMigrationChecker(sessionContext, TEST_KEYSPACE);
