@@ -5,12 +5,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.stream.StreamSupport;
 
 class CqlPaths {
@@ -21,7 +16,6 @@ class CqlPaths {
     private final SortedMap<String, Path> sortedCqlPaths;
 
     public CqlPaths(Map<String, Path> paths) {
-
         this.sortedCqlPaths = Collections.unmodifiableSortedMap(new TreeMap<>(paths));
     }
 
@@ -32,7 +26,7 @@ class CqlPaths {
                     try( DirectoryStream<Path> directoryStream = directoryStreamFromPath(directory)) {
                         StreamSupport.stream(directoryStream.spliterator(), false)
                                 .forEach(path -> addPathToMap(cqlPathsMap, path));
-                    } catch(IOException e){
+                    } catch (IOException e) {
                         throw new UncheckedIOException(e);
                     }
                 });
@@ -43,8 +37,7 @@ class CqlPaths {
     private static DirectoryStream<Path> directoryStreamFromPath(Path path) {
         try {
             return Files.newDirectoryStream(path, CQL_FILE_FILTER);
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }

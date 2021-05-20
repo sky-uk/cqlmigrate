@@ -2,7 +2,6 @@ package uk.sky.cqlmigrate;
 
 import com.datastax.oss.driver.api.core.DriverException;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
-import com.datastax.oss.driver.api.core.type.reflect.GenericType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

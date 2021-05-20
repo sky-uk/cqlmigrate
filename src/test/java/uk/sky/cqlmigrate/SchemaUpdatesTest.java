@@ -1,6 +1,5 @@
 package uk.sky.cqlmigrate;
 
-
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
@@ -24,29 +23,22 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 public class SchemaUpdatesTest {
 
-    private static final String[] CASSANDRA_HOSTS = {"localhost"};
     private static final String TEST_KEYSPACE = "cqlmigrate_test";
     private static final String SCHEMA_UPDATES_TABLE = "schema_updates";
 
-    private static int binaryPort;
-    private static String username = "cassandra";
-    private static String password = "cassandra";
     private static CqlSession session;
     private static ClusterHealth clusterHealth;
-
 
     @BeforeClass
     public static void setupCassandra() throws ConfigurationException, IOException, TTransportException, InterruptedException {
         EmbeddedCassandraServerHelper.startEmbeddedCassandra(EmbeddedCassandraServerHelper.CASSANDRA_RNDPORT_YML_FILE);
 
-        binaryPort = EmbeddedCassandraServerHelper.getNativeTransportPort();
         session = EmbeddedCassandraServerHelper.getSession();
         clusterHealth = new ClusterHealth(session);
-
     }
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test");
         session.execute("CREATE KEYSPACE IF NOT EXISTS cqlmigrate_test WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
     }
@@ -59,15 +51,14 @@ public class SchemaUpdatesTest {
     }
 
     @AfterClass
-    public static void tearDownClass() throws Exception {
+    public static void tearDownClass() {
         EmbeddedCassandraServerHelper.cleanEmbeddedCassandra();
         Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
     }
 
     @Test
-    public void schemaUpdatesTableShouldBeCreatedIfNotExists() throws Exception {
+    public void schemaUpdatesTableShouldBeCreatedIfNotExists() {
         //given
-
         SessionContext sessionContext = new SessionContext(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL, clusterHealth);
         SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, TEST_KEYSPACE);
 
@@ -80,7 +71,7 @@ public class SchemaUpdatesTest {
     }
 
     @Test
-    public void schemaUpdatesTableShouldNotBeCreatedIfExists() throws Exception {
+    public void schemaUpdatesTableShouldNotBeCreatedIfExists() {
         //given
         SessionContext sessionContext = new SessionContext(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL, clusterHealth);
         SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, TEST_KEYSPACE);

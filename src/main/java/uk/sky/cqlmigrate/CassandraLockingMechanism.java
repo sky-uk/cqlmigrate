@@ -49,13 +49,9 @@ class CassandraLockingMechanism extends LockingMechanism {
             String insertQuery = format("INSERT INTO %s.locks (name, client) VALUES (?, ?) IF NOT EXISTS", lockKeyspace);
             String deleteQuery = format("DELETE FROM %s.locks WHERE name = ? IF client = ?", lockKeyspace);
 
-            selectLockQuery = session.prepare(SimpleStatement.newInstance(selectQuery)
-                    .setConsistencyLevel(consistencyLevel));
-            insertLockQuery = session.prepare(SimpleStatement.newInstance(insertQuery)
-                    .setConsistencyLevel(consistencyLevel));
-            deleteLockQuery = session.prepare(SimpleStatement.newInstance(deleteQuery)
-                    .setConsistencyLevel(consistencyLevel));
-
+            selectLockQuery = session.prepare(SimpleStatement.newInstance(selectQuery).setConsistencyLevel(consistencyLevel));
+            insertLockQuery = session.prepare(SimpleStatement.newInstance(insertQuery).setConsistencyLevel(consistencyLevel));
+            deleteLockQuery = session.prepare(SimpleStatement.newInstance(deleteQuery).setConsistencyLevel(consistencyLevel));
         } catch (DriverException e) {
             throw new CannotAcquireLockException("Query to prepare locks queries failed", e);
         }
@@ -141,8 +137,6 @@ class CassandraLockingMechanism extends LockingMechanism {
                 log.info("Lock released for {} by client {} at: {}", lockName, clientId, System.currentTimeMillis());
                 return true;
             }
-
-
         } catch (WriteTimeoutException e) {
             isRetryAfterWriteTimeout = true;
             return false;
@@ -150,6 +144,5 @@ class CassandraLockingMechanism extends LockingMechanism {
             log.error("Query to release lock failed to execute for {} by client {}", lockName, clientId, e);
             throw new CannotReleaseLockException("Query failed to execute", e);
         }
-
     }
 }

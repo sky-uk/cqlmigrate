@@ -13,20 +13,18 @@ import org.mockito.junit.MockitoJUnitRunner;
 public class SessionContextTest {
 
     private SessionContext sessionContext;
-
     @Mock
     private CqlSession session;
     @Mock
     private ClusterHealth mockedClusterHealth;
 
     @Before
-    public void setUp() throws Exception {
+    public void setUp() {
         sessionContext = new SessionContext(session, ConsistencyLevel.ONE, ConsistencyLevel.TWO, mockedClusterHealth);
     }
 
-
     @Test
-    public void shouldCallClusterHealth() throws Exception {
+    public void shouldCallClusterHealth() {
         // when
         sessionContext.checkClusterHealth();
         // then
@@ -34,7 +32,7 @@ public class SessionContextTest {
     }
 
     @Test
-    public void shouldCallClusterHealthOnlyOnce() throws Exception {
+    public void shouldCallClusterHealthOnlyOnce() {
         // given
         sessionContext.checkClusterHealth();
         // when

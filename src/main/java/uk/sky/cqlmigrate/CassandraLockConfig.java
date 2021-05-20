@@ -30,7 +30,6 @@ public class CassandraLockConfig extends LockConfig {
     }
 
     public static class CassandraLockConfigBuilder extends LockConfig.LockConfigBuilder {
-
         private ConsistencyLevel consistencyLevel = ConsistencyLevel.LOCAL_ONE;
         private String lockKeyspace = "cqlmigrate";
 
@@ -54,12 +53,12 @@ public class CassandraLockConfig extends LockConfig {
             return this;
         }
 
-        public CassandraLockConfigBuilder withConsistencyLevel(ConsistencyLevel consistencyLevel){
+        public CassandraLockConfigBuilder withConsistencyLevel(ConsistencyLevel consistencyLevel) {
             this.consistencyLevel = consistencyLevel;
             return this;
         }
 
-        public CassandraLockConfigBuilder withLockKeyspace(String lockKeyspace){
+        public CassandraLockConfigBuilder withLockKeyspace(String lockKeyspace) {
             this.lockKeyspace = lockKeyspace;
             return this;
         }

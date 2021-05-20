@@ -6,13 +6,11 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnitRunner;
 
-
 @RunWith(MockitoJUnitRunner.class)
 public class CassandraLockConfigTest {
 
     @Test
-    public void shouldBuildCassandraLockConfigWithDefaultConsistencyLevelLocalOne() throws Throwable {
-
+    public void shouldBuildCassandraLockConfigWithDefaultConsistencyLevelLocalOne() {
         CassandraLockConfig lockConfig = CassandraLockConfig.builder()
                 .build();
 
@@ -20,12 +18,11 @@ public class CassandraLockConfigTest {
     }
 
     @Test
-    public void shouldBuildCassandraLockConfigWithConsistencyLevelOfAllWhenSetInBuilder(){
+    public void shouldBuildCassandraLockConfigWithConsistencyLevelOfAllWhenSetInBuilder() {
         CassandraLockConfig lockConfig = CassandraLockConfig.builder()
                 .withConsistencyLevel(ConsistencyLevel.ALL)
                 .build();
 
         Assertions.assertThat(lockConfig.getConsistencyLevel()).isEqualTo(ConsistencyLevel.ALL);
     }
-
 }

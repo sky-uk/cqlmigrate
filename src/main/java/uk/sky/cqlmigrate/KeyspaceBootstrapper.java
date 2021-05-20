@@ -35,5 +35,4 @@ class KeyspaceBootstrapper {
             LOGGER.info("Keyspace found, not applying bootstrap.cql");
         }
     }
-
 }

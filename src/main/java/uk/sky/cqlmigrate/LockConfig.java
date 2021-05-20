@@ -83,10 +83,10 @@ public class LockConfig {
 
         /**
          * Release the lock in case of failure.
-         *
+         * <p>
          * Note: default behavior is to leave the lock behind if any failures occurred during migration.
          * This was done to prevent accidental data corruption and bring manual attention to the problem.
-         *
+         * <p>
          * Use 'unlockOnFailure' to override the default behavior and force cqlmigrate to release the lock.
          *
          * @return this

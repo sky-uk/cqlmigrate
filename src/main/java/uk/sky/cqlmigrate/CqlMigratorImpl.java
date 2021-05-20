@@ -126,7 +126,6 @@ final class CqlMigratorImpl implements CqlMigrator {
                 .withAuthCredentials(username, password).build()) {
             this.clean(cqlSession, keyspace);
         }
-
     }
 
     /**
@@ -138,5 +137,4 @@ final class CqlMigratorImpl implements CqlMigrator {
 
         LOGGER.info("Cleaned {}", keyspace);
     }
-
 }

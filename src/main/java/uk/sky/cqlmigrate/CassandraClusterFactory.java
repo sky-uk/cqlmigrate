@@ -13,15 +13,14 @@ public class CassandraClusterFactory {
     /**
      * Creates an instance of cassandra {@link Session} based on the provided configuration
      *
-     * @param hosts Addresses of the nodes to add as contact points (as described in
-     *              {@link CqlSession}).
-     * @param port The port to use to connect to the Cassandra hosts.
+     * @param hosts    Addresses of the nodes to add as contact points (as described in
+     *                 {@link CqlSession}).
+     * @param port     The port to use to connect to the Cassandra hosts.
      * @param username the username to use to login to Cassandra hosts.
      * @param password the password corresponding to {@code username}.
      * @return a configured Session
      */
     public static Session createCluster(String[] hosts, int port, String username, String password) {
-
         List<InetSocketAddress> cassandraHosts = Stream.of(hosts)
                 .map(host -> new InetSocketAddress(host, port))
                 .collect(Collectors.toList());

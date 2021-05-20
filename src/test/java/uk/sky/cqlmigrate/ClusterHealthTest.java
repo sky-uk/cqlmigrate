@@ -29,13 +29,12 @@ import static org.awaitility.Awaitility.await;
 public class ClusterHealthTest {
 
     private static final int defaultStartingPort = PortScavenger.getFreePort();
+    private static final Server server = Server.builder().build();
+
+    private final ClusterSpec cluster = ClusterSpec.builder().build();
 
     private ClusterHealth clusterHealth;
-
-    private static Server server = Server.builder().build();
-    private ClusterSpec cluster = ClusterSpec.builder().build();
     private BoundCluster bCluster;
-
     private CqlSession realCluster;
 
     @Before
@@ -48,7 +47,10 @@ public class ClusterHealthTest {
         bCluster.prime(when("select cluster_name from system.local where key = 'local'")
                 .then(rows().row("cluster_name", "0").build()));
 
-        realCluster = CqlSession.builder().addContactPoint(new InetSocketAddress(Inet4Address.getByAddress(new byte[]{127, 0, 0, 1}), defaultStartingPort)).withLocalDatacenter(dc.getName()).build();
+        realCluster = CqlSession.builder()
+                .addContactPoint(new InetSocketAddress(Inet4Address.getByAddress(new byte[]{127, 0, 0, 1}), defaultStartingPort))
+                .withLocalDatacenter(dc.getName())
+                .build();
         clusterHealth = new ClusterHealth(realCluster);
     }
 
