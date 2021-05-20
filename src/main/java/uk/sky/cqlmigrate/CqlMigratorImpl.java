@@ -77,8 +77,10 @@ final class CqlMigratorImpl implements CqlMigrator {
         LockingMechanism lockingMechanism = cqlMigratorConfig.getCassandraLockConfig().getLockingMechanism(session, keyspace);
         LockConfig lockConfig = cqlMigratorConfig.getCassandraLockConfig();
 
+        SessionContext sessionContext = sessionContextFactory.getInstance(session, cqlMigratorConfig);
+
         if (performPrechecks) {
-            PreMigrationChecker preMigrationChecker = new PreMigrationChecker();
+            PreMigrationChecker preMigrationChecker = new PreMigrationChecker(sessionContext, keyspace);
             if (!preMigrationChecker.migrationIsNeeded()) {
                 LOGGER.info("Migration not needed as environment matches expected state");
                 return;
@@ -94,8 +96,6 @@ final class CqlMigratorImpl implements CqlMigrator {
         try {
             LOGGER.info("Loading cql files from {}", directories);
             CqlPaths paths = CqlPaths.create(directories);
-
-            SessionContext sessionContext = sessionContextFactory.getInstance(session, cqlMigratorConfig);
 
             KeyspaceBootstrapper keyspaceBootstrapper = new KeyspaceBootstrapper(sessionContext, keyspace, paths);
             SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, keyspace);

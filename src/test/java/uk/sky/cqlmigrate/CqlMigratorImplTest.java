@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -35,6 +36,7 @@ public class CqlMigratorImplTest {
 
     private static final CqlMigratorImpl MIGRATOR = new CqlMigratorImpl(CqlMigratorConfig.builder()
             .withLockConfig(CassandraLockConfig.builder()
+                    .withTimeout(Duration.ofSeconds(10))
                     .withConsistencyLevel(ConsistencyLevel.ALL)
                     .build())
             .withReadConsistencyLevel(ConsistencyLevel.ALL)
@@ -156,23 +158,20 @@ public class CqlMigratorImplTest {
     }
 
     @Test
-    public void shouldMigrateIfPreFlightChecksEnabledAndSomeChangesNotApplied() throws Exception {
+    public void shouldNotAttemptMigrationIfPreFlightChecksEnabledAndNoChangesAreFound() throws Exception {
         //given
-        Collection<Path> cqlPaths = new ArrayList<>();
-        cqlPaths.add(getResourcePath("cql_valid_one"));
-        cqlPaths.add(getResourcePath("cql_valid_two"));
+        Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
         MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true);
+
+        // Simulate future migration failure as lock cannot be obtained
+        String client = UUID.randomUUID().toString();
+        session.execute("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?)", LOCK_NAME, client);
 
         //when
-        cqlPaths.add(getResourcePath("cql_valid_three"));
-        MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true);
+        Throwable throwable = catchThrowable(() -> MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true));
 
         //then
-        Session session = cluster.connect(TEST_KEYSPACE);
-        ResultSet rs = session.execute("select * from status where dependency = 'developers'");
-        List<Row> rows = rs.all();
-        assertThat(rows).hasSize(1);
-        assertThat(rows.get(0).getString("waste_of_space")).isEqualTo("false");
+        assertThat(throwable).isNull();
     }
 
     @Test
