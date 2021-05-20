@@ -18,8 +18,9 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 
 class SchemaUpdates {
+    public static final String SCHEMA_UPDATES_TABLE = "schema_updates";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(SchemaUpdates.class);
-    private static final String SCHEMA_UPDATES_TABLE = "schema_updates";
     private static final String CHECKSUM_COLUMN = "checksum";
 
     private final SessionContext sessionContext;
