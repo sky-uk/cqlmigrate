@@ -158,6 +158,26 @@ public class CqlMigratorImplTest {
     }
 
     @Test
+    public void shouldMigrateIfPreFlightChecksEnabledAndSomeChangesNotApplied() throws Exception {
+        //given
+        Collection<Path> cqlPaths = new ArrayList<>();
+        cqlPaths.add(getResourcePath("cql_valid_one"));
+        cqlPaths.add(getResourcePath("cql_valid_two"));
+        MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true);
+
+        //when
+        cqlPaths.add(getResourcePath("cql_valid_three"));
+        MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true);
+
+        //then
+        Session session = cluster.connect(TEST_KEYSPACE);
+        ResultSet rs = session.execute("select * from status where dependency = 'developers'");
+        List<Row> rows = rs.all();
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).getString("waste_of_space")).isEqualTo("false");
+    }
+
+    @Test
     public void shouldNotAttemptMigrationIfPreFlightChecksEnabledAndNoChangesAreFound() throws Exception {
         //given
         Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
@@ -172,6 +192,25 @@ public class CqlMigratorImplTest {
 
         //then
         assertThat(throwable).isNull();
+    }
+
+    @Test
+    public void shouldThrowExceptionsIfExistingMigrationContainsAFileWithDifferentChecksum() throws URISyntaxException {
+        //given
+        Collection<Path> cqlPaths = new ArrayList<>();
+        cqlPaths.add(getResourcePath("cql_valid_one"));
+        cqlPaths.add(getResourcePath("cql_valid_two"));
+        MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true);
+
+        //when
+        cqlPaths.clear();
+        cqlPaths.add(getResourcePath("cql_valid_one"));
+        cqlPaths.add(getResourcePath("cql_valid_two_modified_content_checksum"));
+        Throwable throwable = catchThrowable(() -> MIGRATOR.migrate(CASSANDRA_HOSTS, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true));
+
+        //then
+        assertThat(throwable).isNotNull();
+        assertThat(throwable.getMessage()).contains("Contents have changed for 2015-04-01-13:58-change-waste-of-space-column-to-text.cql");
     }
 
     @Test
@@ -207,10 +246,10 @@ public class CqlMigratorImplTest {
     public void shouldRemoveLockAfterMigrationFailedIfUnlockOnFailureIsSetToTrue() throws Exception {
         //given
         CqlMigrator migrator = new CqlMigratorImpl(CqlMigratorConfig.builder()
-            .withLockConfig(CassandraLockConfig.builder().unlockOnFailure().build())
-            .withReadConsistencyLevel(ConsistencyLevel.ALL)
-            .withWriteConsistencyLevel(ConsistencyLevel.ALL)
-            .build(), new SessionContextFactory());
+                .withLockConfig(CassandraLockConfig.builder().unlockOnFailure().build())
+                .withReadConsistencyLevel(ConsistencyLevel.ALL)
+                .withWriteConsistencyLevel(ConsistencyLevel.ALL)
+                .build(), new SessionContextFactory());
         Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap_missing_semicolon"));
 
         //when
