@@ -79,11 +79,12 @@ final class CqlMigratorImpl implements CqlMigrator {
 
         SessionContext sessionContext = sessionContextFactory.getInstance(session, cqlMigratorConfig);
 
+        SchemaChecker schemaChecker = new SchemaChecker(sessionContext, keyspace);
+
         LOGGER.info("Loading cql files from {}", directories);
         CqlPaths paths = CqlPaths.create(directories);
 
         if (performPrechecks) {
-            SchemaChecker schemaChecker = new SchemaChecker(sessionContext, keyspace);
             PreMigrationChecker preMigrationChecker = new PreMigrationChecker(sessionContext, keyspace, schemaChecker, paths);
             if (!preMigrationChecker.migrationIsNeeded()) {
                 LOGGER.info("Migration not needed as environment matches expected state");
@@ -100,7 +101,7 @@ final class CqlMigratorImpl implements CqlMigrator {
         try {
             KeyspaceBootstrapper keyspaceBootstrapper = new KeyspaceBootstrapper(sessionContext, keyspace, paths);
             SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, keyspace);
-            SchemaLoader schemaLoader = new SchemaLoader(sessionContext, keyspace, schemaUpdates, paths);
+            SchemaLoader schemaLoader = new SchemaLoader(sessionContext, keyspace, schemaUpdates, schemaChecker, paths);
 
             keyspaceBootstrapper.bootstrap();
             schemaUpdates.initialise();
