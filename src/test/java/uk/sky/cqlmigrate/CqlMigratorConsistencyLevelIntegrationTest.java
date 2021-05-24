@@ -151,7 +151,7 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
 
         // ensure that any reads from schema updates are read at the configured consistency level
         queryLogs = cluster.getLogs().getQueryLogs().stream()
-                .filter(queryLog -> queryLog.getFrame().message.toString().contains("SELECT * FROM schema_updates where filename = ?"))
+                .filter(queryLog -> queryLog.getFrame().message.toString().contains("SELECT * FROM cqlmigrate_test.schema_updates where filename = ?"))
                 .filter(queryLog -> queryLog.getConsistency().equals(toSimulacronConsistencyLevel(expectedReadConsistencyLevel)))
                 .collect(Collectors.toList());
         assertThat(queryLogs.size()).isEqualTo(1);

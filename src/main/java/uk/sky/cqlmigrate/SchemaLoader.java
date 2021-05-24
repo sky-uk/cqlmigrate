@@ -14,12 +14,15 @@ class SchemaLoader {
     private final SessionContext sessionContext;
     private final String keyspace;
     private final SchemaUpdates schemaUpdates;
+    private final SchemaChecker schemaChecker;
     private final CqlPaths paths;
 
-    SchemaLoader(SessionContext sessionContext, String keyspace, SchemaUpdates schemaUpdates, CqlPaths paths) {
+    SchemaLoader(SessionContext sessionContext, String keyspace, SchemaUpdates schemaUpdates,
+                 SchemaChecker schemaChecker, CqlPaths paths) {
         this.sessionContext = sessionContext;
         this.keyspace = keyspace;
         this.schemaUpdates = schemaUpdates;
+        this.schemaChecker = schemaChecker;
         this.paths = paths;
     }
 
@@ -31,8 +34,8 @@ class SchemaLoader {
     private class Loader implements CqlPaths.Function {
         @Override
         public void apply(String filename, Path path) {
-            if (schemaUpdates.alreadyApplied(filename)) {
-                if (schemaUpdates.contentsAreDifferent(filename, path)) {
+            if (schemaChecker.alreadyApplied(filename)) {
+                if (schemaChecker.contentsAreDifferent(filename, path)) {
                     LOGGER.error("Contents have changed: {}", path.getFileName());
                     throw new IllegalStateException("Contents have changed for " + filename + " at " + path);
                 } else {
