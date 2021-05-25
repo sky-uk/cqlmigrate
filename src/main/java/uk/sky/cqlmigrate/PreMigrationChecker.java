@@ -42,7 +42,7 @@ public class PreMigrationChecker {
             if (schemaChecker.alreadyApplied(filename)) {
                 if (schemaChecker.contentsAreDifferent(filename, path)) {
                     LOGGER.error("Contents have changed: {}", path.getFileName());
-                    throw new IllegalStateException("Contents have changed for " + filename + " at " + path);
+                    throw new IllegalStateException("Pre-migration check detected that contents have changed for " + filename + " at " + path);
                 } else {
                     LOGGER.info("Already applied: {}, skipping", path.getFileName());
                 }

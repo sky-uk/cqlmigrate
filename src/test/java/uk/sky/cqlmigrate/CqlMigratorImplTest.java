@@ -210,7 +210,7 @@ public class CqlMigratorImplTest {
 
         //then
         assertThat(throwable).isNotNull();
-        assertThat(throwable.getMessage()).contains("Contents have changed for 2015-04-01-13:58-change-waste-of-space-column-to-text.cql");
+        assertThat(throwable.getMessage()).contains("Pre-migration check detected that contents have changed for 2015-04-01-13:58-change-waste-of-space-column-to-text.cql");
     }
 
     @Test
