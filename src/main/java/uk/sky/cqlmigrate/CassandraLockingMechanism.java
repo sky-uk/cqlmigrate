@@ -112,26 +112,30 @@ class CassandraLockingMechanism extends LockingMechanism {
             ResultSet resultSet = session.execute(deleteLockQuery.bind(lockName, clientId));
             Row result = resultSet.one();
 
-            // if a row doesn't exist then cassandra doesn't send back any columns
-            boolean noLockExists = !result.getColumnDefinitions().contains("client");
-            if (result.getBoolean("[applied]") || noLockExists) {
-                log.info("Lock released for {} by client {} at: {}", lockName, clientId, System.currentTimeMillis());
-                return true;
-            }
-
-
-            String clientReleasingLock = result.getString("client");
-            if (!clientReleasingLock.equals(clientId)) {
-                if (isRetryAfterWriteTimeout) {
-                    log.info("Released lock for client {} in retry attempt after WriteTimeoutException", clientReleasingLock);
+            if (result != null) {
+                // if a row doesn't exist then cassandra doesn't send back any columns
+                boolean noLockExists = !result.getColumnDefinitions().contains("client");
+                if (result.getBoolean("[applied]") || noLockExists) {
+                    log.info("Lock released for {} by client {} at: {}", lockName, clientId, System.currentTimeMillis());
                     return true;
+                }
+
+                String clientReleasingLock = result.getString("client");
+                if (!clientReleasingLock.equals(clientId)) {
+                    if (isRetryAfterWriteTimeout) {
+                        log.info("Released lock for client {} in retry attempt after WriteTimeoutException", clientReleasingLock);
+                        return true;
+                    } else {
+                        throw new CannotReleaseLockException(
+                                String.format("Lock %s attempted to be released by a non lock holder (%s). Current lock holder: %s", lockName, clientId, clientReleasingLock));
+                    }
                 } else {
-                    throw new CannotReleaseLockException(
-                            String.format("Lock %s attempted to be released by a non lock holder (%s). Current lock holder: %s", lockName, clientId, clientReleasingLock));
+                    log.error("Delete lock query did not get applied but client is still {}. This should never happen.", clientId);
+                    return false;
                 }
             } else {
-                log.error("Delete lock query did not get applied but client is still {}. This should never happen.", clientId);
-                return false;
+                log.info("Lock released for {} by client {} at: {}", lockName, clientId, System.currentTimeMillis());
+                return true;
             }
         } catch (WriteTimeoutException e) {
             isRetryAfterWriteTimeout = true;
