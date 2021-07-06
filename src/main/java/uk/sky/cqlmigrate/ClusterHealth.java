@@ -24,11 +24,9 @@ class ClusterHealth {
     }
 
     void check() throws ClusterUnhealthyException {
-
         log.debug("Checking session health");
 
         Map<UUID, Node> nodes = session.getMetadata().getNodes();
-
         List<InetAddress> unhealthyHosts = nodes.values().stream()
                 .filter(node -> node.getState().equals(NodeState.DOWN))
                 .map(node -> node.getBroadcastAddress().get().getAddress())
@@ -38,6 +36,6 @@ class ClusterHealth {
             throw new ClusterUnhealthyException("Cluster not healthy, the following hosts are down: " + unhealthyHosts);
         }
 
-        log.debug("All hosts healthy: {}", nodes.entrySet());
+        log.debug("All hosts healthy: {}", nodes.values());
     }
 }

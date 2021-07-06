@@ -1,6 +1,7 @@
 package uk.sky.cqlmigrate;
 
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.DriverException;
 import com.datastax.oss.driver.api.core.session.Session;
 import uk.sky.cqlmigrate.exception.CannotAcquireLockException;
 import uk.sky.cqlmigrate.exception.CannotReleaseLockException;
@@ -75,7 +76,7 @@ public interface CqlMigrator {
      * @param password Password for Cassandra's internal authentication using PasswordAuthenticator
      *                 (if using AllowAllAuthenticator, can be set to any value)
      * @param keyspace Keyspace name for which the schema migration needs to be applied
-     * @throws com.datastax.oss.driver.api.core.DriverException if query fails
+     * @throws DriverException if query fails
      */
     void clean(String[] hosts, String localDC, int port, String username, String password, String keyspace);
 

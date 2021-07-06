@@ -47,7 +47,7 @@ The locks keyspace and table needs to be created before running any migrations.
 To apply all `.cql` files located in `/cql` in the classpath:
 
 ```java
-import com.datastax.driver.core.*;
+import com.datastax.oss.driver.api.core.*;
 
 // Configure locking for coordination of multiple nodes
 CassandraLockConfig lockConfig = CassandraLockConfig.builder()

@@ -196,10 +196,8 @@ public class LockVerificationTest {
         return currentRecord.one().getInt("counter");
     }
 
-
     private CassandraLockConfig createCassandraLockConfig() {
         return CassandraLockConfig.builder()
                 .withPollingInterval(Duration.ofMillis(30)).build();
     }
-
 }

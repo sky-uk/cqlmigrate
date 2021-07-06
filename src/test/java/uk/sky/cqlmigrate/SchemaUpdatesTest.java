@@ -7,17 +7,19 @@ import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.servererrors.AlreadyExistsException;
 import com.google.common.hash.Hashing;
 import com.google.common.io.Resources;
-import com.google.common.util.concurrent.Uninterruptibles;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.thrift.transport.TTransportException;
+import org.assertj.core.api.Assertions;
 import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
 import org.junit.*;
 
 import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Paths;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static org.assertj.core.api.Assertions.fail;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
@@ -53,7 +55,7 @@ public class SchemaUpdatesTest {
     @AfterClass
     public static void tearDownClass() {
         EmbeddedCassandraServerHelper.cleanEmbeddedCassandra();
-        Uninterruptibles.sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
+        sleepUninterruptibly(100, TimeUnit.MILLISECONDS);
     }
 
     @Test
@@ -66,8 +68,9 @@ public class SchemaUpdatesTest {
         schemaUpdates.initialise();
 
         //then
-        KeyspaceMetadata keyspaceMetadata = session.getMetadata().getKeyspace(TEST_KEYSPACE).get();
-        assertThat(keyspaceMetadata.getTable(SCHEMA_UPDATES_TABLE)).as("table should have been created").isNotNull();
+        Optional<KeyspaceMetadata> keyspaceMetadata = session.getMetadata().getKeyspace(TEST_KEYSPACE);
+        assertThat(keyspaceMetadata).isNotEmpty();
+        assertThat(keyspaceMetadata.get().getTable(SCHEMA_UPDATES_TABLE)).as("table should have been created").isNotNull();
     }
 
     @Test
@@ -85,8 +88,9 @@ public class SchemaUpdatesTest {
             fail("Expected " + SCHEMA_UPDATES_TABLE + " table creation to be attempted only once.");
         }
         //then
-        KeyspaceMetadata keyspaceMetadata = session.getMetadata().getKeyspace(TEST_KEYSPACE).get();
-        assertThat(keyspaceMetadata.getTable(SCHEMA_UPDATES_TABLE)).as("table should have been created").isNotNull();
+        Optional<KeyspaceMetadata> keyspaceMetadata = session.getMetadata().getKeyspace(TEST_KEYSPACE);
+        assertThat(keyspaceMetadata).isNotEmpty();
+        assertThat(keyspaceMetadata.get().getTable(SCHEMA_UPDATES_TABLE)).as("table should have been created").isNotNull();
     }
 
     /**
@@ -113,13 +117,12 @@ public class SchemaUpdatesTest {
         //then
         final String guavaSha1Hash = Resources.asByteSource(cqlResource).hash(Hashing.sha1()).toString();
         final ResultSet resultSet = session.execute("SELECT * from " + SCHEMA_UPDATES_TABLE);
-        assertThat(resultSet.all().size()).isEqualTo(1);
-        resultSet.forEach(row ->
-        {
-            assertThat(row.getString("filename"))
-                    .isEqualTo(filename);
-            assertThat(row.getString("checksum"))
-                    .isEqualTo(guavaSha1Hash);
-        });
+        Assertions.assertThat(resultSet.all())
+                .hasOnlyOneElementSatisfying(row -> {
+                    Assertions.assertThat(row.getString("filename"))
+                            .isEqualTo(filename);
+                    Assertions.assertThat(row.getString("checksum"))
+                            .isEqualTo(guavaSha1Hash);
+                });
     }
 }

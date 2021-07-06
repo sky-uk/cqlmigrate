@@ -107,45 +107,16 @@ public class CassandraLockingMechanismTest {
     }
 
     @Test
-    public void shouldInsertLockWhenAcquiringLock() {
-
-        cluster.prime(primeInsertQuery(LOCK_KEYSPACE, CLIENT_ID, true));
-        //when
-        lockingMechanism.init();
-        //then
-        assertThat(lockingMechanism.acquire(CLIENT_ID)).isTrue();
-    }
-
-    @Test  // same as one above
     public void shouldSuccessfullyAcquireLockWhenInsertIsApplied() {
-        // given
+        //given
         cluster.prime(primeInsertQuery(LOCK_KEYSPACE, CLIENT_ID, true));
-
         //when
         lockingMechanism.init();
         boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
-
         //then
         assertThat(acquiredLock)
                 .describedAs("lock was acquired")
                 .isTrue();
-    }
-
-    @Test
-    public void shouldUnsuccessfullyAcquireLockWhenInsertIsNotApplied() {
-        //given
-        cluster.prime(primeInsertQuery(LOCK_KEYSPACE, CLIENT_ID, true).
-                then(writeTimeout(com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL, 1, 1, WriteType.SIMPLE)));
-
-        //when
-        lockingMechanism.init();
-        //then
-        boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
-
-        //then
-        assertThat(acquiredLock)
-                .describedAs("lock was not acquired")
-                .isFalse();
     }
 
     @Test
@@ -154,15 +125,28 @@ public class CassandraLockingMechanismTest {
         cluster.prime(primeInsertQuery(LOCK_KEYSPACE, CLIENT_ID, false));
         //when
         lockingMechanism.init();
-        //then
         boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
+        //then
         assertThat(acquiredLock)
                 .describedAs("lock was acquired")
                 .isTrue();
     }
 
     @Test
-    public void shouldUnsuccessfullyAcquireLockWhenWriteTimeoutOccurs() {
+    public void shouldNotAcquireLockWhenLockIsAlreadyAcquiredByDifferentClient() {
+        //given
+        cluster.prime(primeInsertQueryAcquiredByDifferentClient(LOCK_KEYSPACE, CLIENT_ID));
+        //when
+        lockingMechanism.init();
+        boolean acquiredLock = lockingMechanism.acquire(CLIENT_ID);
+        //then
+        assertThat(acquiredLock)
+                .describedAs("lock not acquired")
+                .isFalse();
+    }
+
+    @Test
+    public void shouldUnsuccessfullyAcquireLockWhenInsertIsNotApplied() {
         //given
         cluster.prime(primeInsertQuery(LOCK_KEYSPACE, CLIENT_ID, true).
                 then(writeTimeout(com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL, 1, 1, WriteType.SIMPLE)));
@@ -207,7 +191,6 @@ public class CassandraLockingMechanismTest {
                 .collect(Collectors.toList());
 
         assertThat(queryLogs.size()).isEqualTo(1);
-
     }
 
     @Test
@@ -316,7 +299,7 @@ public class CassandraLockingMechanismTest {
     private static PrimeBuilder primeInsertQuery(String lockName, String clientId, Boolean lockApplied) {
         String prepareInsertQuery = "INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS";
 
-        PrimeBuilder primeBuilder = when(query(
+        return when(query(
                 prepareInsertQuery,
                 Lists.newArrayList(
                         com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ONE,
@@ -326,8 +309,22 @@ public class CassandraLockingMechanismTest {
                 .then(rows().row(
                         "[applied]", valueOf(lockApplied), "client", CLIENT_ID).columnTypes("[applied]", "boolean", "clientid", "varchar")
                 );
-        return primeBuilder;
+    }
 
+    private static PrimeBuilder primeInsertQueryAcquiredByDifferentClient(String lockName, String clientId) {
+        String prepareInsertQuery = "INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?) IF NOT EXISTS";
+        String differentClient = UUID.randomUUID().toString();
+
+        return when(query(
+                prepareInsertQuery,
+                Lists.newArrayList(
+                        com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ONE,
+                        com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL),
+                new LinkedHashMap<>(ImmutableMap.of("name", lockName + ".schema_migration", "client", clientId)),
+                new LinkedHashMap<>(ImmutableMap.of("name", "varchar", "client", "varchar"))))
+                .then(rows().row(
+                        "[applied]", valueOf(false), "client", differentClient).columnTypes("[applied]", "boolean", "clientid", "varchar")
+                );
     }
 
     private static PrimeBuilder primeDeleteQuery(String lockName, String queriedClientId, boolean lockDeleted) {

@@ -7,6 +7,7 @@ import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.datastax.oss.driver.api.core.metadata.schema.KeyspaceMetadata;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
+import com.datastax.oss.driver.api.core.servererrors.SyntaxError;
 import com.google.common.util.concurrent.Uninterruptibles;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.thrift.transport.TTransportException;
@@ -95,11 +96,7 @@ public class CqlMigratorImplTest {
         MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
 
         //then
-        try {
-            session.getMetadata().getKeyspace(TEST_KEYSPACE);
-        } catch (Throwable t) {
-            fail("Should have successfully connected, but got " + t);
-        }
+        assertThat(session.getMetadata().getKeyspace(TEST_KEYSPACE)).isNotEmpty();
     }
 
     @Test(timeout = 5000)
@@ -138,11 +135,7 @@ public class CqlMigratorImplTest {
         MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
 
         //then
-        try {
-            session.getMetadata().getKeyspace(TEST_KEYSPACE);
-        } catch (Throwable t) {
-            fail("Should have successfully connected, but got " + t);
-        }
+        assertThat(session.getMetadata().getKeyspace(TEST_KEYSPACE)).isNotEmpty();
     }
 
     @Test
@@ -210,48 +203,50 @@ public class CqlMigratorImplTest {
         future.get();
 
         //then
-        try {
-            session.getMetadata().getKeyspace(TEST_KEYSPACE);
-        } catch (Throwable t) {
-            fail("Should have successfully connected, but got " + t);
-        }
+        assertThat(session.getMetadata().getKeyspace(TEST_KEYSPACE)).isNotEmpty();
     }
 
-    @Test(expected = RuntimeException.class)
+    @Test
     public void shouldThrowExceptionForInvalidBootstrap() throws Exception {
         //given
         Path cqlPath = getResourcePath("cql_invalid_bootstrap");
         Collection<Path> cqlPaths = singletonList(cqlPath);
 
         //when
-        MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
-
-        //then
-        //throws exception
+        try {
+            MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
+            //then
+        } catch (SyntaxError ex) {
+            assertThat(ex.getMessage()).contains("line 1:0 no viable alternative at input 'sdfgsdfgdf'");
+        }
     }
 
-    @Test(expected = RuntimeException.class)
+    @Test
     public void shouldThrowExceptionForBootstrapWithMissingSemiColon() throws Exception {
         //given
         Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap_missing_semicolon"));
 
         //when
-        MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
-
-        //then
-        //throws exception
+        try {
+            MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
+            //then
+        } catch (IllegalStateException ex) {
+            assertThat(ex.getMessage()).isEqualTo("File had a non-terminated cql line");
+        }
     }
 
-    @Test(expected = RuntimeException.class)
+    @Test
     public void shouldThrowExceptionWhenMultipleBootstrap() throws Exception {
         //given
         Collection<Path> cqlPaths = asList(getResourcePath("cql_bootstrap"), getResourcePath("cql_bootstrap_duplicate"));
 
         //when
-        MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
-
-        //then
-        //throws exception
+        try {
+            MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths);
+            //then
+        } catch (IllegalArgumentException ex) {
+            assertThat(ex.getMessage()).contains("Multiple files with the same name");
+        }
     }
 
     @Test
@@ -349,7 +344,7 @@ public class CqlMigratorImplTest {
 
         //then
         Optional<KeyspaceMetadata> keyspaceMetadata = session.getMetadata().getKeyspace(TEST_KEYSPACE);
-        assertThatThrownBy(keyspaceMetadata::get).as("should not have made any schema changes").isInstanceOf(NoSuchElementException.class);
+        assertThat(keyspaceMetadata).isEmpty();
     }
 
     @Test

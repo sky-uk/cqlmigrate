@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Optional;
 
 class KeyspaceBootstrapper {
 
@@ -23,8 +24,8 @@ class KeyspaceBootstrapper {
 
     void bootstrap() {
         Session session = sessionContext.getSession();
-        KeyspaceMetadata keyspaceMetadata = session.getMetadata().getKeyspace(keyspace).orElse(null);
-        if (keyspaceMetadata == null) {
+        Optional<KeyspaceMetadata> keyspaceMetadata = session.getMetadata().getKeyspace(keyspace);
+        if (!keyspaceMetadata.isPresent()) {
             paths.applyBootstrap((filename, path) -> {
                 LOGGER.info("Keyspace not found, applying {} at consistency level {}", path, sessionContext.getWriteConsistencyLevel());
                 List<String> cqlStatements = CqlFileParser.getCqlStatementsFrom(path);
