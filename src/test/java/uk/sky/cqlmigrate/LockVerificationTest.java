@@ -2,6 +2,8 @@ package uk.sky.cqlmigrate;
 
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.config.DefaultDriverOption;
+import com.datastax.oss.driver.api.core.config.DriverConfigLoader;
 import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.datastax.oss.driver.api.core.cql.Statement;
@@ -52,6 +54,7 @@ public class LockVerificationTest {
     private BoundCluster bCluster;
     private CqlSession session;
     private DataCenterSpec dc;
+    DriverConfigLoader loader;
 
     @Before
     public void setUp() throws UnknownHostException {
@@ -60,7 +63,13 @@ public class LockVerificationTest {
         dc.addNode().withPeerInfo("host_id", UUID.randomUUID()).build();
         bCluster = server.register(cluster);
 
+        loader = DriverConfigLoader.programmaticBuilder()
+                .withDuration(DefaultDriverOption.REQUEST_TIMEOUT, Duration.ofMillis(1000))
+                .endProfile()
+                .build();
+
         session = CqlSession.builder()
+                .withConfigLoader(loader)
                 .addContactPoint(new InetSocketAddress(Inet4Address.getByAddress(new byte[]{127, 0, 0, 1}), CASSANDRA_PORT))
                 .withLocalDatacenter(dc.getName()).build();
 
@@ -87,6 +96,7 @@ public class LockVerificationTest {
         final Collection<Path> cqlPaths = singletonList(Paths.get(ClassLoader.getSystemResource("cql_migrate_multithreads").toURI()));
         final Callable<String> cqlMigrate = () -> {
             CqlSession session = CqlSession.builder()
+                    .withConfigLoader(loader)
                     .addContactPoint(new InetSocketAddress(Inet4Address.getByAddress(new byte[]{127, 0, 0, 1}), CASSANDRA_PORT))
                     .withLocalDatacenter(dc.getName()).build();
 
@@ -129,6 +139,7 @@ public class LockVerificationTest {
         final int maximumWorkers = 25;
         final Callable<List<Integer>> worker = () -> {
             CqlSession session = CqlSession.builder()
+                    .withConfigLoader(loader)
                     .addContactPoint(new InetSocketAddress(Inet4Address.getByAddress(new byte[]{127, 0, 0, 1}), CASSANDRA_PORT))
                     .withLocalDatacenter(dc.getName()).build();
 

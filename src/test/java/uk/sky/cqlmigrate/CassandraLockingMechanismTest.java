@@ -278,20 +278,6 @@ public class CassandraLockingMechanismTest {
                 .isFalse();
     }
 
-    @Test
-    public void shouldReturnTrueIfNoLockExists() {
-        //given
-        cluster.prime(primeDeleteQueryWithNoResult(LOCK_KEYSPACE, CLIENT_ID));
-        lockingMechanism.init();
-        //when
-        boolean released = lockingMechanism.release(CLIENT_ID);
-
-        //then
-        assertThat(released)
-                .describedAs("lock was not released")
-                .isTrue();
-    }
-
     private CqlSession newSession() throws UnknownHostException {
         return CqlSession.builder().addContactPoint(new InetSocketAddress(Inet4Address.getByAddress(new byte[]{127, 0, 0, 1}), defaultStartingPort)).withLocalDatacenter(dc.getName()).build();
     }
@@ -355,16 +341,4 @@ public class CassandraLockingMechanismTest {
                         .row("[applied]", false, "client", lockHeldClientId).columnTypes("[applied]", "boolean", "clientid", "varchar"));
     }
 
-    private static PrimeBuilder primeDeleteQueryWithNoResult(String lockName, String queriedClientId) {
-        String deleteQuery = "DELETE FROM cqlmigrate.locks WHERE name = ? IF client = ?";
-
-        return when(query(
-                deleteQuery,
-                Lists.newArrayList(
-                        com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ONE,
-                        com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL),
-                new LinkedHashMap<>(ImmutableMap.of("name", lockName + ".schema_migration", "client", queriedClientId)),
-                new LinkedHashMap<>(ImmutableMap.of("name", "varchar", "client", "varchar"))))
-                .then(rows());
-    }
 }
