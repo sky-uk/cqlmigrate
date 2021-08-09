@@ -18,6 +18,15 @@ import java.util.Collection;
  */
 
 public interface CqlMigrator {
+
+    /**
+     *
+     * See {@link CqlMigrator#migrate(String[], String, int, String, String, String, Collection, boolean)}
+     */
+    default void migrate(String[] hosts, String localDC, int port, String username, String password, String keyspace, Collection<Path> directories) {
+        this.migrate(hosts, localDC, port, username, password, keyspace, directories, false);
+    }
+
     /**
      * If all nodes are up and a lock can be acquired this runs migration
      * starting with bootstrap.cql and then the rest in alphabetical order.
@@ -33,6 +42,7 @@ public interface CqlMigrator {
      *                    (if using AllowAllAuthenticator, can be set to any value)
      * @param keyspace    Keyspace name for which the schema migration needs to be applied
      * @param directories Comma separated list of directory paths containing the cql statements for the schema change
+     * @param performPrechecks  Flag showing whether to check if environment needs changes applied before obtaining lock
      * @throws ClusterUnhealthyException                        if any nodes are down or the schema is not in agreement before running migration
      * @throws CannotAcquireLockException                       if any of the queries to acquire lock fail or
      *                                                          {@link CassandraLockConfig.CassandraLockConfigBuilder#withTimeout(Duration)}
@@ -42,7 +52,15 @@ public interface CqlMigrator {
      * @throws IllegalStateException                            if cql file has changed after migration has been run
      * @throws com.datastax.oss.driver.api.core.DriverException if any of the migration queries fails
      */
-    void migrate(String[] hosts, String localDC, int port, String username, String password, String keyspace, Collection<Path> directories);
+    void migrate(String[] hosts, String localDC, int port, String username, String password, String keyspace, Collection<Path> directories, boolean performPrechecks);
+
+    /**
+     *
+     * See {@link CqlMigrator#migrate(CqlSession, String, Collection, boolean)}
+     */
+    default void migrate(CqlSession session, String keyspace, Collection<Path> directories) {
+        this.migrate(session, keyspace, directories, false);
+    }
 
     /**
      * If all nodes are up and a lock can be acquired this runs migration
@@ -53,6 +71,7 @@ public interface CqlMigrator {
      * @param session     Session to a cassandra cluster
      * @param keyspace    Keyspace name for which the schema migration needs to be applied
      * @param directories Comma separated list of directory paths containing the cql statements for the schema change
+     * @param performPrechecks  Flag showing whether to check if environment needs changes applied before obtaining lock
      * @throws ClusterUnhealthyException                        if any nodes are down or the schema is not
      *                                                          in agreement before running migration
      * @throws CannotAcquireLockException                       if any of the queries to acquire lock fail or
@@ -63,7 +82,7 @@ public interface CqlMigrator {
      * @throws IllegalStateException                            if cql file has changed after migration has been run
      * @throws com.datastax.oss.driver.api.core.DriverException if any of the migration queries fails
      */
-    void migrate(CqlSession session, String keyspace, Collection<Path> directories);
+    void migrate(CqlSession session, String keyspace, Collection<Path> directories, boolean performPrechecks);
 
     /**
      * Drops keyspace if it exists

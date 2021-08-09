@@ -51,6 +51,7 @@ final class CqlMigratorImpl implements CqlMigrator {
         String port = System.getProperty("port");
         String username = System.getProperty("username");
         String password = System.getProperty("password");
+        String precheck = System.getProperty("precheck", "false");
 
         requireNonNull(hosts, "'hosts' property should be provided having value of a comma separated list of cassandra hosts");
         requireNonNull(localDC, "'localDC' property should be provided having value of local datacenter for the contact points mentioned in the hosts; " +
@@ -63,29 +64,45 @@ final class CqlMigratorImpl implements CqlMigrator {
                 .collect(Collectors.toList());
 
         CqlMigratorFactory.create(CassandraLockConfig.builder().build())
-                .migrate(hosts.split(","), localDC, port == null ? 9042 : Integer.parseInt(port), username, password, keyspace, directories);
+                .migrate(hosts.split(","), localDC, port == null ? 9042 : Integer.parseInt(port), username, password, keyspace, directories, Boolean.parseBoolean(precheck));
     }
 
     /**
      * {@inheritDoc}
      */
-    public void migrate(String[] hosts, String localDC, int port, String username, String password, String keyspace, Collection<Path> directories) {
+    public void migrate(String[] hosts, String localDC, int port, String username, String password, String keyspace, Collection<Path> directories, boolean performPrechecks) {
         List<InetSocketAddress> cassandraHosts = Stream.of(hosts).map(host -> new InetSocketAddress(host, port)).collect(Collectors.toList());
 
         try (CqlSession cqlSession = CqlSession.builder()
                 .addContactPoints(cassandraHosts)
                 .withLocalDatacenter(localDC)
                 .withAuthCredentials(username, password).build()) {
-            this.migrate(cqlSession, keyspace, directories);
+            this.migrate(cqlSession, keyspace, directories, performPrechecks);
         }
     }
 
     /**
      * {@inheritDoc}
      */
-    public void migrate(CqlSession session, String keyspace, Collection<Path> directories) {
+    public void migrate(CqlSession session, String keyspace, Collection<Path> directories, boolean performPrechecks) {
         LockingMechanism lockingMechanism = cqlMigratorConfig.getCassandraLockConfig().getLockingMechanism(session, keyspace);
         LockConfig lockConfig = cqlMigratorConfig.getCassandraLockConfig();
+
+        SessionContext sessionContext = sessionContextFactory.getInstance(session, cqlMigratorConfig);
+
+        SchemaChecker schemaChecker = new SchemaChecker(sessionContext, keyspace);
+
+        LOGGER.info("Loading cql files from {}", directories);
+        CqlPaths paths = CqlPaths.create(directories);
+
+        if (performPrechecks) {
+            PreMigrationChecker preMigrationChecker = new PreMigrationChecker(sessionContext, keyspace, schemaChecker, paths);
+            if (!preMigrationChecker.migrationIsNeeded()) {
+                LOGGER.info("Migration not needed as environment matches expected state");
+                return;
+            }
+            LOGGER.info("Pre-migration checks completed, migration is needed. Continuing...");
+        }
 
         boolean migrationFailed = false;
         Lock lock = new Lock(lockingMechanism, lockConfig);
@@ -93,14 +110,9 @@ final class CqlMigratorImpl implements CqlMigrator {
         lock.lock();
 
         try {
-            LOGGER.info("Loading cql files from {}", directories);
-            CqlPaths paths = CqlPaths.create(directories);
-
-            SessionContext sessionContext = sessionContextFactory.getInstance(session, cqlMigratorConfig);
-
             KeyspaceBootstrapper keyspaceBootstrapper = new KeyspaceBootstrapper(sessionContext, keyspace, paths);
             SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, keyspace);
-            SchemaLoader schemaLoader = new SchemaLoader(sessionContext, keyspace, schemaUpdates, paths);
+            SchemaLoader schemaLoader = new SchemaLoader(sessionContext, keyspace, schemaUpdates, schemaChecker, paths);
 
             keyspaceBootstrapper.bootstrap();
             schemaUpdates.initialise();

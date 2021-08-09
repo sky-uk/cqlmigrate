@@ -20,6 +20,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -43,6 +44,7 @@ public class CqlMigratorImplTest {
 
     private static final CqlMigratorImpl MIGRATOR = new CqlMigratorImpl(CqlMigratorConfig.builder()
             .withLockConfig(CassandraLockConfig.builder()
+                    .withTimeout(Duration.ofSeconds(10))
                     .withConsistencyLevel(ConsistencyLevel.ALL)
                     .build())
             .withReadConsistencyLevel(ConsistencyLevel.ALL)
@@ -136,6 +138,75 @@ public class CqlMigratorImplTest {
 
         //then
         assertThat(session.getMetadata().getKeyspace(TEST_KEYSPACE)).isNotEmpty();
+    }
+
+    @Test
+    public void shouldMigrateIfPreFlightChecksEnabledAndChangesNotApplied() throws Exception {
+        //given
+        Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
+
+        //when
+        MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true);
+
+        //then
+        assertThat(session.getMetadata().getKeyspace(TEST_KEYSPACE)).isNotEmpty();
+    }
+
+    @Test
+    public void shouldMigrateIfPreFlightChecksEnabledAndSomeChangesNotApplied() throws Exception {
+        //given
+        Collection<Path> cqlPaths = new ArrayList<>();
+        cqlPaths.add(getResourcePath("cql_valid_one"));
+        cqlPaths.add(getResourcePath("cql_valid_two"));
+        MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true);
+
+        //when
+        cqlPaths.add(getResourcePath("cql_valid_three"));
+        MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true);
+
+        //then
+        SimpleStatement simpleStatement = newInstance("select * from status where dependency = 'developers'");
+        ResultSet rs = session.execute(simpleStatement);
+
+        List<Row> rows = rs.all();
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).getString("waste_of_space")).isEqualTo("false");
+    }
+
+    @Test
+    public void shouldNotAttemptMigrationIfPreFlightChecksEnabledAndNoChangesAreFound() throws Exception {
+        //given
+        Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
+        MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true);
+
+        // Simulate future migration failure as lock cannot be obtained
+        String client = UUID.randomUUID().toString();
+        session.execute("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?)", LOCK_NAME, client);
+
+        //when
+        Throwable throwable = catchThrowable(() -> MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true));
+
+        //then
+        assertThat(throwable).isNull();
+    }
+
+    @Test
+    public void shouldThrowExceptionsIfExistingMigrationContainsAFileWithDifferentChecksum() throws URISyntaxException {
+        //given
+        Collection<Path> cqlPaths = new ArrayList<>();
+        cqlPaths.add(getResourcePath("cql_valid_one"));
+        cqlPaths.add(getResourcePath("cql_valid_two"));
+        MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true);
+
+        //when
+        cqlPaths.clear();
+        cqlPaths.add(getResourcePath("cql_valid_one"));
+        cqlPaths.add(getResourcePath("cql_valid_two_modified_content_checksum"));
+        Throwable throwable = catchThrowable(() -> MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true));
+
+        //then
+        assertThat(throwable).isNotNull();
+        assertThat(throwable.getMessage()).contains("Pre-migration check detected that contents have changed for 2015-04-01-13:58-change-waste-of-space-column-to-text.cql");
     }
 
     @Test
