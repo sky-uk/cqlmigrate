@@ -1,6 +1,6 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.ConsistencyLevel;
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import org.junit.Assume;
 import org.junit.Rule;
 import org.junit.experimental.theories.DataPoint;

@@ -1,9 +1,10 @@
 package uk.sky.cqlmigrate;
 
+import com.datastax.oss.driver.api.core.CqlIdentifier;
+import com.datastax.oss.driver.api.core.metadata.schema.RelationMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,11 +30,16 @@ public class PreMigrationChecker {
     }
 
     private boolean keyspaceExists() {
-        return sessionContext.getSession().getCluster().getMetadata().getKeyspace(keyspace) != null;
+        return sessionContext.getSession().getMetadata().getKeyspace(keyspace).isPresent();
     }
 
     private boolean schemaUpdatesTableExists() {
-        return sessionContext.getSession().getCluster().getMetadata().getKeyspace(keyspace).getTable(SCHEMA_UPDATES_TABLE) != null;
+        if(keyspaceExists()){
+            return sessionContext.getSession().getMetadata().getKeyspace(keyspace)
+                    .flatMap(keyspaceMetadata -> keyspaceMetadata.getTable(SCHEMA_UPDATES_TABLE)).isPresent();
+        } else {
+            return false;
+        }
     }
 
     private boolean allMigrationFilesApplied() {

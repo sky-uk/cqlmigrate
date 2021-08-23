@@ -1,6 +1,6 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.SimpleStatement;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,7 +27,7 @@ class SchemaLoader {
     }
 
     void load() {
-        sessionContext.getSession().execute(new SimpleStatement("USE " + keyspace + ";").setConsistencyLevel(sessionContext.getReadConsistencyLevel()));
+        sessionContext.getSession().execute(SimpleStatement.newInstance("USE " + keyspace + ";").setConsistencyLevel(sessionContext.getReadConsistencyLevel()));
         paths.applyInSortedOrder(new Loader());
     }
 

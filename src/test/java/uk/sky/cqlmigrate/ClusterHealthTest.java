@@ -1,7 +1,6 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.Cluster;
-import com.datastax.driver.core.Session;
+import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.simulacron.common.cluster.ClusterSpec;
 import com.datastax.oss.simulacron.common.cluster.DataCenterSpec;
 import com.datastax.oss.simulacron.server.BoundCluster;
@@ -30,27 +29,28 @@ import static org.awaitility.Awaitility.await;
 public class ClusterHealthTest {
 
     private static final int defaultStartingPort = PortScavenger.getFreePort();
+    private static final Server server = Server.builder().build();
+
+    private final ClusterSpec cluster = ClusterSpec.builder().build();
 
     private ClusterHealth clusterHealth;
-
-    private static Server server = Server.builder().build();
-    private ClusterSpec cluster = ClusterSpec.builder().build();
     private BoundCluster bCluster;
-
-    private Cluster realCluster;
+    private CqlSession realCluster;
 
     @Before
     public void setUp() throws UnknownHostException {
         DataCenterSpec dc = cluster.addDataCenter().withName("DC1").withCassandraVersion("3.11").build();
-        dc.addNode().withAddress( new InetSocketAddress(Inet4Address.getByAddress(new byte[] {127, 0, 0, 1}), defaultStartingPort)).build();
+        dc.addNode().withAddress(new InetSocketAddress(Inet4Address.getByAddress(new byte[]{127, 0, 0, 1}), defaultStartingPort)).build();
         dc.addNode().withPeerInfo("host_id", UUID.randomUUID()).build();
         bCluster = server.register(cluster);
 
         bCluster.prime(when("select cluster_name from system.local where key = 'local'")
                 .then(rows().row("cluster_name", "0").build()));
 
-        realCluster = CassandraClusterFactory.createCluster(new String[]{"localhost"}, defaultStartingPort, null, null);
-        realCluster.connect();
+        realCluster = CqlSession.builder()
+                .addContactPoint(new InetSocketAddress(Inet4Address.getByAddress(new byte[]{127, 0, 0, 1}), defaultStartingPort))
+                .withLocalDatacenter(dc.getName())
+                .build();
         clusterHealth = new ClusterHealth(realCluster);
     }
 
@@ -74,7 +74,7 @@ public class ClusterHealthTest {
                     //then
                     assertThat(throwable).isNotNull();
                     assertThat(throwable).isInstanceOf(ClusterUnhealthyException.class);
-                    assertThat(throwable).hasMessage("Cluster not healthy, the following hosts are down: [localhost/127.0.0.1]");
+                    assertThat(throwable).hasMessage("Cluster not healthy, the following hosts are down: [/127.0.0.1]");
                     throwable.printStackTrace();
                 });
     }

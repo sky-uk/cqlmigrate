@@ -1,9 +1,10 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.Session;
-import com.datastax.driver.core.SimpleStatement;
-import com.datastax.driver.core.Statement;
-import com.datastax.driver.core.TableMetadata;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.Row;
+import com.datastax.oss.driver.api.core.cql.SimpleStatement;
+import com.datastax.oss.driver.api.core.cql.Statement;
+import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,11 +26,20 @@ class SchemaUpdates {
     }
 
     void initialise() {
-        Session session = sessionContext.getSession();
-        session.execute(new SimpleStatement("USE " + keyspace + ";").setConsistencyLevel(sessionContext.getReadConsistencyLevel()));
-        TableMetadata schemaUpdateTableMetadata = session.getCluster().getMetadata().getKeyspace(keyspace).getTable(SCHEMA_UPDATES_TABLE);
+        CqlSession session = sessionContext.getSession();
+        session.execute(SimpleStatement
+                .newInstance("USE " + keyspace + ";")
+                .setConsistencyLevel(sessionContext.getReadConsistencyLevel())
+        );
+        TableMetadata schemaUpdateTableMetadata = session
+                .getMetadata()
+                .getKeyspace(keyspace)
+                .flatMap(k -> k.getTable(SCHEMA_UPDATES_TABLE)).orElse(null);
+
         if (schemaUpdateTableMetadata == null) {
-            CqlLoader.load(sessionContext, Collections.singletonList("CREATE TABLE " + SCHEMA_UPDATES_TABLE + " (filename text primary key, " + CHECKSUM_COLUMN + " text, applied_on timestamp);"));
+            CqlLoader.load(sessionContext,
+                    Collections.singletonList("CREATE TABLE " + SCHEMA_UPDATES_TABLE + " (filename text primary key, " + CHECKSUM_COLUMN + " text, applied_on timestamp);")
+            );
         }
     }
 
@@ -38,10 +48,9 @@ class SchemaUpdates {
         String query = "INSERT INTO " + SCHEMA_UPDATES_TABLE + " (filename, " + CHECKSUM_COLUMN + ", applied_on)" +
                 " VALUES (?, ?, dateof(now()));";
 
-        Statement statement = new SimpleStatement(query, filename, ChecksumCalculator.calculateChecksum(path)).setConsistencyLevel(sessionContext.getWriteConsistencyLevel());
+        Statement statement = SimpleStatement.newInstance(query, filename, ChecksumCalculator.calculateChecksum(path)).setConsistencyLevel(sessionContext.getWriteConsistencyLevel());
 
         LOGGER.debug("Applying schema cql: {} path: {}", query, path);
         sessionContext.getSession().execute(statement);
     }
-
 }

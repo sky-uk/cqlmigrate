@@ -1,8 +1,11 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.driver.core.*;
+import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.cql.Row;
+
 import java.nio.file.Path;
 
+import static com.datastax.oss.driver.api.core.cql.SimpleStatement.newInstance;
 import static java.util.Objects.requireNonNull;
 
 class SchemaChecker {
@@ -22,11 +25,10 @@ class SchemaChecker {
         return row != null;
     }
 
-    private Row getSchemaUpdate(Session session, String filename) {
-        return session.execute(
-                new SimpleStatement("SELECT * FROM " + keyspace + "." + SCHEMA_UPDATES_TABLE + " where filename = ?", filename)
-                        .setConsistencyLevel(sessionContext.getReadConsistencyLevel()))
-                .one();
+    private Row getSchemaUpdate(CqlSession session, String filename) {
+
+        return session.execute(newInstance("SELECT * FROM " + keyspace + "." + SCHEMA_UPDATES_TABLE + " where filename = ?", filename)
+                .setConsistencyLevel(sessionContext.getReadConsistencyLevel())).one();
     }
 
     boolean contentsAreDifferent(String filename, Path path) {
