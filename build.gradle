@@ -2,7 +2,8 @@ plugins {
     id 'java-library'
     id 'idea'
     id 'maven-publish'
-    id 'com.jfrog.bintray' version '1.8.4'
+    id 'maven'
+    id 'signing'
     id 'pl.allegro.tech.build.axion-release' version '1.10.0'
     id 'com.github.johnrengelman.shadow' version '5.0.0'
 }
@@ -21,29 +22,11 @@ java {
     targetCompatibility = JavaVersion.VERSION_1_8
 }
 
-if (!project.hasProperty('openSourceRepoUser')) {
-    ext.openSourceRepoUser = 'dummy'
+if (!project.hasProperty('ossrhUsername')) {
+    ext.ossrhUsername = 'dummy'
 }
-if (!project.hasProperty('openSourceRepoPass')) {
-    ext.openSourceRepoPass = 'dummy'
-}
-
-bintray {
-    user = project.property('openSourceRepoUser')
-    key = project.property('openSourceRepoPass')
-    publications = ['artifacts', 'shadow']
-    pkg {
-        userOrg = 'sky-uk'
-        repo = 'oss-maven'
-        name = project.name
-        licenses = ['BSD 3-Clause']
-        vcsUrl = 'https://github.com/sky-uk/cqlmigrate.git'
-        version {
-            name = scmVersion.version
-            released = new Date()
-            vcsTag = scmVersion.version
-        }
-    }
+if (!project.hasProperty('ossrhPassword')) {
+    ext.ossrhPassword = 'dummy'
 }
 
 shadowJar {
@@ -187,3 +170,77 @@ publishing {
     }
 }
 
+artifacts {
+    archives javadocJar, sourcesJar, shadowJar
+}
+
+tasks.withType(Sign) {
+    onlyIf { gradle.taskGraph.hasTask(":uploadArchives") }
+}
+
+signing {
+    sign configurations.archives
+}
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+
+            repository(url: "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/") {
+                authentication(userName: ossrhUsername, password: ossrhPassword)
+            }
+
+            snapshotRepository(url: "https://s01.oss.sonatype.org/content/repositories/snapshots/") {
+                authentication(userName: ossrhUsername, password: ossrhPassword)
+            }
+
+            pom.project {
+                name 'cqlmigrate'
+                packaging 'jar'
+                description 'cqlmigrate is a library for performing schema migrations on a cassandra cluster'
+                url 'https://github.com/sky-uk/cqlmigrate'
+
+                scm {
+                    connection 'scm:git:git@github.com:sky-uk/cqlmigrate.git'
+                    developerConnection 'scm:git:git@github.com:sky-uk/cqlmigrate.git'
+                    url 'https://github.com/sky-uk/cqlmigrate.git'
+                }
+
+                licenses {
+                    license {
+                        name 'BSD 3-clause "New" or "Revised" license'
+                        url 'https://opensource.org/licenses/BSD-3-Clause'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id 'adamdougal'
+                        name 'Adam Dougal'
+                    }
+                    developer {
+                        id 'chuckydev'
+                        name 'Charlie McNeill'
+                    }
+                    developer {
+                        id 'tjuszczyk'
+                        name 'Tomasz Juszczyk'
+                    }
+                    developer {
+                        id 'michaelmcfadyensky'
+                        name 'Michael McFadyen'
+                    }
+                    developer {
+                        id 'davidh87'
+                        name 'David Heath'
+                    }
+                    developer {
+                        id 'alangibson01'
+                        name 'Alan Gibson'
+                    }
+                }
+            }
+        }
+    }
+}
