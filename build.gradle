@@ -174,12 +174,12 @@ artifacts {
     archives javadocJar, sourcesJar, shadowJar
 }
 
-signing {
-    sign configurations.archives
+tasks.withType(Sign) {
+    onlyIf { gradle.taskGraph.hasTask(":uploadArchives") }
 }
 
-tasks.withType(Sign) {
-    onlyIf { gradle.taskGraph.hasTask("uploadArchives") }
+signing {
+    sign configurations.archives
 }
 
 uploadArchives {
