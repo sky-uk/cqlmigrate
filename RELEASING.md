@@ -45,7 +45,15 @@ uid                      John Smith <john.smith@sky.uk>
 sub   rsa3072 2021-11-16 [E]
 ```
 
-Take note of `5BEFCDB2`. This is your signing key ID.
+Take note of `5BEFCDB2`. This is your signing key ID and needs to be provided when uploading to Maven Central.
+
+6. Distribute your public key:
+
+```shell
+gpg --keyserver keyserver.ubuntu.com --send-keys 5E323D1244C346B15FBF73A210F0219E5BEFCDB2
+```
+
+More info on the above steps can be found here https://central.sonatype.org/publish/requirements/gpg/.
 
 ## Bump the version
 
