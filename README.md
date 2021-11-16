@@ -1,5 +1,4 @@
 [![Build Status](https://travis-ci.com/sky-uk/cqlmigrate.svg?branch=master)](https://travis-ci.com/sky-uk/cqlmigrate)
-[![Download](https://api.bintray.com/packages/sky-uk/oss-maven/cqlmigrate/images/download.svg) ](https://bintray.com/sky-uk/oss-maven/cqlmigrate/_latestVersion)
 
 # Cassandra CQL migration tool
 
@@ -11,27 +10,19 @@ It is best used as an application dependency, but can also be used standalone.
 
 ```groovy
 repositories {
-    jcenter()
+    mavenCentral()
 }
 
-compile 'uk.sky:cqlmigrate:0.9.9'
+compile 'uk.sky:cqlmigrate:0.12.0'
 ```
 
 ## Adding as a Maven dependency
 
 ```xml
-<repositories>
-    <repository>
-        <id>jcenter</id>
-        <name>jcenter</name>
-        <url>http://jcenter.bintray.com</url>
-    </repository>
-</repositories>
-
 <dependency>
   <groupId>uk.sky</groupId>
   <artifactId>cqlmigrate</artifactId>
-  <version>0.9.8</version>
+  <version>0.12.0</version>
 </dependency>
 ```
 
