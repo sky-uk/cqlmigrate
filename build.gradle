@@ -178,6 +178,10 @@ signing {
     sign configurations.archives
 }
 
+tasks.withType(Sign) {
+    onlyIf { gradle.taskGraph.hasTask("uploadArchives") }
+}
+
 uploadArchives {
     repositories {
         mavenDeployer {
