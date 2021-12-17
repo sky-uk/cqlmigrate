@@ -41,6 +41,10 @@ configurations {
     testCompileAndFunctional
     functional.extendsFrom(testCompileAndFunctional)
     testCompile.extendsFrom(testCompileAndFunctional)
+
+    all {
+        exclude module: 'log4j'
+    }
 }
 
 dependencies {
