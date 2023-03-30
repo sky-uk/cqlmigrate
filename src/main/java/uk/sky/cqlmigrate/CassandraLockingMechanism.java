@@ -72,12 +72,13 @@ class CassandraLockingMechanism extends LockingMechanism {
             verifyClusterIsHealthy();
             ResultSet resultSet = session.execute(insertLockQuery.bind(lockName, clientId));
             Row currentLock = resultSet.one();
+            String currentClientWithLock = currentLock.getString("client");
             // we could already hold the lock and not be aware if a previous acquire had a writetimeout as a timeout is not a failure in cassandra
             // also since we use a conditional insertion (IF NOT EXISTS) the resultSet is never null, same with resultSet.one()
-            if (currentLock.getBoolean("[applied]") || clientId.equals(currentLock.getString("client"))) {
+            if (currentLock.getBoolean("[applied]") || clientId.equals(currentClientWithLock)) {
                 return true;
             } else {
-                log.info("Lock currently held by {}", currentLock);
+                log.info("Lock currently held by client {}", currentClientWithLock);
                 return false;
             }
         } catch (WriteTimeoutException wte) {
