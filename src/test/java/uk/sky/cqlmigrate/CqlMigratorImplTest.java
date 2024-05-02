@@ -146,7 +146,7 @@ public class CqlMigratorImplTest {
         Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
 
         //when
-        MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true);
+        MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true, null);
 
         //then
         assertThat(session.getMetadata().getKeyspace(TEST_KEYSPACE)).isNotEmpty();
@@ -158,11 +158,11 @@ public class CqlMigratorImplTest {
         Collection<Path> cqlPaths = new ArrayList<>();
         cqlPaths.add(getResourcePath("cql_valid_one"));
         cqlPaths.add(getResourcePath("cql_valid_two"));
-        MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true);
+        MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true, null);
 
         //when
         cqlPaths.add(getResourcePath("cql_valid_three"));
-        MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true);
+        MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true, null);
 
         //then
         SimpleStatement simpleStatement = newInstance("select * from status where dependency = 'developers'");
@@ -177,14 +177,14 @@ public class CqlMigratorImplTest {
     public void shouldNotAttemptMigrationIfPreFlightChecksEnabledAndNoChangesAreFound() throws Exception {
         //given
         Collection<Path> cqlPaths = singletonList(getResourcePath("cql_bootstrap"));
-        MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true);
+        MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true, null);
 
         // Simulate future migration failure as lock cannot be obtained
         String client = UUID.randomUUID().toString();
         session.execute("INSERT INTO cqlmigrate.locks (name, client) VALUES (?, ?)", LOCK_NAME, client);
 
         //when
-        Throwable throwable = catchThrowable(() -> MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true));
+        Throwable throwable = catchThrowable(() -> MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true, null));
 
         //then
         assertThat(throwable).isNull();
@@ -196,13 +196,13 @@ public class CqlMigratorImplTest {
         Collection<Path> cqlPaths = new ArrayList<>();
         cqlPaths.add(getResourcePath("cql_valid_one"));
         cqlPaths.add(getResourcePath("cql_valid_two"));
-        MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true);
+        MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true, null);
 
         //when
         cqlPaths.clear();
         cqlPaths.add(getResourcePath("cql_valid_one"));
         cqlPaths.add(getResourcePath("cql_valid_two_modified_content_checksum"));
-        Throwable throwable = catchThrowable(() -> MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true));
+        Throwable throwable = catchThrowable(() -> MIGRATOR.migrate(CASSANDRA_HOSTS, LOCAL_DC, binaryPort, username, password, TEST_KEYSPACE, cqlPaths, true, null));
 
         //then
         assertThat(throwable).isNotNull();
