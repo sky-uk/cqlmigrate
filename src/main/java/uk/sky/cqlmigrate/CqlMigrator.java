@@ -21,10 +21,10 @@ public interface CqlMigrator {
 
     /**
      *
-     * See {@link CqlMigrator#migrate(String[], String, int, String, String, String, Collection, boolean, Duration)}
+     * See {@link CqlMigrator#migrate(String[], String, int, String, String, String, Collection, boolean)}
      */
     default void migrate(String[] hosts, String localDC, int port, String username, String password, String keyspace, Collection<Path> directories) {
-        this.migrate(hosts, localDC, port, username, password, keyspace, directories, false, null);
+        this.migrate(hosts, localDC, port, username, password, keyspace, directories, false);
     }
 
     /**
@@ -52,14 +52,14 @@ public interface CqlMigrator {
      * @throws IllegalStateException                            if cql file has changed after migration has been run
      * @throws com.datastax.oss.driver.api.core.DriverException if any of the migration queries fails
      */
-    void migrate(String[] hosts, String localDC, int port, String username, String password, String keyspace, Collection<Path> directories, boolean performPrechecks, Duration awskTableUpdateTimeout);
+    void migrate(String[] hosts, String localDC, int port, String username, String password, String keyspace, Collection<Path> directories, boolean performPrechecks);
 
     /**
      *
-     * See {@link CqlMigrator#migrate(CqlSession, String, Collection, boolean, Duration)}
+     * See {@link CqlMigrator#migrate(CqlSession, String, Collection, boolean)}
      */
     default void migrate(CqlSession session, String keyspace, Collection<Path> directories) {
-        this.migrate(session, keyspace, directories, false, null);
+        this.migrate(session, keyspace, directories, false);
     }
 
     /**
@@ -82,7 +82,7 @@ public interface CqlMigrator {
      * @throws IllegalStateException                            if cql file has changed after migration has been run
      * @throws com.datastax.oss.driver.api.core.DriverException if any of the migration queries fails
      */
-    void migrate(CqlSession session, String keyspace, Collection<Path> directories, boolean performPrechecks, Duration awskTableUpdateTimeout);
+    void migrate(CqlSession session, String keyspace, Collection<Path> directories, boolean performPrechecks);
 
     /**
      * Drops keyspace if it exists

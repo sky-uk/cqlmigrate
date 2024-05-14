@@ -1,17 +1,11 @@
 package uk.sky.cqlmigrate;
 
-import com.datastax.oss.driver.api.core.cql.ResultSet;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
-import org.awaitility.Awaitility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
-import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
-
-import static java.util.Objects.nonNull;
 
 class SchemaLoader {
 
@@ -22,16 +16,14 @@ class SchemaLoader {
     private final SchemaUpdates schemaUpdates;
     private final SchemaChecker schemaChecker;
     private final CqlPaths paths;
-    private final Duration awskTableUpdateTimeout;
 
     SchemaLoader(SessionContext sessionContext, String keyspace, SchemaUpdates schemaUpdates,
-                 SchemaChecker schemaChecker, CqlPaths paths, Duration awskTableUpdateTimeout) {
+                 SchemaChecker schemaChecker, CqlPaths paths) {
         this.sessionContext = sessionContext;
         this.keyspace = keyspace;
         this.schemaUpdates = schemaUpdates;
         this.schemaChecker = schemaChecker;
         this.paths = paths;
-        this.awskTableUpdateTimeout = awskTableUpdateTimeout;
     }
 
     void load() {
@@ -54,34 +46,13 @@ class SchemaLoader {
                 if (lowercasePath.endsWith(".cql")) {
                     List<String> cqlStatements = CqlFileParser.getCqlStatementsFrom(path);
                     CqlLoader.load(sessionContext, cqlStatements);
+                    TableChecker.check(sessionContext.getSession(), keyspace);
                 } else {
                     throw new IllegalArgumentException("Unrecognised file type: " + path);
                 }
 
                 schemaUpdates.add(filename, path);
-
                 LOGGER.info("Applied: {}", path.getFileName());
-
-                if (nonNull(awskTableUpdateTimeout)) {
-                    LOGGER.info("Waiting for tables to be provisioned");
-                    Awaitility.await()
-                            .pollInterval(10, TimeUnit.SECONDS)
-                            .atMost(awskTableUpdateTimeout)
-                            .until(() -> {
-                                try {
-                                    ResultSet result = sessionContext.getSession().execute("SELECT table_name, status FROM system_schema_mcs.tables WHERE keyspace_name=?", keyspace);
-                                    return !result.all().stream()
-                                            .filter(row -> !"ACTIVE".equals(row.getString("status")))
-                                            .peek(row -> LOGGER.info("Table {} is still in {} state", row.getString("table_name"), row.getString("status")))
-                                            .findAny()
-                                            .isPresent();
-                                } catch (Exception ex) {
-                                    return false;
-                                }
-                            });
-                    LOGGER.info("All tables are ready");
-                }
-
             }
         }
     }

@@ -14,7 +14,6 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -53,8 +52,6 @@ final class CqlMigratorImpl implements CqlMigrator {
         String username = System.getProperty("username");
         String password = System.getProperty("password");
         String precheck = System.getProperty("precheck", "false");
-        String awskTableUpdateTimeoutConfig = System.getProperty("awskTableUpdateTimeout");
-        Duration awskTableUpdateTimeout = Objects.nonNull(awskTableUpdateTimeoutConfig) ? Duration.parse(awskTableUpdateTimeoutConfig) : null;
 
         requireNonNull(hosts, "'hosts' property should be provided having value of a comma separated list of cassandra hosts");
         requireNonNull(localDC, "'localDC' property should be provided having value of local datacenter for the contact points mentioned in the hosts; " +
@@ -67,27 +64,27 @@ final class CqlMigratorImpl implements CqlMigrator {
                 .collect(Collectors.toList());
 
         CqlMigratorFactory.create(CassandraLockConfig.builder().build())
-                .migrate(hosts.split(","), localDC, port == null ? 9042 : Integer.parseInt(port), username, password, keyspace, directories, Boolean.parseBoolean(precheck), awskTableUpdateTimeout);
+                .migrate(hosts.split(","), localDC, port == null ? 9042 : Integer.parseInt(port), username, password, keyspace, directories, Boolean.parseBoolean(precheck));
     }
 
     /**
      * {@inheritDoc}
      */
-    public void migrate(String[] hosts, String localDC, int port, String username, String password, String keyspace, Collection<Path> directories, boolean performPrechecks, Duration awskTableUpdateTimeout) {
+    public void migrate(String[] hosts, String localDC, int port, String username, String password, String keyspace, Collection<Path> directories, boolean performPrechecks) {
         List<InetSocketAddress> cassandraHosts = Stream.of(hosts).map(host -> new InetSocketAddress(host, port)).collect(Collectors.toList());
 
         try (CqlSession cqlSession = CqlSession.builder()
                 .addContactPoints(cassandraHosts)
                 .withLocalDatacenter(localDC)
                 .withAuthCredentials(username, password).build()) {
-            this.migrate(cqlSession, keyspace, directories, performPrechecks, awskTableUpdateTimeout);
+            this.migrate(cqlSession, keyspace, directories, performPrechecks);
         }
     }
 
     /**
      * {@inheritDoc}
      */
-    public void migrate(CqlSession session, String keyspace, Collection<Path> directories, boolean performPrechecks, Duration awskTableUpdateTimeout) {
+    public void migrate(CqlSession session, String keyspace, Collection<Path> directories, boolean performPrechecks) {
         LockingMechanism lockingMechanism = cqlMigratorConfig.getCassandraLockConfig().getLockingMechanism(session, keyspace);
         LockConfig lockConfig = cqlMigratorConfig.getCassandraLockConfig();
 
@@ -115,7 +112,7 @@ final class CqlMigratorImpl implements CqlMigrator {
         try {
             KeyspaceBootstrapper keyspaceBootstrapper = new KeyspaceBootstrapper(sessionContext, keyspace, paths);
             SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, keyspace);
-            SchemaLoader schemaLoader = new SchemaLoader(sessionContext, keyspace, schemaUpdates, schemaChecker, paths, awskTableUpdateTimeout);
+            SchemaLoader schemaLoader = new SchemaLoader(sessionContext, keyspace, schemaUpdates, schemaChecker, paths);
 
             keyspaceBootstrapper.bootstrap();
             schemaUpdates.initialise();

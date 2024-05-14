@@ -40,6 +40,7 @@ class SchemaUpdates {
             CqlLoader.load(sessionContext,
                     Collections.singletonList("CREATE TABLE " + SCHEMA_UPDATES_TABLE + " (filename text primary key, " + CHECKSUM_COLUMN + " text, applied_on timestamp);")
             );
+            TableChecker.check(sessionContext.getSession(), keyspace);
         }
     }
 

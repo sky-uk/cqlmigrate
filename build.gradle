@@ -43,8 +43,16 @@ configurations {
     testCompile.extendsFrom(testCompileAndFunctional)
 }
 
+configurations.all {
+    resolutionStrategy.eachDependency { details ->
+        if( details.requested.name == 'jna') {
+            details.useTarget "net.java.dev.jna:jna:5.8.0"
+        }
+    }
+}
+
 dependencies {
-    api('com.datastax.oss:java-driver-core:4.17.0')
+    api('com.datastax.oss:java-driver-core:4.11.1')
     implementation('org.slf4j:slf4j-api:1.7.25')
     implementation('org.awaitility:awaitility:4.2.1')
 
