@@ -15,6 +15,7 @@ import uk.sky.cqlmigrate.util.PortScavenger;
 import java.net.Inet4Address;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.time.Duration;
 import java.util.UUID;
 
 import static com.datastax.oss.simulacron.common.stubbing.PrimeDsl.rows;
@@ -31,10 +32,10 @@ public class TableCheckerTest {
     private static BoundCluster bCluster;
     private static CqlSession realCluster;
 
+    private TableChecker tableChecker;
+
     @BeforeClass
     public static void classSetup() throws UnknownHostException {
-        System.setProperty("tableUpdateTimeout", "PT5S");
-
         ClusterSpec cluster = ClusterSpec.builder().build();
         DataCenterSpec dc = cluster.addDataCenter().withName("DC1").withCassandraVersion("3.11").build();
         dc.addNode().withAddress(new InetSocketAddress(Inet4Address.getByAddress(new byte[]{127, 0, 0, 1}), defaultStartingPort)).build();
@@ -51,6 +52,8 @@ public class TableCheckerTest {
     public void baseSetup() {
         bCluster.clearPrimes(true);
         bCluster.clearLogs();
+
+        tableChecker = new TableChecker(Duration.ofSeconds(5));
     }
 
     @AfterClass
@@ -68,7 +71,7 @@ public class TableCheckerTest {
         bCluster.prime(when("SELECT table_name, status FROM system_schema_mcs.tables WHERE keyspace_name=?;")
                 .then(rows().row("table_name", "test_table", "status", "ACTIVE").build()));
 
-        Throwable throwable = catchThrowable(() -> TableChecker.check(realCluster, "test_keyspace"));
+        Throwable throwable = catchThrowable(() -> tableChecker.check(realCluster, "test_keyspace"));
         assertThat(throwable).isNull();
     }
 
@@ -80,10 +83,10 @@ public class TableCheckerTest {
         bCluster.prime(when("SELECT table_name, status FROM system_schema_mcs.tables WHERE keyspace_name=?;")
                 .then(rows().row("table_name", "test_table", "status", "UPDATE").build()));
 
-        Throwable throwable = catchThrowable(() -> TableChecker.check(realCluster, "test_keyspace"));
+        Throwable throwable = catchThrowable(() -> tableChecker.check(realCluster, "test_keyspace"));
         assertThat(throwable).isNotNull();
         assertThat(throwable).isInstanceOf(ConditionTimeoutException.class);
-        assertThat(throwable).hasMessage("Condition with lambda expression in uk.sky.cqlmigrate.TableChecker that uses com.datastax.oss.driver.api.core.CqlSession, com.datastax.oss.driver.api.core.CqlSessionjava.lang.String was not fulfilled within 5 seconds.");
+        assertThat(throwable).hasMessage("Condition with lambda expression in uk.sky.cqlmigrate.TableChecker was not fulfilled within 5 seconds.");
     }
 
     @Test
@@ -94,7 +97,7 @@ public class TableCheckerTest {
         bCluster.prime(when("SELECT table_name, status FROM system_schema_mcs.tables WHERE keyspace_name=?;")
                 .then(rows().row("table_name", "test_table", "status", "UPDATE").build()));
 
-        Throwable throwable = catchThrowable(() -> TableChecker.check(realCluster, "test_keyspace"));
+        Throwable throwable = catchThrowable(() -> tableChecker.check(realCluster, "test_keyspace"));
         assertThat(throwable).isNull();
     }
 }

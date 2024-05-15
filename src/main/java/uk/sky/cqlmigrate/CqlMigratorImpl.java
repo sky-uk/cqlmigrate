@@ -1,6 +1,8 @@
 package uk.sky.cqlmigrate;
 
+import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.datastax.oss.driver.api.core.cql.Statement;
 import com.datastax.oss.driver.api.core.session.Session;
@@ -14,6 +16,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -52,6 +55,10 @@ final class CqlMigratorImpl implements CqlMigrator {
         String username = System.getProperty("username");
         String password = System.getProperty("password");
         String precheck = System.getProperty("precheck", "false");
+        String tableUpdateTimeoutString = System.getProperty("tableUpdateTimeout");
+        Duration tableUpdateTimeout = Objects.nonNull(tableUpdateTimeoutString) ? Duration.parse(tableUpdateTimeoutString) : null;
+        ConsistencyLevel readCL = DefaultConsistencyLevel.valueOf(System.getProperty("readCL", "LOCAL_ONE"));
+        ConsistencyLevel writeCL = DefaultConsistencyLevel.valueOf(System.getProperty("writeCL", "ALL"));
 
         requireNonNull(hosts, "'hosts' property should be provided having value of a comma separated list of cassandra hosts");
         requireNonNull(localDC, "'localDC' property should be provided having value of local datacenter for the contact points mentioned in the hosts; " +
@@ -63,7 +70,14 @@ final class CqlMigratorImpl implements CqlMigrator {
                 .map(Paths::get)
                 .collect(Collectors.toList());
 
-        CqlMigratorFactory.create(CassandraLockConfig.builder().build())
+        CqlMigratorConfig cqlMigratorConfig = CqlMigratorConfig.builder()
+                .withLockConfig(CassandraLockConfig.builder().build())
+                .withReadConsistencyLevel(readCL)
+                .withWriteConsistencyLevel(writeCL)
+                .withTableCheckerTimeout(tableUpdateTimeout)
+                .build();
+
+        CqlMigratorFactory.create(cqlMigratorConfig)
                 .migrate(hosts.split(","), localDC, port == null ? 9042 : Integer.parseInt(port), username, password, keyspace, directories, Boolean.parseBoolean(precheck));
     }
 
@@ -91,6 +105,7 @@ final class CqlMigratorImpl implements CqlMigrator {
         SessionContext sessionContext = sessionContextFactory.getInstance(session, cqlMigratorConfig);
 
         SchemaChecker schemaChecker = new SchemaChecker(sessionContext, keyspace);
+        TableChecker tableChecker = new TableChecker(cqlMigratorConfig.getTableCheckerTimeout());
 
         LOGGER.info("Loading cql files from {}", directories);
         CqlPaths paths = CqlPaths.create(directories);
@@ -111,8 +126,8 @@ final class CqlMigratorImpl implements CqlMigrator {
 
         try {
             KeyspaceBootstrapper keyspaceBootstrapper = new KeyspaceBootstrapper(sessionContext, keyspace, paths);
-            SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, keyspace);
-            SchemaLoader schemaLoader = new SchemaLoader(sessionContext, keyspace, schemaUpdates, schemaChecker, paths);
+            SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, keyspace, tableChecker);
+            SchemaLoader schemaLoader = new SchemaLoader(sessionContext, keyspace, schemaUpdates, schemaChecker, tableChecker, paths);
 
             keyspaceBootstrapper.bootstrap();
             schemaUpdates.initialise();

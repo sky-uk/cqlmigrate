@@ -2,17 +2,21 @@ package uk.sky.cqlmigrate;
 
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 
+import java.time.Duration;
+
 import static java.util.Objects.requireNonNull;
 
 public class CqlMigratorConfig {
     private final LockConfig cassandraLockConfig;
     private final ConsistencyLevel readConsistencyLevel;
     private final ConsistencyLevel writeConsistencyLevel;
+    private final Duration tableCheckerTimeout;
 
-    private CqlMigratorConfig(LockConfig cassandraLockConfig, ConsistencyLevel readConsistencyLevel, ConsistencyLevel writeConsistencyLevel) {
+    private CqlMigratorConfig(LockConfig cassandraLockConfig, ConsistencyLevel readConsistencyLevel, ConsistencyLevel writeConsistencyLevel, Duration tableCheckerTimeout) {
         this.cassandraLockConfig = requireNonNull(cassandraLockConfig);
         this.readConsistencyLevel = requireNonNull(readConsistencyLevel);
         this.writeConsistencyLevel = requireNonNull(writeConsistencyLevel);
+        this.tableCheckerTimeout = tableCheckerTimeout;
     }
 
     public static CassandraConfigBuilder builder() {
@@ -31,13 +35,19 @@ public class CqlMigratorConfig {
         return writeConsistencyLevel;
     }
 
+    public Duration getTableCheckerTimeout() {
+        return tableCheckerTimeout;
+    }
+
     public static class CassandraConfigBuilder {
 
         private LockConfig lockConfig;
         private ConsistencyLevel readConsistencyLevel;
         private ConsistencyLevel writeConsistencyLevel;
+        private Duration tableCheckerTimeout;
 
-        private CassandraConfigBuilder() {}
+        private CassandraConfigBuilder() {
+        }
 
         public CassandraConfigBuilder withLockConfig(LockConfig cassandraLockConfig) {
             this.lockConfig = cassandraLockConfig;
@@ -54,8 +64,13 @@ public class CqlMigratorConfig {
             return this;
         }
 
+        public CassandraConfigBuilder withTableCheckerTimeout(Duration tableCheckerTimeout) {
+            this.tableCheckerTimeout = tableCheckerTimeout;
+            return this;
+        }
+
         public CqlMigratorConfig build() {
-            return new CqlMigratorConfig(lockConfig, readConsistencyLevel, writeConsistencyLevel);
+            return new CqlMigratorConfig(lockConfig, readConsistencyLevel, writeConsistencyLevel, tableCheckerTimeout);
         }
     }
 }

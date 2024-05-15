@@ -1,7 +1,6 @@
 package uk.sky.cqlmigrate;
 
 import com.datastax.oss.driver.api.core.CqlSession;
-import com.datastax.oss.driver.api.core.cql.Row;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.datastax.oss.driver.api.core.cql.Statement;
 import com.datastax.oss.driver.api.core.metadata.schema.TableMetadata;
@@ -19,10 +18,12 @@ class SchemaUpdates {
 
     private final SessionContext sessionContext;
     private final String keyspace;
+    private final TableChecker tableChecker;
 
-    SchemaUpdates(SessionContext sessionContext, String keyspace) {
+    SchemaUpdates(SessionContext sessionContext, String keyspace, TableChecker tableChecker) {
         this.sessionContext = sessionContext;
         this.keyspace = keyspace;
+        this.tableChecker = tableChecker;
     }
 
     void initialise() {
@@ -40,7 +41,7 @@ class SchemaUpdates {
             CqlLoader.load(sessionContext,
                     Collections.singletonList("CREATE TABLE " + SCHEMA_UPDATES_TABLE + " (filename text primary key, " + CHECKSUM_COLUMN + " text, applied_on timestamp);")
             );
-            TableChecker.check(sessionContext.getSession(), keyspace);
+            tableChecker.check(sessionContext.getSession(), keyspace);
         }
     }
 

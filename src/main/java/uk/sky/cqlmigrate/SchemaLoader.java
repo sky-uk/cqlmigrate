@@ -15,14 +15,17 @@ class SchemaLoader {
     private final String keyspace;
     private final SchemaUpdates schemaUpdates;
     private final SchemaChecker schemaChecker;
+
+    private final TableChecker tableChecker;
     private final CqlPaths paths;
 
     SchemaLoader(SessionContext sessionContext, String keyspace, SchemaUpdates schemaUpdates,
-                 SchemaChecker schemaChecker, CqlPaths paths) {
+                 SchemaChecker schemaChecker, TableChecker tableChecker, CqlPaths paths) {
         this.sessionContext = sessionContext;
         this.keyspace = keyspace;
         this.schemaUpdates = schemaUpdates;
         this.schemaChecker = schemaChecker;
+        this.tableChecker = tableChecker;
         this.paths = paths;
     }
 
@@ -46,7 +49,7 @@ class SchemaLoader {
                 if (lowercasePath.endsWith(".cql")) {
                     List<String> cqlStatements = CqlFileParser.getCqlStatementsFrom(path);
                     CqlLoader.load(sessionContext, cqlStatements);
-                    TableChecker.check(sessionContext.getSession(), keyspace);
+                    tableChecker.check(sessionContext.getSession(), keyspace);
                 } else {
                     throw new IllegalArgumentException("Unrecognised file type: " + path);
                 }
