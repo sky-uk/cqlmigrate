@@ -55,8 +55,8 @@ final class CqlMigratorImpl implements CqlMigrator {
         String username = System.getProperty("username");
         String password = System.getProperty("password");
         String precheck = System.getProperty("precheck", "false");
-        String tableUpdateTimeoutString = System.getProperty("tableUpdateTimeout");
-        Duration tableUpdateTimeout = Objects.nonNull(tableUpdateTimeoutString) ? Duration.parse(tableUpdateTimeoutString) : null;
+        String tableCheckerTimeoutString = System.getProperty("tableCheckerTimeout");
+        Duration tableCheckerTimeout = Objects.nonNull(tableCheckerTimeoutString) ? Duration.parse(tableCheckerTimeoutString) : null;
         ConsistencyLevel readCL = DefaultConsistencyLevel.valueOf(System.getProperty("readCL", "LOCAL_ONE"));
         ConsistencyLevel writeCL = DefaultConsistencyLevel.valueOf(System.getProperty("writeCL", "ALL"));
 
@@ -74,7 +74,7 @@ final class CqlMigratorImpl implements CqlMigrator {
                 .withLockConfig(CassandraLockConfig.builder().build())
                 .withReadConsistencyLevel(readCL)
                 .withWriteConsistencyLevel(writeCL)
-                .withTableCheckerTimeout(tableUpdateTimeout)
+                .withTableCheckerTimeout(tableCheckerTimeout)
                 .build();
 
         CqlMigratorFactory.create(cqlMigratorConfig)
