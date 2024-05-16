@@ -17,7 +17,7 @@ repositories {
     mavenCentral()
 }
 
-compile 'uk.sky:cqlmigrate:0.12.0'
+compile 'uk.sky:cqlmigrate:0.13.0'
 ```
 
 ## Adding as a Maven dependency
@@ -26,7 +26,7 @@ compile 'uk.sky:cqlmigrate:0.12.0'
 <dependency>
   <groupId>uk.sky</groupId>
   <artifactId>cqlmigrate</artifactId>
-  <version>0.12.0</version>
+  <version>0.13.0</version>
 </dependency>
 ```
 
@@ -83,7 +83,11 @@ $ java -Dhosts=localhost,192.168.1.1 -Dport=9042 -DlocalDC=DC1 -Dkeyspace=my_key
 
 Specify credentials, if required, using `-Dusername=<username>` and `-Dpassword=<password>`.
 
-Specify optional properties, if required, using `-Dprecheck=<true/false>` default `false` and `tableCheckerTimeout=<duration>` default no wait
+Specify optional properties, if required, using
+* `-Dprecheck=<true/false>` default `false` 
+* `-DtableCheckerTimeout=<duration>` default no wait
+* `-DreadCL` default `LOCAL_ONE`
+* `-DwriteCL` default `ALL`
 
 ## What it does
 
