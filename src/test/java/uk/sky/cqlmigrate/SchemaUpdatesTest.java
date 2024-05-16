@@ -21,6 +21,8 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static org.assertj.core.api.Assertions.fail;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 public class SchemaUpdatesTest {
 
@@ -29,7 +31,7 @@ public class SchemaUpdatesTest {
 
     private static CqlSession session;
     private static ClusterHealth clusterHealth;
-    private static TableChecker tableChecker;
+    private TableChecker tableChecker;
 
     @BeforeClass
     public static void setupCassandra() throws ConfigurationException, IOException {
@@ -37,13 +39,13 @@ public class SchemaUpdatesTest {
 
         session = EmbeddedCassandraServerHelper.getSession();
         clusterHealth = new ClusterHealth(session);
-        tableChecker = new TableChecker(null);
     }
 
     @Before
     public void setUp() {
         session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test");
         session.execute("CREATE KEYSPACE IF NOT EXISTS cqlmigrate_test WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
+        tableChecker = mock(TableChecker.class);
     }
 
     @After
@@ -72,6 +74,7 @@ public class SchemaUpdatesTest {
         Optional<KeyspaceMetadata> keyspaceMetadata = session.getMetadata().getKeyspace(TEST_KEYSPACE);
         assertThat(keyspaceMetadata).isNotEmpty();
         assertThat(keyspaceMetadata.get().getTable(SCHEMA_UPDATES_TABLE)).as("table should have been created").isNotNull();
+        verify(tableChecker).check(session, TEST_KEYSPACE);
     }
 
     @Test
