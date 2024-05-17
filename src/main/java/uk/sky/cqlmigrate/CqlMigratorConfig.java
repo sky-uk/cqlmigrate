@@ -44,7 +44,7 @@ public class CqlMigratorConfig {
         private LockConfig lockConfig;
         private ConsistencyLevel readConsistencyLevel;
         private ConsistencyLevel writeConsistencyLevel;
-        private Duration tableCheckerTimeout;
+        private Duration tableCheckerTimeout = Duration.ofMinutes(1);
 
         private CassandraConfigBuilder() {
         }

@@ -85,7 +85,7 @@ Specify credentials, if required, using `-Dusername=<username>` and `-Dpassword=
 
 Specify optional properties, if required, using
 * `-Dprecheck=<true/false>` default `false` 
-* `-DtableCheckerTimeout=<duration>` default no wait
+* `-DtableCheckerTimeout=<duration>` default `PT1M` (This was introduced for AWS Keyspaces as when new table is created it might take time to allocate resources and if additional changes or data are inserted while table is in `CREATING` state, it will fail. If cluster is no AWS Keyspaces it will not wait.)
 * `-DreadCL` default `LOCAL_ONE`
 * `-DwriteCL` default `ALL`
 

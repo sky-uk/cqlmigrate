@@ -16,7 +16,6 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -51,12 +50,11 @@ final class CqlMigratorImpl implements CqlMigrator {
         String localDC = System.getProperty("localDC");
         String keyspace = System.getProperty("keyspace");
         String directoriesProperty = System.getProperty("directories");
-        String port = System.getProperty("port");
+        int port = Integer.parseInt(System.getProperty("port", "9042"));
         String username = System.getProperty("username");
         String password = System.getProperty("password");
         String precheck = System.getProperty("precheck", "false");
-        String tableCheckerTimeoutString = System.getProperty("tableCheckerTimeout");
-        Duration tableCheckerTimeout = Objects.nonNull(tableCheckerTimeoutString) ? Duration.parse(tableCheckerTimeoutString) : null;
+        Duration tableCheckerTimeout = Duration.parse(System.getProperty("tableCheckerTimeout", "PT1M"));
         ConsistencyLevel readCL = DefaultConsistencyLevel.valueOf(System.getProperty("readCL", "LOCAL_ONE"));
         ConsistencyLevel writeCL = DefaultConsistencyLevel.valueOf(System.getProperty("writeCL", "ALL"));
 
@@ -78,7 +76,7 @@ final class CqlMigratorImpl implements CqlMigrator {
                 .build();
 
         CqlMigratorFactory.create(cqlMigratorConfig)
-                .migrate(hosts.split(","), localDC, port == null ? 9042 : Integer.parseInt(port), username, password, keyspace, directories, Boolean.parseBoolean(precheck));
+                .migrate(hosts.split(","), localDC, port, username, password, keyspace, directories, Boolean.parseBoolean(precheck));
     }
 
     /**
@@ -105,7 +103,7 @@ final class CqlMigratorImpl implements CqlMigrator {
         SessionContext sessionContext = sessionContextFactory.getInstance(session, cqlMigratorConfig);
 
         SchemaChecker schemaChecker = new SchemaChecker(sessionContext, keyspace);
-        TableChecker tableChecker = new TableChecker(cqlMigratorConfig.getTableCheckerTimeout());
+        TableChecker tableChecker = new TableCheckerFactory().getInstance(session, cqlMigratorConfig);
 
         LOGGER.info("Loading cql files from {}", directories);
         CqlPaths paths = CqlPaths.create(directories);

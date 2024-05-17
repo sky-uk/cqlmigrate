@@ -23,8 +23,7 @@ import static com.datastax.oss.simulacron.common.stubbing.PrimeDsl.when;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
 
-
-public class TableCheckerTest {
+public class AwskTableCheckerTest {
 
     private static final int defaultStartingPort = PortScavenger.getFreePort();
     private static final Server server = Server.builder().build();
@@ -53,7 +52,7 @@ public class TableCheckerTest {
         bCluster.clearPrimes(true);
         bCluster.clearLogs();
 
-        tableChecker = new TableChecker(Duration.ofSeconds(5));
+        tableChecker = new AwskTableChecker(Duration.ofSeconds(5));
     }
 
     @AfterClass
@@ -65,9 +64,6 @@ public class TableCheckerTest {
 
     @Test
     public void shouldPass() {
-        bCluster.prime(when("SELECT cluster_name FROM system.local WHERE key='local';")
-                .then(rows().row("cluster_name", "Amazon Keyspaces").build()));
-
         bCluster.prime(when("SELECT table_name, status FROM system_schema_mcs.tables WHERE keyspace_name=?;")
                 .then(rows().row("table_name", "test_table", "status", "ACTIVE").build()));
 
@@ -77,27 +73,12 @@ public class TableCheckerTest {
 
     @Test
     public void shouldThrowExceptionAfterWaitTime() {
-        bCluster.prime(when("SELECT cluster_name FROM system.local WHERE key='local';")
-                .then(rows().row("cluster_name", "Amazon Keyspaces").build()));
-
         bCluster.prime(when("SELECT table_name, status FROM system_schema_mcs.tables WHERE keyspace_name=?;")
                 .then(rows().row("table_name", "test_table", "status", "UPDATE").build()));
 
         Throwable throwable = catchThrowable(() -> tableChecker.check(realCluster, "test_keyspace"));
         assertThat(throwable).isNotNull();
         assertThat(throwable).isInstanceOf(ConditionTimeoutException.class);
-        assertThat(throwable).hasMessage("Condition with lambda expression in uk.sky.cqlmigrate.TableChecker was not fulfilled within 5 seconds.");
-    }
-
-    @Test
-    public void shouldPassIfNotAwsk() {
-        bCluster.prime(when("SELECT cluster_name FROM system.local WHERE key='local';")
-                .then(rows().row("cluster_name", "0").build()));
-
-        bCluster.prime(when("SELECT table_name, status FROM system_schema_mcs.tables WHERE keyspace_name=?;")
-                .then(rows().row("table_name", "test_table", "status", "UPDATE").build()));
-
-        Throwable throwable = catchThrowable(() -> tableChecker.check(realCluster, "test_keyspace"));
-        assertThat(throwable).isNull();
+        assertThat(throwable).hasMessage("Condition with lambda expression in uk.sky.cqlmigrate.AwskTableChecker was not fulfilled within 5 seconds.");
     }
 }
