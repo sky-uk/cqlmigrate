@@ -2,7 +2,11 @@
 
 # Cassandra CQL migration tool
 
-cqlmigrate is a library for performing schema migrations on a cassandra cluster.
+cqlmigrate is a library for performing schema migrations on a cassandra cluster including:
+* [Apache Cassandra](https://cassandra.apache.org)
+* [DataStax Enterprise](https://www.datastax.com/products/datastax-enterprise) 
+* [Astra DB](https://www.datastax.com/products/datastax-astra) 
+* [AWS Keyspaces](https://aws.amazon.com/keyspaces/)
 
 It is best used as an application dependency, but can also be used standalone.
 
@@ -13,7 +17,7 @@ repositories {
     mavenCentral()
 }
 
-compile 'uk.sky:cqlmigrate:0.12.0'
+compile 'uk.sky:cqlmigrate:0.13.0'
 ```
 
 ## Adding as a Maven dependency
@@ -22,7 +26,7 @@ compile 'uk.sky:cqlmigrate:0.12.0'
 <dependency>
   <groupId>uk.sky</groupId>
   <artifactId>cqlmigrate</artifactId>
-  <version>0.12.0</version>
+  <version>0.13.0</version>
 </dependency>
 ```
 
@@ -48,6 +52,14 @@ CassandraLockConfig lockConfig = CassandraLockConfig.builder()
         .withLockKeyspace("cqlmigrate")
         .build();
 
+// Configure cql migrator
+CqlMigratorConfig cqlMigratorConfig = CqlMigratorConfig.builder()
+        .withLockConfig(lockConfig)
+        .withReadConsistencyLevel(ConsistencyLevel.LOCAL_ONE)
+        .withWriteConsistencyLevel(ConsistencyLevel.ALL)
+        .withTableCheckerTimeout(Duration.ofMinutes(1))
+        .build()
+
 // Create a Cassandra session for cassandra driver 4.x
 CqlSession session = CqlSession.builder()
         .addContactPoints(cassandraHosts)
@@ -66,10 +78,16 @@ The migrator will look for a `bootstrap.cql` file for setting up the keyspace.
 ## Standalone usage
 
 ```sh
-$ java -Dhosts=localhost,192.168.1.1 -Dkeyspace=my_keyspace -Ddirectories=cql-common,cql-local -jar cqlmigrate.jar
+$ java -Dhosts=localhost,192.168.1.1 -Dport=9042 -DlocalDC=DC1 -Dkeyspace=my_keyspace -Ddirectories=cql-common,cql-local -jar cqlmigrate.jar
 ```
 
 Specify credentials, if required, using `-Dusername=<username>` and `-Dpassword=<password>`.
+
+Specify optional properties, if required, using
+* `-Dprecheck=<true/false>` default `false` 
+* `-DtableCheckerTimeout=<duration>` default `PT1M` (This was introduced for AWS Keyspaces as when new table is created it might take time to allocate resources and if additional changes or data are inserted while table is in `CREATING` state, it will fail. If cluster is no AWS Keyspaces it will not wait.)
+* `-DreadCL` default `LOCAL_ONE`
+* `-DwriteCL` default `ALL`
 
 ## What it does
 
@@ -92,7 +110,7 @@ Specify credentials, if required, using `-Dusername=<username>` and `-Dpassword=
    /cql/2015-05-03-14:19-add-manufacturer-column.cql
    ```
 
-   Any previously applied files will be skipped.
+   Any previously applied files will be skipped. For AWS Keyspaces, it will wait after each successfully applied file for tables to get into ACTIVE state for maximum <tableCheckerTimeout> duration. 
 
 5. Releases the lock.
 
@@ -133,6 +151,7 @@ Each lock will be deleted by `cqlmigrate` once the migration is complete.
 This project has been tested against the following versions:
 * DSE 5.1.18 (3.11.3)
 * Apache Cassandra 3.11.5
+* AWS Keyspaces
 
 ## Caveats
 

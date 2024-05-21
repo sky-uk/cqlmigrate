@@ -8,7 +8,6 @@ import com.datastax.oss.driver.api.core.servererrors.AlreadyExistsException;
 import com.google.common.hash.Hashing;
 import com.google.common.io.Resources;
 import org.apache.cassandra.exceptions.ConfigurationException;
-import org.apache.thrift.transport.TTransportException;
 import org.assertj.core.api.Assertions;
 import org.cassandraunit.utils.EmbeddedCassandraServerHelper;
 import org.junit.*;
@@ -22,6 +21,8 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static org.assertj.core.api.Assertions.fail;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 public class SchemaUpdatesTest {
 
@@ -30,9 +31,10 @@ public class SchemaUpdatesTest {
 
     private static CqlSession session;
     private static ClusterHealth clusterHealth;
+    private TableChecker tableChecker;
 
     @BeforeClass
-    public static void setupCassandra() throws ConfigurationException, IOException, TTransportException, InterruptedException {
+    public static void setupCassandra() throws ConfigurationException, IOException {
         EmbeddedCassandraServerHelper.startEmbeddedCassandra(EmbeddedCassandraServerHelper.CASSANDRA_RNDPORT_YML_FILE);
 
         session = EmbeddedCassandraServerHelper.getSession();
@@ -43,6 +45,7 @@ public class SchemaUpdatesTest {
     public void setUp() {
         session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test");
         session.execute("CREATE KEYSPACE IF NOT EXISTS cqlmigrate_test WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
+        tableChecker = mock(TableChecker.class);
     }
 
     @After
@@ -62,7 +65,7 @@ public class SchemaUpdatesTest {
     public void schemaUpdatesTableShouldBeCreatedIfNotExists() {
         //given
         SessionContext sessionContext = new SessionContext(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL, clusterHealth);
-        SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, TEST_KEYSPACE);
+        SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, TEST_KEYSPACE, tableChecker);
 
         //when
         schemaUpdates.initialise();
@@ -71,13 +74,14 @@ public class SchemaUpdatesTest {
         Optional<KeyspaceMetadata> keyspaceMetadata = session.getMetadata().getKeyspace(TEST_KEYSPACE);
         assertThat(keyspaceMetadata).isNotEmpty();
         assertThat(keyspaceMetadata.get().getTable(SCHEMA_UPDATES_TABLE)).as("table should have been created").isNotNull();
+        verify(tableChecker).check(session, TEST_KEYSPACE);
     }
 
     @Test
     public void schemaUpdatesTableShouldNotBeCreatedIfExists() {
         //given
         SessionContext sessionContext = new SessionContext(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL, clusterHealth);
-        SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, TEST_KEYSPACE);
+        SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, TEST_KEYSPACE, tableChecker);
 
         //when
         schemaUpdates.initialise();
@@ -103,7 +107,7 @@ public class SchemaUpdatesTest {
     public void rowInsertedWithMessageDigestHashingAlgorithmIsSameAsGuavaSha1HashingAlgorithm() throws Exception {
         //given
         SessionContext sessionContext = new SessionContext(session, ConsistencyLevel.ALL, ConsistencyLevel.ALL, clusterHealth);
-        SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, TEST_KEYSPACE);
+        SchemaUpdates schemaUpdates = new SchemaUpdates(sessionContext, TEST_KEYSPACE, tableChecker);
         final String filename = "2018-03-26-18:11-create-some-tables.cql";
         final URL cqlResource = Resources.getResource("cql_schema_update_hashing/" + filename);
         schemaUpdates.initialise();
