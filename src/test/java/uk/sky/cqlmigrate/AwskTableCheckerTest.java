@@ -52,7 +52,7 @@ public class AwskTableCheckerTest {
         bCluster.clearPrimes(true);
         bCluster.clearLogs();
 
-        tableChecker = new AwskTableChecker(Duration.ofSeconds(5));
+        tableChecker = new AwskTableChecker(Duration.ofSeconds(1), Duration.ofSeconds(5));
     }
 
     @AfterClass

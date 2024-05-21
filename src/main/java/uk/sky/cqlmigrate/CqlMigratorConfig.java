@@ -10,12 +10,14 @@ public class CqlMigratorConfig {
     private final LockConfig cassandraLockConfig;
     private final ConsistencyLevel readConsistencyLevel;
     private final ConsistencyLevel writeConsistencyLevel;
+    private final Duration tableCheckerInitDelay;
     private final Duration tableCheckerTimeout;
 
-    private CqlMigratorConfig(LockConfig cassandraLockConfig, ConsistencyLevel readConsistencyLevel, ConsistencyLevel writeConsistencyLevel, Duration tableCheckerTimeout) {
+    private CqlMigratorConfig(LockConfig cassandraLockConfig, ConsistencyLevel readConsistencyLevel, ConsistencyLevel writeConsistencyLevel, Duration tableCheckerInitDelay, Duration tableCheckerTimeout) {
         this.cassandraLockConfig = requireNonNull(cassandraLockConfig);
         this.readConsistencyLevel = requireNonNull(readConsistencyLevel);
         this.writeConsistencyLevel = requireNonNull(writeConsistencyLevel);
+        this.tableCheckerInitDelay = tableCheckerInitDelay;
         this.tableCheckerTimeout = tableCheckerTimeout;
     }
 
@@ -35,6 +37,10 @@ public class CqlMigratorConfig {
         return writeConsistencyLevel;
     }
 
+    public Duration getTableCheckerInitDelay() {
+        return tableCheckerInitDelay;
+    }
+
     public Duration getTableCheckerTimeout() {
         return tableCheckerTimeout;
     }
@@ -44,6 +50,7 @@ public class CqlMigratorConfig {
         private LockConfig lockConfig;
         private ConsistencyLevel readConsistencyLevel;
         private ConsistencyLevel writeConsistencyLevel;
+        private Duration tableCheckerInitDelay = Duration.ofSeconds(5);
         private Duration tableCheckerTimeout = Duration.ofMinutes(1);
 
         private CassandraConfigBuilder() {
@@ -64,13 +71,18 @@ public class CqlMigratorConfig {
             return this;
         }
 
+        public CassandraConfigBuilder withTableCheckerInitDelay(Duration tableCheckerInitDelay) {
+            this.tableCheckerInitDelay = tableCheckerInitDelay;
+            return this;
+        }
+
         public CassandraConfigBuilder withTableCheckerTimeout(Duration tableCheckerTimeout) {
             this.tableCheckerTimeout = tableCheckerTimeout;
             return this;
         }
 
         public CqlMigratorConfig build() {
-            return new CqlMigratorConfig(lockConfig, readConsistencyLevel, writeConsistencyLevel, tableCheckerTimeout);
+            return new CqlMigratorConfig(lockConfig, readConsistencyLevel, writeConsistencyLevel, tableCheckerInitDelay, tableCheckerTimeout);
         }
     }
 }
