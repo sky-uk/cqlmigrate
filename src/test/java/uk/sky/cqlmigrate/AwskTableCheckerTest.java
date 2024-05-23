@@ -17,6 +17,8 @@ import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static com.datastax.oss.simulacron.common.stubbing.PrimeDsl.rows;
 import static com.datastax.oss.simulacron.common.stubbing.PrimeDsl.when;
@@ -73,10 +75,11 @@ public class AwskTableCheckerTest {
 
     @Test
     public void shouldThrowExceptionAfterWaitTime() {
-        bCluster.prime(when("SELECT table_name, status FROM system_schema_mcs.tables WHERE keyspace_name=?;")
-                .then(rows().row("table_name", "test_table", "status", "UPDATE").build()));
+        Executors.newSingleThreadScheduledExecutor().schedule(() -> bCluster.prime(when("SELECT table_name, status FROM system_schema_mcs.tables WHERE keyspace_name=?;")
+                .then(rows().row("table_name", "test_table", "status", "UPDATE").build())), 100, TimeUnit.MILLISECONDS);
 
         Throwable throwable = catchThrowable(() -> tableChecker.check(realCluster, "test_keyspace"));
+
         assertThat(throwable).isNotNull();
         assertThat(throwable).isInstanceOf(ConditionTimeoutException.class);
         assertThat(throwable).hasMessage("Condition with lambda expression in uk.sky.cqlmigrate.AwskTableChecker was not fulfilled within 5 seconds.");
