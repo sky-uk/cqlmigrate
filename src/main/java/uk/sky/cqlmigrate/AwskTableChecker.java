@@ -15,16 +15,18 @@ class AwskTableChecker implements TableChecker {
     public static final String TABLE_ACTIVE_STATUS = "ACTIVE";
 
     private final Duration timeout;
+    private final Duration initDelay;
 
-    AwskTableChecker(Duration timeout) {
+    AwskTableChecker(Duration initDelay, Duration timeout) {
         this.timeout = timeout;
+        this.initDelay = initDelay;
     }
 
     @Override
     public void check(CqlSession session, String keyspace) {
         LOGGER.info("Waiting for tables to be provisioned");
         Awaitility.await()
-                .pollDelay(0, TimeUnit.SECONDS)
+                .pollDelay(initDelay)
                 .pollInterval(5, TimeUnit.SECONDS)
                 .atMost(timeout)
                 .until(() -> allTablesActive(session, keyspace));

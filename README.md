@@ -57,6 +57,7 @@ CqlMigratorConfig cqlMigratorConfig = CqlMigratorConfig.builder()
         .withLockConfig(lockConfig)
         .withReadConsistencyLevel(ConsistencyLevel.LOCAL_ONE)
         .withWriteConsistencyLevel(ConsistencyLevel.ALL)
+        .withTableCheckerInitDelay(Duration.ofSeconds(5))
         .withTableCheckerTimeout(Duration.ofMinutes(1))
         .build()
 
@@ -86,6 +87,7 @@ Specify credentials, if required, using `-Dusername=<username>` and `-Dpassword=
 Specify optional properties, if required, using
 * `-Dprecheck=<true/false>` default `false` 
 * `-DtableCheckerTimeout=<duration>` default `PT1M` (This was introduced for AWS Keyspaces as when new table is created it might take time to allocate resources and if additional changes or data are inserted while table is in `CREATING` state, it will fail. If cluster is no AWS Keyspaces it will not wait.)
+* `-DtableCheckerInitDelay=<duration>` default `PT5S` (Supplement previous option as it might take time AWs Keyspaces update their system so we need to wait before we check first time.)
 * `-DreadCL` default `LOCAL_ONE`
 * `-DwriteCL` default `ALL`
 
@@ -110,7 +112,7 @@ Specify optional properties, if required, using
    /cql/2015-05-03-14:19-add-manufacturer-column.cql
    ```
 
-   Any previously applied files will be skipped. For AWS Keyspaces, it will wait after each successfully applied file for tables to get into ACTIVE state for maximum <tableCheckerTimeout> duration. 
+   Any previously applied files will be skipped. For AWS Keyspaces, it will wait after each successfully applied file for tables to get into ACTIVE state for initial <tableCheckerInitDelay> and maximum <tableCheckerTimeout> duration. 
 
 5. Releases the lock.
 

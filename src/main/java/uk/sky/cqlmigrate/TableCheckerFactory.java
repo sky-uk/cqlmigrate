@@ -8,7 +8,7 @@ class TableCheckerFactory {
     public static final String AWSK_CLUSTER_NAME = "Amazon Keyspaces";
 
     TableChecker getInstance(CqlSession session, CqlMigratorConfig cqlMigratorConfig) {
-        return isAWSK(session) ? new AwskTableChecker(cqlMigratorConfig.getTableCheckerTimeout()) : new NoOpTableChecker();
+        return isAWSK(session) ? new AwskTableChecker(cqlMigratorConfig.getTableCheckerInitDelay(), cqlMigratorConfig.getTableCheckerTimeout()) : new NoOpTableChecker();
     }
 
     private boolean isAWSK(CqlSession session) {
