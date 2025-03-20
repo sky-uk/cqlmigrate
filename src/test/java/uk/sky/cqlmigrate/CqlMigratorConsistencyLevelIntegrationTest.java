@@ -154,7 +154,7 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
 
         //ensure that any inserts into schema updates are done at the configured consistency level
         queryLogs = cluster.getLogs().getQueryLogs().stream()
-                .filter(queryLog -> queryLog.getFrame().message.toString().contains("INSERT INTO schema_updates (filename, checksum, applied_on) VALUES (?, ?, dateof(now()));"))
+                .filter(queryLog -> queryLog.getFrame().message.toString().contains("INSERT INTO schema_updates (filename, checksum, applied_on) VALUES (?, ?, toTimestamp(now()));"))
                 .filter(queryLog -> queryLog.getConsistency().equals(toSimulacronConsistencyLevel(expectedWriteConsistencyLevel)))
                 .collect(Collectors.toList());
         assertThat(queryLogs.size()).isEqualTo(1);
@@ -181,6 +181,7 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
                 prepareInsertQuery,
                 Lists.newArrayList(
                         com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ONE,
+                        com.datastax.oss.simulacron.common.codec.ConsistencyLevel.LOCAL_ONE,
                         com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL),
                 new LinkedHashMap<>(ImmutableMap.of("name", lockName + ".schema_migration", "client", clientId)),
                 new LinkedHashMap<>(ImmutableMap.of("name", "varchar", "client", "varchar"))))
@@ -197,6 +198,7 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
                 deleteQuery,
                 Lists.newArrayList(
                         com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ONE,
+                        com.datastax.oss.simulacron.common.codec.ConsistencyLevel.LOCAL_ONE,
                         com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL),
                 new LinkedHashMap<>(ImmutableMap.of("name", lockName + ".schema_migration", "client", clientId)),
                 new LinkedHashMap<>(ImmutableMap.of("name", "varchar", "client", "varchar"))))

@@ -69,7 +69,7 @@ CqlSession session = CqlSession.builder()
         .build();
 
 // Create a migrator and run it
-CqlMigrator migrator = CqlMigratorFactory.create(lockConfig);
+CqlMigrator migrator = CqlMigratorFactory.create(cqlMigratorConfig);
 Path schemas = Paths.get(ClassLoader.getSystemResource("/cql").toURI());
 migrator.migrate(session, "my_keyspace", asList(schemas));
 ```

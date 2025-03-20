@@ -163,7 +163,7 @@ public class PreMigrationCheckerIntegrationTest {
 
     private void insertSchemaUpdate(String keyspaceName, Tuple filenameAndChecksum) {
         session.execute("USE " +keyspaceName);
-        session.execute("INSERT INTO schema_updates (filename, checksum, applied_on) VALUES ('" + filenameAndChecksum.toArray()[0] + "', '" + filenameAndChecksum.toArray()[1] + "', dateof(now()));");
+        session.execute("INSERT INTO schema_updates (filename, checksum, applied_on) VALUES ('" + filenameAndChecksum.toArray()[0] + "', '" + filenameAndChecksum.toArray()[1] + "', toTimestamp(now()));");
     }
 
 }

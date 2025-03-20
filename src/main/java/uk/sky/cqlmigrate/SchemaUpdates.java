@@ -48,7 +48,7 @@ class SchemaUpdates {
     void add(String filename, Path path) {
 
         String query = "INSERT INTO " + SCHEMA_UPDATES_TABLE + " (filename, " + CHECKSUM_COLUMN + ", applied_on)" +
-                " VALUES (?, ?, dateof(now()));";
+                " VALUES (?, ?, toTimestamp(now()));";
 
         Statement statement = SimpleStatement.newInstance(query, filename, ChecksumCalculator.calculateChecksum(path)).setConsistencyLevel(sessionContext.getWriteConsistencyLevel());
 
