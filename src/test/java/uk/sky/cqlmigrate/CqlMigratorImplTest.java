@@ -64,6 +64,8 @@ public class CqlMigratorImplTest {
 
     @Before
     public void setUp() throws Exception {
+        System.setProperty("username", username);
+        System.setProperty("password", password);
         session.execute("DROP KEYSPACE IF EXISTS cqlmigrate_test");
         session.execute("CREATE KEYSPACE IF NOT EXISTS cqlmigrate WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1 };");
         session.execute("CREATE TABLE IF NOT EXISTS cqlmigrate.locks (name text PRIMARY KEY, client text)");
@@ -77,6 +79,8 @@ public class CqlMigratorImplTest {
         System.clearProperty("hosts");
         System.clearProperty("keyspace");
         System.clearProperty("directories");
+        System.clearProperty("username");
+        System.clearProperty("password");
     }
 
     @AfterClass
