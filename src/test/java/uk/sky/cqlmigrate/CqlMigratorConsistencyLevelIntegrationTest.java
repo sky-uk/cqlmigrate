@@ -179,9 +179,7 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
 
         PrimeDsl.PrimeBuilder primeBuilder = when(query(
                 prepareInsertQuery,
-                Lists.newArrayList(
-                        com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ONE,
-                        com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL),
+                Lists.newArrayList(com.datastax.oss.simulacron.common.codec.ConsistencyLevel.LOCAL_ONE),
                 new LinkedHashMap<>(ImmutableMap.of("name", lockName + ".schema_migration", "client", clientId)),
                 new LinkedHashMap<>(ImmutableMap.of("name", "varchar", "client", "varchar"))))
                 .then(rows().row(
@@ -195,9 +193,7 @@ public class CqlMigratorConsistencyLevelIntegrationTest {
 
         PrimeDsl.PrimeBuilder primeBuilder = when(query(
                 deleteQuery,
-                Lists.newArrayList(
-                        com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ONE,
-                        com.datastax.oss.simulacron.common.codec.ConsistencyLevel.ALL),
+                Lists.newArrayList(com.datastax.oss.simulacron.common.codec.ConsistencyLevel.LOCAL_ONE),
                 new LinkedHashMap<>(ImmutableMap.of("name", lockName + ".schema_migration", "client", clientId)),
                 new LinkedHashMap<>(ImmutableMap.of("name", "varchar", "client", "varchar"))))
                 .then(rows()
