@@ -2,6 +2,7 @@ package uk.sky.cqlmigrate;
 
 import com.datastax.oss.driver.api.core.ConsistencyLevel;
 import com.datastax.oss.driver.api.core.CqlSession;
+import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 import com.datastax.oss.driver.api.core.DefaultConsistencyLevel;
 import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.datastax.oss.driver.api.core.cql.Statement;
@@ -87,10 +88,7 @@ final class CqlMigratorImpl implements CqlMigrator {
     public void migrate(String[] hosts, String localDC, int port, String username, String password, String keyspace, Collection<Path> directories, boolean performPrechecks) {
         List<InetSocketAddress> cassandraHosts = Stream.of(hosts).map(host -> new InetSocketAddress(host, port)).collect(Collectors.toList());
 
-        try (CqlSession cqlSession = CqlSession.builder()
-                .addContactPoints(cassandraHosts)
-                .withLocalDatacenter(localDC)
-                .withAuthCredentials(username, password).build()) {
+        try (CqlSession cqlSession = newSession(cassandraHosts, localDC, username, password)) {
             this.migrate(cqlSession, keyspace, directories, performPrechecks);
         }
     }
@@ -147,10 +145,7 @@ final class CqlMigratorImpl implements CqlMigrator {
 
         List<InetSocketAddress> cassandraHosts = Stream.of(hosts).map(host -> new InetSocketAddress(host, port)).collect(Collectors.toList());
 
-        try (CqlSession cqlSession = CqlSession.builder()
-                .addContactPoints(cassandraHosts)
-                .withLocalDatacenter(localDC)
-                .withAuthCredentials(username, password).build()) {
+        try (CqlSession cqlSession = newSession(cassandraHosts, localDC, username, password)) {
             this.clean(cqlSession, keyspace);
         }
     }
@@ -163,5 +158,16 @@ final class CqlMigratorImpl implements CqlMigrator {
                 .setConsistencyLevel(cqlMigratorConfig.getWriteConsistencyLevel()), Statement.SYNC);
 
         LOGGER.info("Cleaned {}", keyspace);
+    }
+
+    private static CqlSession newSession(List<InetSocketAddress> cassandraHosts, String localDC, String username, String password) {
+        CqlSessionBuilder builder = CqlSession.builder()
+                .addContactPoints(cassandraHosts)
+                .withLocalDatacenter(localDC);
+        // credentials are optional, and the driver rejects a null username
+        if (username != null) {
+            builder.withAuthCredentials(username, password);
+        }
+        return builder.build();
     }
 }
